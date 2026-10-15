@@ -15,7 +15,7 @@ All helpers live in `.claude/skills/verify-tivan/bin/`. Run them from the repo r
 
 - Rust with the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`).
 - `dx` 0.7.10, matching the `dioxus = "=0.7.10"` pin: `cargo install dioxus-cli --version 0.7.10 --locked`. `tivan-up` refuses any other version.
-- `agent-browser` (proven with 0.33.1) and its Chrome: `npm i -g agent-browser && agent-browser install`. On Linux add `--with-deps`.
+- `agent-browser` (proven with 0.39.1) and its Chrome for Testing (proven with 155.0.8059.79): `npm i -g agent-browser && agent-browser install`. On Linux add `--with-deps`. Do not use Chrome for Testing 151, which hangs the page after Enter (see Doctor).
 - `curl`, `lsof`, `jq`, `perl` (for timeouts).
 
 Read `agent-browser skills get core` once if you have never used it. The commands below are all you need for Tivan.
@@ -80,7 +80,7 @@ If the page gets stuck in a loop, every `agent-browser` call to that session blo
 
 The helpers wrap every agent-browser call in a timeout. Doctor and `tivan-capture` fail when the page does not answer or is not on this run's URL, and `tivan-down` kills the session's own daemon (pid in `~/.agent-browser/<session>.pid`) when `close` cannot get through. In your own commands, `wait` for the expected result after each action before you `snapshot` or `eval`. To bound your own calls the same way, define `ab() { perl -e 'alarm shift; exec @ARGV' 40 agent-browser --session "$SESSION" "$@"; }` in the command and use `ab …`. Any journey that crossed a hang or relaunch is invalid as proof: keep its evidence, run `tivan-down`, and repeat the journey in a new run. If it hangs again at the same step, report it as a failure.
 
-The known trigger is agent-browser's, not the app's. In the Chrome that agent-browser launches, a `press` the page does not consume starts a storm of synthetic key events. The worst case is an Enter that reaches the page body, for example after Enter saves and removes the focused field. Only `press` a key where the page handles it and the focused element stays put. Escape produces only a short burst, and the steps that use it have passed. Seen on macOS arm64, untested on Linux. Save rename boxes by clicking away. See the Groups gotchas.
+The one known trigger was a browser bug, not the app. With Chrome for Testing 151, any `press` the page did not consume started a storm of thousands of synthetic `Unidentified` key events per second. The usual case was Enter in a rename box, which saves and removes the field, so the Enter reached the page body. This was seen on macOS arm64 with agent-browser 0.33.1 and 0.39.1. Chrome for Testing 155.0.8059.79 does not do it. If a run hangs right after a `press`, check the version in `agent-browser eval navigator.userAgent` before suspecting the app.
 
 ## Drive
 
