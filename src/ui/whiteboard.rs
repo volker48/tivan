@@ -122,9 +122,10 @@ fn OracleReveal(reveal: Signal<Option<Reveal>>) -> Element {
 #[component]
 fn TimerControls() -> Element {
     let mut state = use_app();
+    let timer = state.timer();
     rsx! {
         div { class: "timer-controls", role: "group", aria_label: "Timer",
-            match state.timer() {
+            match timer {
                 Timer::Idle | Timer::Finished { .. } => rsx! {
                     span { class: "bar-label", "Timer" }
                     for preset in Preset::ALL {
@@ -146,12 +147,6 @@ fn TimerControls() -> Element {
                         onclick: move |_| state.update_timer(|timer, now| timer.pause(now)),
                         "Pause"
                     }
-                    button {
-                        class: "btn",
-                        r#type: "button",
-                        onclick: move |_| state.update_timer(|timer, _| timer.cancel()),
-                        "Cancel"
-                    }
                 },
                 Timer::Paused { .. } => rsx! {
                     button {
@@ -160,13 +155,15 @@ fn TimerControls() -> Element {
                         onclick: move |_| state.update_timer(|timer, now| timer.resume(now)),
                         "Resume"
                     }
-                    button {
-                        class: "btn",
-                        r#type: "button",
-                        onclick: move |_| state.update_timer(|timer, _| timer.cancel()),
-                        "Cancel"
-                    }
                 },
+            }
+            if matches!(timer, Timer::Running { .. } | Timer::Paused { .. }) {
+                button {
+                    class: "btn",
+                    r#type: "button",
+                    onclick: move |_| state.cancel_timer(),
+                    "Cancel"
+                }
             }
         }
     }
@@ -207,7 +204,7 @@ fn TimesUp() -> Element {
             button {
                 class: "btn btn-hero",
                 r#type: "button",
-                onclick: move |_| state.update_timer(|timer, _| timer.cancel()),
+                onclick: move |_| state.cancel_timer(),
                 "Dismiss"
             }
         }

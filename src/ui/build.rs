@@ -66,7 +66,7 @@ fn TimerChip() -> Element {
                 button {
                     class: "timer-chip is-done",
                     r#type: "button",
-                    onclick: move |_| state.update_timer(|timer, _| timer.cancel()),
+                    onclick: move |_| state.cancel_timer(),
                     span { class: "digits", "Time's up!" }
                     span { class: "label", "Dismiss" }
                 }

@@ -110,6 +110,11 @@ impl AppState {
         self.timer.set(next);
     }
 
+    pub fn cancel_timer(&mut self) {
+        let next = self.timer.peek().cancel();
+        self.timer.set(next);
+    }
+
     fn tick(&mut self) {
         let now = platform::now();
         self.now.set(now);
