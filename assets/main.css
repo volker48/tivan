@@ -612,6 +612,7 @@ textarea {
 }
 
 .chip {
+  position: relative;
   min-height: 44px;
   padding: 0.35rem 0.95rem;
   border: 2px solid transparent;

@@ -6,6 +6,7 @@ use crate::domain::{
     format_mm_ss, group_sizes, parse_roster,
 };
 use crate::notice::{Notice, count};
+use crate::platform;
 use crate::ui::{
     GroupCard, NameInput, NoticeBanner, Selection, focus_on_mount, group_cards, hue,
     label_error_text, log_failed, selection,
@@ -483,6 +484,7 @@ fn GroupControls() -> Element {
                     class: "btn",
                     r#type: "button",
                     onclick: move |_| {
+                        platform::animate_shuffle();
                         state.edit_class(|class, rng| class.reshuffle(rng));
                     },
                     "Shuffle again"
@@ -618,6 +620,7 @@ fn GroupCardView(
                         button {
                             class: "chip",
                             r#type: "button",
+                            "data-student": "{id.get()}",
                             aria_pressed: "{selected_id == Some(id)}",
                             onclick: move |event| {
                                 event.stop_propagation();
