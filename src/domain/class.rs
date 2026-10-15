@@ -118,14 +118,16 @@ impl Class {
     /// Fresh random split with fresh names, replacing any existing grouping. A `count` made for
     /// an earlier, larger roster is clamped to the current one.
     pub fn regroup(&mut self, count: GroupCount, rng: &mut impl Rng) {
-        self.rebuild(count.get(), rng);
+        self.grouping = GroupCount::nearest(count.get(), self.students.len())
+            .ok()
+            .map(|count| Grouping::split(&self.students, count, rng));
     }
 
-    /// Keeps the group count (clamped to the roster), rerolls members and names. Does nothing
+    /// Re-deals the students across the existing groups, keeping the group names. Does nothing
     /// when there is no grouping yet.
     pub fn reshuffle(&mut self, rng: &mut impl Rng) {
-        if let Some(grouping) = &self.grouping {
-            self.rebuild(grouping.len(), rng);
+        if let Some(grouping) = &mut self.grouping {
+            grouping.reshuffle(&self.students, rng);
         }
     }
 
@@ -192,15 +194,6 @@ impl Class {
 
     fn grouping_mut(&mut self) -> Result<&mut Grouping, MoveError> {
         self.grouping.as_mut().ok_or(MoveError::UnknownGroup)
-    }
-
-    fn rebuild(&mut self, wanted: usize, rng: &mut impl Rng) {
-        let n = self.students.len();
-        self.grouping = (n > 0).then(|| {
-            let m = wanted.clamp(1, GroupCount::max_for(n));
-            let count = GroupCount::new(m, n).expect("m is clamped into 1..=max_for(n)");
-            Grouping::split(&self.students, count, rng)
-        });
     }
 
     /// Restores every cross-reference after a roster edit or a load. Idempotent.
@@ -389,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn reshuffle_keeps_the_group_count_but_changes_members_and_names() {
+    fn reshuffle_keeps_group_names_and_count_but_changes_members() {
         let mut class = class_of(12);
         class.regroup(count(4, &class), &mut rng(1));
         let before_names = names_of(&class);
@@ -398,7 +391,7 @@ mod tests {
         class.reshuffle(&mut rng(2));
 
         assert_eq!(group_sizes(&class), [3, 3, 3, 3]);
-        assert_ne!(names_of(&class), before_names);
+        assert_eq!(names_of(&class), before_names);
         assert_ne!(member_ids(&class), before_members);
         class.assert_invariants();
     }
@@ -407,12 +400,31 @@ mod tests {
     fn reshuffle_clamps_to_a_roster_that_shrank_below_the_group_count() {
         let mut class = class_of(6);
         class.regroup(count(6, &class), &mut rng(1));
+        let original_names = names_of(&class);
         keep_first(&mut class, 3);
         assert_eq!(class.group_views().len(), 6);
 
         class.reshuffle(&mut rng(2));
 
         assert_eq!(group_sizes(&class), [1, 1, 1]);
+        assert_eq!(names_of(&class), original_names[..3]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn reshuffle_keeps_a_group_name_the_teacher_typed() {
+        let mut class = class_of(9);
+        class.regroup(count(3, &class), &mut rng(1));
+        class
+            .rename_group(GroupIdx(1), label("Table Four"))
+            .unwrap();
+        let before_names = names_of(&class);
+
+        for seed in 2..6 {
+            class.reshuffle(&mut rng(seed));
+            assert_eq!(names_of(&class), before_names);
+        }
+        assert_eq!(class.group_views()[1].name.as_str(), "Table Four");
         class.assert_invariants();
     }
 
