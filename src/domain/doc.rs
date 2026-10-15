@@ -71,6 +71,13 @@ impl Doc {
             .iter()
             .map(|c| c.id().0.saturating_add(1))
             .fold(self.next_class, u32::max);
+        let mut seen = std::collections::BTreeSet::new();
+        for class in &mut self.classes {
+            if !seen.insert(class.id()) {
+                class.set_id(ClassId(self.next_class));
+                self.next_class += 1;
+            }
+        }
         if self.selected().is_none() {
             self.selected = self.classes.first().map(Class::id);
         }
@@ -239,5 +246,15 @@ mod tests {
         let once = doc.clone();
         doc.reconcile();
         assert_eq!(doc, once);
+    }
+
+    #[test]
+    fn reconcile_gives_a_duplicated_class_id_a_fresh_id() {
+        let (mut doc, ids) = doc_with(&["A", "B"]);
+        doc.classes[1].set_id(ids[0]);
+        doc.reconcile();
+        assert_eq!(doc.classes().len(), 2);
+        assert_ne!(doc.classes()[0].id(), doc.classes()[1].id());
+        doc.assert_invariants();
     }
 }

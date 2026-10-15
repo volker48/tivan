@@ -12,7 +12,7 @@ pub mod rng;
 pub mod seed;
 pub mod timer;
 
-pub use class::{Class, ClassId, GroupView, Pick, Student, StudentId, parse_roster};
+pub use class::{Class, ClassId, GroupView, ParsedRoster, Pick, Student, StudentId, parse_roster};
 pub use doc::Doc;
 pub use grouping::{GroupCount, GroupCountError, GroupIdx, Grouping, MoveError, group_sizes};
 pub use label::{Label, LabelError, MAX_LABEL_CHARS};

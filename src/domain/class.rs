@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::grouping::{GroupCount, GroupIdx, Grouping, MoveError};
-use super::label::Label;
+use super::label::{Label, LabelError};
 use super::oracle::Oracle;
 use super::rng::Rng;
 
@@ -96,6 +96,10 @@ impl Class {
 
     pub fn rename(&mut self, name: Label) {
         self.name = name;
+    }
+
+    pub(super) fn set_id(&mut self, id: ClassId) {
+        self.id = id;
     }
 
     /// A student added after grouping joins the smallest group.
@@ -206,6 +210,15 @@ impl Class {
             .iter()
             .map(|s| s.id.0.saturating_add(1))
             .fold(self.next_student, u32::max);
+        // A duplicated id would make two children share one group slot and one oracle turn, so the
+        // later one gets a fresh id and is placed like a newcomer.
+        let mut seen = std::collections::BTreeSet::new();
+        for index in 0..self.students.len() {
+            if !seen.insert(self.students[index].id) {
+                self.students[index].id = StudentId(self.next_student);
+                self.next_student += 1;
+            }
+        }
         self.oracle.retain_roster(&self.students);
         if let Some(grouping) = &mut self.grouping {
             grouping.reconcile(&self.students);
@@ -233,13 +246,26 @@ impl Class {
     }
 }
 
+/// A pasted roster. `too_long` counts lines that were not added, so the UI can tell the teacher.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ParsedRoster {
+    pub names: Vec<Label>,
+    pub too_long: usize,
+}
+
 /// One name per non-blank line. Tolerates CRLF, trims each line, and keeps only the text before a
 /// tab so a two-column spreadsheet paste yields first names. Duplicates stay because two children
-/// can share a name. Lines that are not a valid [`Label`] (over 40 characters) are dropped.
-pub fn parse_roster(text: &str) -> Vec<Label> {
-    text.lines()
-        .filter_map(|line| Label::parse(line.split('\t').next().unwrap_or_default()).ok())
-        .collect()
+/// can share a name.
+pub fn parse_roster(text: &str) -> ParsedRoster {
+    let mut parsed = ParsedRoster::default();
+    for line in text.lines() {
+        match Label::parse(line.split('\t').next().unwrap_or_default()) {
+            Ok(name) => parsed.names.push(name),
+            Err(LabelError::TooLong) => parsed.too_long += 1,
+            Err(LabelError::Empty) => {}
+        }
+    }
+    parsed
 }
 
 #[cfg(test)]
@@ -612,38 +638,51 @@ mod tests {
     #[test]
     fn parse_roster_reads_one_name_per_nonblank_line() {
         let parsed = parse_roster("Ava\nBen\n\n  Chloe  \n");
-        assert_eq!(parsed, labels(&["Ava", "Ben", "Chloe"]));
+        assert_eq!(parsed.names, labels(&["Ava", "Ben", "Chloe"]));
     }
 
     #[test]
     fn parse_roster_tolerates_windows_line_endings() {
-        let names = parse_roster("Ava\r\nBen\r\n\r\nChloe\r\n");
-        assert_eq!(names, labels(&["Ava", "Ben", "Chloe"]));
+        let parsed = parse_roster("Ava\r\nBen\r\n\r\nChloe\r\n");
+        assert_eq!(parsed.names, labels(&["Ava", "Ben", "Chloe"]));
     }
 
     #[test]
     fn parse_roster_keeps_only_the_first_spreadsheet_column() {
-        let names = parse_roster("Ava\tLopez\nBen\t\tx\n\tNoFirstName\n");
-        assert_eq!(names, labels(&["Ava", "Ben"]));
+        let parsed = parse_roster("Ava\tLopez\nBen\t\tx\n\tNoFirstName\n");
+        assert_eq!(parsed.names, labels(&["Ava", "Ben"]));
+        assert_eq!(parsed.too_long, 0);
     }
 
     #[test]
     fn parse_roster_keeps_duplicate_names() {
-        assert_eq!(parse_roster("Emma\nEmma"), labels(&["Emma", "Emma"]));
+        assert_eq!(parse_roster("Emma\nEmma").names, labels(&["Emma", "Emma"]));
     }
 
     #[test]
-    fn parse_roster_drops_lines_too_long_to_be_names() {
+    fn parse_roster_counts_lines_too_long_to_be_names() {
         let long = "x".repeat(MAX_LABEL_CHARS + 1);
-        assert_eq!(
-            parse_roster(&format!("Ava\n{long}\nBen")),
-            labels(&["Ava", "Ben"])
-        );
+        let parsed = parse_roster(&format!("Ava\n{long}\nBen"));
+        assert_eq!(parsed.names, labels(&["Ava", "Ben"]));
+        assert_eq!(parsed.too_long, 1);
     }
 
     #[test]
     fn parse_roster_of_nothing_is_empty() {
-        assert!(parse_roster("").is_empty());
-        assert!(parse_roster(" \n\t\n").is_empty());
+        assert_eq!(parse_roster(""), ParsedRoster::default());
+        assert_eq!(parse_roster(" \n\t\n"), ParsedRoster::default());
+    }
+
+    #[test]
+    fn reconcile_gives_a_duplicated_student_id_a_fresh_id_and_a_group() {
+        let mut class = class_of(4);
+        class.regroup(count(2, &class), &mut rng(3));
+        let first = class.students[0].id;
+        class.students[3].id = first;
+        class.reconcile();
+        assert_eq!(class.students().len(), 4);
+        assert_eq!(class.students()[0].id, first);
+        assert_ne!(class.students()[3].id, first);
+        class.assert_invariants();
     }
 }
