@@ -22,6 +22,11 @@ pub enum Notice {
 }
 
 impl Notice {
+    /// Only a paste that lost lines needs saying anything about.
+    pub fn roster_skipped(added: usize, too_long: usize) -> Option<Notice> {
+        (too_long > 0).then_some(Notice::RosterSkipped { added, too_long })
+    }
+
     /// Notices about the page's ability to keep data are not dismissible, because hiding them
     /// would hide that changes are being lost.
     pub fn is_dismissible(&self) -> bool {
@@ -87,6 +92,12 @@ mod tests {
                 .message()
                 .starts_with("12 names added, 3 lines too long.")
         );
+    }
+
+    #[test]
+    fn a_clean_paste_has_nothing_to_report() {
+        assert_eq!(Notice::roster_skipped(12, 0), None);
+        assert!(Notice::roster_skipped(12, 1).is_some());
     }
 
     #[test]

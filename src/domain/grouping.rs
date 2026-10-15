@@ -39,6 +39,12 @@ impl GroupCount {
         student_count.min(MAX_GROUPS)
     }
 
+    /// The valid count closest to `wanted`, for a control whose value outlived a roster edit.
+    pub fn nearest(wanted: usize, student_count: usize) -> Result<GroupCount, GroupCountError> {
+        let max = GroupCount::max_for(student_count);
+        GroupCount::new(wanted.clamp(1, max.max(1)), student_count)
+    }
+
     pub fn get(self) -> usize {
         self.0.get()
     }
@@ -254,6 +260,15 @@ mod tests {
         assert_eq!(GroupCount::max_for(0), 0);
         assert_eq!(GroupCount::max_for(25), 25);
         assert_eq!(GroupCount::max_for(500), MAX_GROUPS);
+    }
+
+    #[test]
+    fn nearest_pulls_a_stale_count_into_range() {
+        assert_eq!(GroupCount::nearest(0, 10).unwrap().get(), 1);
+        assert_eq!(GroupCount::nearest(6, 10).unwrap().get(), 6);
+        assert_eq!(GroupCount::nearest(12, 10).unwrap().get(), 10);
+        assert_eq!(GroupCount::nearest(99, 500).unwrap().get(), MAX_GROUPS);
+        assert_eq!(GroupCount::nearest(3, 0), Err(GroupCountError::NoStudents));
     }
 
     #[test]

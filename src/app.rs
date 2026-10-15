@@ -7,6 +7,7 @@
 
 use std::rc::Rc;
 
+use dioxus::logger::tracing::warn;
 use dioxus::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 
@@ -114,6 +115,19 @@ impl AppState {
 
 pub fn use_app() -> AppState {
     use_context::<AppState>()
+}
+
+/// Runs `handler` on every Escape press while the calling component is mounted. The first
+/// render's closure is the one that stays, so it may capture only signals, which are `Copy`
+/// handles to the current value.
+pub fn use_escape(handler: impl FnMut() + 'static) {
+    use_hook(|| match platform::on_escape(handler) {
+        Ok(guard) => Some(Rc::new(guard)),
+        Err(error) => {
+            warn!("the Escape shortcut is unavailable: {error}");
+            None
+        }
+    });
 }
 
 #[component]

@@ -2,9 +2,10 @@
 
 use std::num::NonZeroUsize;
 
+use dioxus::logger::tracing::warn;
 use js_sys::{Date, Math};
-use wasm_bindgen::{JsCast, JsValue};
-use web_sys::Storage;
+use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+use web_sys::{KeyboardEvent, Storage, Window};
 
 use crate::domain::{Millis, Rng};
 use crate::store::{self, StorageError};
@@ -61,4 +62,38 @@ fn describe(thrown: &JsValue) -> String {
         .map(|error| String::from(error.message()))
         .or_else(|| thrown.as_string())
         .unwrap_or_else(|| format!("{thrown:?}"))
+}
+
+/// Keeps the Escape listener registered. Dropping it removes the listener.
+pub struct KeyGuard {
+    window: Window,
+    closure: Closure<dyn FnMut(KeyboardEvent)>,
+}
+
+impl Drop for KeyGuard {
+    fn drop(&mut self) {
+        if let Err(cause) = self
+            .window
+            .remove_event_listener_with_callback("keydown", self.closure.as_ref().unchecked_ref())
+        {
+            warn!("could not remove the Escape listener: {}", describe(&cause));
+        }
+    }
+}
+
+/// Calls `handler` on every Escape press anywhere on the page. A listener on the window, not on a
+/// component's root, because the focused element is often removed mid-use (a timer button
+/// replaced by Pause) and key events then target the body.
+pub fn on_escape(mut handler: impl FnMut() + 'static) -> Result<KeyGuard, String> {
+    let window = web_sys::window().ok_or_else(|| "there is no window".to_owned())?;
+    let closure = Closure::<dyn FnMut(KeyboardEvent)>::new(move |event: KeyboardEvent| {
+        // Escape during IME composition cancels the composition, not the screen.
+        if event.key() == "Escape" && !event.is_composing() {
+            handler();
+        }
+    });
+    window
+        .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
+        .map_err(|cause| format!("could not listen for key presses: {}", describe(&cause)))?;
+    Ok(KeyGuard { window, closure })
 }
