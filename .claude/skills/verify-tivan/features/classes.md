@@ -26,13 +26,14 @@ Preconditions:
 - **Switch.** Run `agent-browser --session "$SESSION" find role button click --name "Period 3 Science"`. The level-2 heading reads `Period 3 Science`, the meta text reads `20 students`, and the pill reports `pressed=true`. `.doc.selected` in saved state is the id of `Period 3 Science`.
 - **Open the form.** Run `agent-browser --session "$SESSION" find role button click --name "+ New class"`. The heading `New class` appears with `Class name`, the students box, `Create class` and `Cancel`.
 - **Create with a roster.** Run `agent-browser --session "$SESSION" find label "Class name" fill "Period 5 Art"` and `agent-browser --session "$SESSION" find label "Students (optional" fill "Rin\nSol\nTeo"`, with the `\n` as real newlines (pass the text through `$'Rin\nSol\nTeo'`). The hint reads `3 names ready`. Run `agent-browser --session "$SESSION" find role button click --name "Create class"`. A fourth pill `Period 5 Art` is pressed and the heading reads `Period 5 Art` with `3 students`. Saved state has a fourth class with those three students.
-- **Rename.** Run `agent-browser --session "$SESSION" find role button click --name "Rename"`, then `agent-browser --session "$SESSION" find label "Class name" fill "Period 5 Studio Art"` and `agent-browser --session "$SESSION" press Enter`. The heading and the pill both read `Period 5 Studio Art`.
+- **Rename.** Run `agent-browser --session "$SESSION" find role button click --name "Rename"`, then `agent-browser --session "$SESSION" find label "Class name" fill "Period 5 Studio Art"`. Save by clicking away with `agent-browser --session "$SESSION" find role heading click --name "Tivan"`, not with Enter (see Gotchas). The heading and the pill both read `Period 5 Studio Art`.
 - **Delete with confirmation.** Run `agent-browser --session "$SESSION" find role button click --name "Delete" --exact`. The text `Delete Period 5 Studio Art for good?` appears with `Yes, delete` and `Keep it`. Run `agent-browser --session "$SESSION" find role button click --name "Yes, delete"`. The pill is gone, another class is selected, and saved state has three classes.
 - **Proof.** Reload and run `tivan-capture <run> classes-final`. The pills and saved state match the steps above.
 
 ## Gotchas
 
 - `--name "Delete"` without `--exact` can also hit `Yes, delete` once confirmation is open.
+- Never `press Enter` in the `Class name` rename box under agent-browser. It sets off the same key-event storm and page hang as the `Group name` box. See the [Groups](./groups.md) gotchas.
 - The create form requires a name. Submitting it empty shows the alert `Type a name first.` and creates nothing.
 - Roster lines over 40 characters are skipped and reported in a `status` notice (`N names added, M lines too long…`). See [Roster](./roster.md).
 - The welcome screen needs all three seed classes deleted first. It has no `Cancel` button.

@@ -50,9 +50,10 @@ Status as of 2026-10-15, rev `5f58097`:
 - **Groups**: run end to end.
   - `groups-count`, `groups-make` and `groups-shuffle` passed, with reload proof for `groups-make`.
   - `groups-move` (including Escape-cancel) passed, proven by screen and saved state. Its reload capture was lost to the rename hang.
-  - `groups-reroll` passed with reload proof in a separate run.
-  - `groups-rename` **fails**: Enter in the `Group name` box hung the page in 4 of 6 tries. See the Groups gotchas.
-  - Evidence: `target/verify/20261015-155559-59094/` (main journey) and `target/verify/20261015-155811-59592/` (reroll), plus `target/verify/20261015-154121-57727/` (an earlier hang).
+  - `groups-reroll` passed with reload proof in a separate run. It passed again on a renamed group in the rename run below.
+  - `groups-rename` passed with reload proof, saving by clicking away, in `target/verify/20261015-163754-65558/` (rev `6fa8efe`, same `src/` as `5f58097`). The earlier failures were an agent-browser launch-mode bug, not the app: an Enter that reaches the page body sets off a key-event storm. Enter-to-save passed in a headed browser. See the Groups gotchas.
+  - Evidence: `target/verify/20261015-155559-59094/` (main journey), `target/verify/20261015-155811-59592/` (reroll) and `target/verify/20261015-163754-65558/` (rename, reroll). `target/verify/20261015-154121-57727/` holds an earlier hang.
 - **Classes, Roster, Whiteboard and oracle, Timer**: written from the code and from one exploratory pass over their handles. They have not been run step by step. The first agent to run one fixes any step that does not match the app and updates this list.
+  - Exception: `classes-rename` passed with reload proof, saving by clicking away, in `target/verify/20261015-163949-66174/` (on the seed's `Room 12 Morning`, not the recipe's new class).
 
 Not mapped yet: the storage notices (unreadable saved data, a newer version's data, blocked storage, failed save). They are reachable only by corrupting or blocking `localStorage`, which breaks the no-setup-writes rule above. They are covered by `cargo test` in `src/store.rs`. Google Classroom sync is not built.
