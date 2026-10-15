@@ -50,30 +50,23 @@ pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        1 => {
-            let doc = stored_doc(&mut envelope)?;
-            add_avatars(doc, rng);
-            read_doc(doc.take())
+        1 | SCHEMA_VERSION => {
+            let doc = envelope
+                .get_mut("doc")
+                .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
+            if version == 1 {
+                add_avatars(doc, rng);
+            }
+            let mut doc: Doc = serde_json::from_value(doc.take())
+                .map_err(|e| DecodeError::Malformed(e.to_string()))?;
+            doc.reconcile();
+            Ok(doc)
         }
-        SCHEMA_VERSION => read_doc(stored_doc(&mut envelope)?.take()),
         newer if newer > SCHEMA_VERSION => Err(DecodeError::NewerVersion(newer)),
         other => Err(DecodeError::Malformed(format!(
             "unsupported version {other}"
         ))),
     }
-}
-
-fn stored_doc(envelope: &mut Value) -> Result<&mut Value, DecodeError> {
-    envelope
-        .get_mut("doc")
-        .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))
-}
-
-fn read_doc(doc: Value) -> Result<Doc, DecodeError> {
-    let mut doc: Doc =
-        serde_json::from_value(doc).map_err(|e| DecodeError::Malformed(e.to_string()))?;
-    doc.reconcile();
-    Ok(doc)
 }
 
 /// Gives every student of a version 1 document an avatar, distinct within their class until the
