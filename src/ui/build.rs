@@ -6,6 +6,7 @@ use crate::domain::{
     format_mm_ss, group_sizes, parse_roster,
 };
 use crate::notice::{Notice, count};
+use crate::ui::avatar::AvatarIcon;
 use crate::ui::{
     GroupCard, NameInput, NoticeBanner, Selection, focus_on_mount, group_cards, hue,
     label_error_text, log_failed, selection,
@@ -359,8 +360,9 @@ fn Roster() -> Element {
                     p { class: "field-error", role: "alert", "{message}" }
                 }
                 ul { class: "roster-list",
-                    for Student { id , name , .. } in students {
+                    for Student { id , name , avatar } in students {
                         li { key: "{id.get()}", class: "roster-item",
+                            AvatarIcon { avatar }
                             span { "{name}" }
                             button {
                                 class: "icon-btn",
@@ -522,6 +524,7 @@ fn GroupBoard() -> Element {
                 div { class: "moving-bar", role: "status",
                     span {
                         "Moving "
+                        AvatarIcon { avatar: selected.student.avatar }
                         strong { "{selected.student.name}" }
                         ". Tap a group to place them."
                     }
@@ -613,7 +616,7 @@ fn GroupCardView(
                 }
             }
             ul { class: "chips",
-                for (id , name) in card.members.iter().map(|student| (student.id, &student.name)) {
+                for (id , name , avatar) in card.members.iter().map(|student| (student.id, &student.name, student.avatar)) {
                     li { key: "{id.get()}",
                         button {
                             class: "chip",
@@ -623,6 +626,7 @@ fn GroupCardView(
                                 event.stop_propagation();
                                 moving.set(if selected_id == Some(id) { None } else { Some(id) });
                             },
+                            AvatarIcon { avatar }
                             "{name}"
                         }
                     }

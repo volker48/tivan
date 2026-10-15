@@ -15,6 +15,7 @@ use crate::domain::{Class, Doc, Millis, Timer};
 use crate::notice::Notice;
 use crate::platform::{self, JsRng, LocalStorage};
 use crate::store;
+use crate::ui::avatar::AvatarSprite;
 use crate::ui::build::BuildMode;
 use crate::ui::whiteboard::WhiteboardMode;
 
@@ -188,6 +189,7 @@ pub fn App() -> Element {
 
     rsx! {
         document::Stylesheet { href: MAIN_CSS }
+        AvatarSprite {}
         div { class: "app",
             match state.mode() {
                 Mode::Build => rsx! { BuildMode {} },
