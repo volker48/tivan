@@ -100,10 +100,12 @@ fn OracleReveal(reveal: Signal<Option<Reveal>>) -> Element {
                     role: "dialog",
                     aria_label: "The oracle has chosen",
                     onclick: move |event| event.stop_propagation(),
-                    AvatarIcon { avatar: pick.avatar }
                     p { class: "reveal-line",
                         "The oracle has chosen "
-                        strong { class: "reveal-name", "{pick.name}!" }
+                        strong { class: "reveal-name",
+                            AvatarIcon { avatar: pick.avatar }
+                            "{pick.name}!"
+                        }
                     }
                     p { class: "reveal-left",
                         "{left} left"

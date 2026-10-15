@@ -907,12 +907,12 @@ textarea {
   animation: pop-in 520ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
 }
 
-.reveal-card .avatar {
-  --size: clamp(5rem, 16vh, 8rem);
-  display: block;
-  width: var(--size);
-  height: var(--size);
-  margin: 0 auto clamp(0.5rem, 2vh, 1rem);
+/* Inline with the name rather than above it, so the card is no taller than before on a short screen. */
+.reveal-name .avatar {
+  width: 0.8em;
+  height: 0.8em;
+  margin-inline-end: 0.12em;
+  vertical-align: -0.05em;
   animation: pop-in 520ms cubic-bezier(0.2, 1.4, 0.4, 1) 180ms both;
 }
 
