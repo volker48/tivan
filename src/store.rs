@@ -43,7 +43,7 @@ pub struct Loaded {
 }
 
 /// Reads storage once, at startup. An unreadable blob is copied to [`BACKUP_KEY`] before the
-/// first save can replace it. A blob from a newer build is never replaced, and its copy is not
+/// first save can replace it, and saving stays off when that copy fails. A blob from a newer build is never replaced, and its copy is not
 /// made because the original stays where it is.
 pub fn load(storage: &impl Storage) -> Loaded {
     let stored = match storage.get(KEY) {
@@ -75,15 +75,17 @@ pub fn load(storage: &impl Storage) -> Loaded {
             notice: Some(Notice::OutOfDate),
             can_save: false,
         },
-        LoadPlan::StartFresh { stash, .. } => Loaded {
-            doc: seed_doc(),
-            notice: Some(Notice::StartedFresh {
-                backup_error: storage
-                    .set(BACKUP_KEY, &stash)
-                    .err()
-                    .map(|error| error.to_string()),
-            }),
-            can_save: true,
+        LoadPlan::StartFresh { stash, .. } => match storage.set(BACKUP_KEY, &stash) {
+            Ok(()) => Loaded {
+                doc: seed_doc(),
+                notice: Some(Notice::StartedFresh),
+                can_save: true,
+            },
+            Err(error) => Loaded {
+                doc: seed_doc(),
+                notice: Some(Notice::BackupFailed(error.to_string())),
+                can_save: false,
+            },
         },
     }
 }
@@ -174,17 +176,14 @@ mod tests {
         let loaded = load(&storage);
 
         assert_eq!(loaded.doc, seed_doc());
-        assert_eq!(
-            loaded.notice,
-            Some(Notice::StartedFresh { backup_error: None })
-        );
+        assert_eq!(loaded.notice, Some(Notice::StartedFresh));
         assert!(loaded.can_save);
         assert_eq!(storage.entry(BACKUP_KEY).as_deref(), Some("{not json"));
         assert_eq!(storage.entry(KEY).as_deref(), Some("{not json"));
     }
 
     #[test]
-    fn a_failed_backup_is_reported_and_saving_continues() {
+    fn a_failed_backup_turns_saving_off_so_the_only_copy_survives() {
         let storage = MemoryStorage {
             fail_writes_to: Some(BACKUP_KEY),
             ..MemoryStorage::with(KEY, "{not json")
@@ -193,11 +192,10 @@ mod tests {
 
         assert_eq!(
             loaded.notice,
-            Some(Notice::StartedFresh {
-                backup_error: Some("quota exceeded".to_owned())
-            })
+            Some(Notice::BackupFailed("quota exceeded".to_owned()))
         );
-        assert!(loaded.can_save);
+        assert!(!loaded.can_save);
+        assert_eq!(storage.entry(KEY).as_deref(), Some("{not json"));
     }
 
     #[test]

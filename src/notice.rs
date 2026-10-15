@@ -6,9 +6,12 @@ use crate::domain::MAX_LABEL_CHARS;
 /// Something the banner should say. At most one is shown at a time.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Notice {
-    /// Saved classes could not be read, so the app started from the seed. `backup_error` is
-    /// `None` when the old blob was copied aside.
-    StartedFresh { backup_error: Option<String> },
+    /// Saved classes could not be read, so the app started from the seed after copying the old
+    /// blob aside.
+    StartedFresh,
+    /// Saved classes could not be read and no copy could be made, so saving stays off for the
+    /// session rather than overwrite the only copy.
+    BackupFailed(String),
     /// The stored data was written by a newer build. Saving stays off for the whole session so
     /// that data survives.
     OutOfDate,
@@ -30,10 +33,7 @@ impl Notice {
     /// Notices about the page's ability to keep data are not dismissible, because hiding them
     /// would hide that changes are being lost.
     pub fn is_dismissible(&self) -> bool {
-        matches!(
-            self,
-            Notice::StartedFresh { .. } | Notice::RosterSkipped { .. }
-        )
+        matches!(self, Notice::StartedFresh | Notice::RosterSkipped { .. })
     }
 
     /// A notice the teacher can dismiss never replaces one they cannot, so hiding a routine
@@ -44,14 +44,12 @@ impl Notice {
 
     pub fn message(&self) -> String {
         match self {
-            Notice::StartedFresh { backup_error: None } => "Your saved classes could not be read, \
+            Notice::StartedFresh => "Your saved classes could not be read, \
                 so Tivan started with a fresh set. A copy of the old data is kept in this browser."
                 .to_owned(),
-            Notice::StartedFresh {
-                backup_error: Some(cause),
-            } => format!(
-                "Your saved classes could not be read, so Tivan started with a fresh set. \
-                A copy of the old data could not be kept ({cause})."
+            Notice::BackupFailed(cause) => format!(
+                "Your saved classes could not be read, and a copy could not be made ({cause}). \
+                They are left in place, so changes will not be saved."
             ),
             Notice::OutOfDate => "This page is out of date. Your saved classes were made by a \
                 newer version of Tivan, so changes will not be saved until you reload the page."
@@ -121,7 +119,7 @@ mod tests {
 
     #[test]
     fn only_notices_that_do_not_hide_data_loss_can_be_dismissed() {
-        assert!(Notice::StartedFresh { backup_error: None }.is_dismissible());
+        assert!(Notice::StartedFresh.is_dismissible());
         assert!(
             Notice::RosterSkipped {
                 added: 1,
@@ -132,6 +130,7 @@ mod tests {
         assert!(!Notice::OutOfDate.is_dismissible());
         assert!(!Notice::SaveFailed("full".into()).is_dismissible());
         assert!(!Notice::StorageUnreadable("blocked".into()).is_dismissible());
+        assert!(!Notice::BackupFailed("full".into()).is_dismissible());
     }
 
     #[test]
@@ -151,9 +150,7 @@ mod tests {
 
     #[test]
     fn failed_backup_message_carries_the_cause() {
-        let notice = Notice::StartedFresh {
-            backup_error: Some("quota exceeded".into()),
-        };
+        let notice = Notice::BackupFailed("quota exceeded".into());
         assert!(notice.message().contains("quota exceeded"));
     }
 }
