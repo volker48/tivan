@@ -18,8 +18,18 @@ const LOW_TIME: Millis = Millis(10_000);
 #[component]
 pub fn WhiteboardMode() -> Element {
     let mut state = use_app();
-    let reveal = use_signal(|| None::<Reveal>);
-    use_escape(move || state.set_mode(Mode::Build));
+    let mut reveal = use_signal(|| None::<Reveal>);
+    // Escape closes the topmost overlay first, so dismissing a reveal never exposes Build mode to
+    // the class.
+    use_escape(move || {
+        if reveal.peek().is_some() {
+            reveal.set(None);
+        } else if matches!(state.timer(), Timer::Finished { .. }) {
+            state.cancel_timer();
+        } else {
+            state.set_mode(Mode::Build);
+        }
+    });
     let class_name = state
         .with_class(|class| class.name().to_string())
         .unwrap_or_default();
