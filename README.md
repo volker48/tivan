@@ -19,3 +19,27 @@ In group creation mode the primary task is to create the classes and groups. The
 ## Whiteboard mode
 
 During whitboard mode most of the UI should drop away and the focus is on the defined groups. There should be some additional options available while in whiteboard mode. There should be an Oracle button that randomly selects a student to answer a question. Once the student is chosen the UI should show "The oracle has chosen Tommy!" for example. There should also be a button in this UI to create a timer that will be displayed on screen.
+
+## Development
+
+Tivan is a Rust and Dioxus 0.7 web app. It runs entirely in the browser and saves classes to `localStorage`, so each browser keeps its own data. Google Classroom sync is not built yet. First run loads three sample classes.
+
+Run the app locally with the Dioxus CLI (`cargo install dioxus-cli --version 0.7.10 --locked`):
+
+```bash
+dx serve --platform web
+```
+
+Run the domain and persistence tests natively:
+
+```bash
+cargo test
+```
+
+## Deploy
+
+The release bundle is served as static assets by a Cloudflare Worker named `tivan`. `deploy/` holds the pinned `cf` and `wrangler` tooling with install scripts disabled. Sign in once with `cf auth login`, then:
+
+```bash
+./scripts/deploy.sh
+```
