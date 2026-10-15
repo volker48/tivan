@@ -36,6 +36,12 @@ impl Notice {
         )
     }
 
+    /// A notice the teacher can dismiss never replaces one they cannot, so hiding a routine
+    /// message cannot also hide that changes are not being saved.
+    pub fn may_replace(&self, current: &Notice) -> bool {
+        current.is_dismissible() || !self.is_dismissible()
+    }
+
     pub fn message(&self) -> String {
         match self {
             Notice::StartedFresh { backup_error: None } => "Your saved classes could not be read, \
@@ -126,6 +132,21 @@ mod tests {
         assert!(!Notice::OutOfDate.is_dismissible());
         assert!(!Notice::SaveFailed("full".into()).is_dismissible());
         assert!(!Notice::StorageUnreadable("blocked".into()).is_dismissible());
+    }
+
+    #[test]
+    fn a_dismissible_notice_cannot_replace_one_that_must_stay() {
+        let skipped = Notice::roster_skipped(3, 1).unwrap();
+        for sticky in [
+            Notice::OutOfDate,
+            Notice::SaveFailed("full".into()),
+            Notice::StorageUnreadable("blocked".into()),
+        ] {
+            assert!(!skipped.may_replace(&sticky));
+            assert!(sticky.may_replace(&skipped));
+        }
+        assert!(skipped.may_replace(&skipped));
+        assert!(Notice::OutOfDate.may_replace(&Notice::SaveFailed("full".into())));
     }
 
     #[test]

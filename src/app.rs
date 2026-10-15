@@ -76,8 +76,16 @@ impl AppState {
         self.notice.read().clone()
     }
 
+    /// Ignored when a notice the teacher cannot dismiss is showing and this one could be.
     pub fn set_notice(&mut self, notice: Notice) {
-        self.notice.set(Some(notice));
+        let allowed = self
+            .notice
+            .peek()
+            .as_ref()
+            .is_none_or(|current| notice.may_replace(current));
+        if allowed {
+            self.notice.set(Some(notice));
+        }
     }
 
     pub fn dismiss_notice(&mut self) {
