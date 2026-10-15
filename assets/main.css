@@ -1,0 +1,161 @@
+/* Tivan: one stylesheet. Tokens first, then base, then Build, then Whiteboard. */
+
+:root {
+  --cream: #fff4e2;
+  --paper: #fffdf8;
+  --ink: #2a1f33;
+  --ink-soft: #66566f;
+  --line: #2a1f33;
+  --primary: #ff7a59;
+  --hero: #ffd166;
+  --danger: #c0392b;
+  --focus: #5b3df5;
+  --board-bg: #1f1626;
+  --board-ink: #fff8ec;
+
+  /* Eight group colors, alternating warm and cool so neighbours never blur together. All carry
+     --ink text at AAA contrast. */
+  --g0: #ffd166;
+  --g1: #7cc6f2;
+  --g2: #ff8c75;
+  --g3: #9be37a;
+  --g4: #b9a3ff;
+  --g5: #ffb15c;
+  --g6: #4fd1c5;
+  --g7: #ff9ec7;
+
+  --radius: 1.1rem;
+  --font: ui-rounded, "SF Pro Rounded", "Nunito", "Avenir Next", "Segoe UI", system-ui,
+    -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  --sticker: 0 3px 0 var(--line);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 100%;
+  line-height: 1.35;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ---- Buttons: chunky stickers, never smaller than 44px ---- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.55rem 1.1rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: var(--sticker);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 80ms ease, box-shadow 80ms ease, background-color 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: #fff;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #ff8c70;
+}
+
+.btn-hero {
+  background: var(--hero);
+  font-size: 1.15rem;
+  padding: 0.65rem 1.6rem;
+}
+
+.btn-hero:hover:not(:disabled) {
+  background: #ffdc85;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #d24a3b;
+}
+
+.btn-small {
+  padding: 0.3rem 0.9rem;
+  font-size: 0.95rem;
+}
+
+/* ---- Notice banner ---- */
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #ffe8b0;
+  border-bottom: 2px solid var(--line);
+}
+
+.notice[role="alert"] {
+  background: #ffc9bd;
+}
+
+.notice p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
