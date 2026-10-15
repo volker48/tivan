@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::class::{Class, ClassId};
 use super::label::Label;
+use super::rng::Rng;
 
 /// Everything that is persisted, and nothing else. Mode, timer, and the oracle announcement are
 /// UI state. `selected` names a real class whenever any class exists, and is `None` otherwise.
@@ -35,10 +36,15 @@ impl Doc {
     }
 
     /// Appends the class and selects it.
-    pub fn create_class(&mut self, name: Label, students: Vec<Label>) -> ClassId {
+    pub fn create_class(
+        &mut self,
+        name: Label,
+        students: Vec<Label>,
+        rng: &mut impl Rng,
+    ) -> ClassId {
         let id = ClassId(self.next_class);
         self.next_class += 1;
-        self.classes.push(Class::new(id, name, students));
+        self.classes.push(Class::new(id, name, students, rng));
         self.selected = Some(id);
         id
     }
@@ -108,13 +114,18 @@ impl Doc {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::rng::SplitMix64;
     use crate::domain::testing::{label, labels};
+
+    fn rng() -> SplitMix64 {
+        SplitMix64::seeded(1)
+    }
 
     fn doc_with(names: &[&str]) -> (Doc, Vec<ClassId>) {
         let mut doc = Doc::default();
         let ids = names
             .iter()
-            .map(|name| doc.create_class(label(name), labels(&["Ava", "Ben"])))
+            .map(|name| doc.create_class(label(name), labels(&["Ava", "Ben"]), &mut rng()))
             .collect();
         (doc, ids)
     }
@@ -204,7 +215,7 @@ mod tests {
     fn class_ids_are_not_reused_after_a_delete() {
         let (mut doc, ids) = doc_with(&["A", "B"]);
         doc.delete_class(ids[1]);
-        let fresh = doc.create_class(label("C"), vec![]);
+        let fresh = doc.create_class(label("C"), vec![], &mut rng());
         assert!(!ids.contains(&fresh));
         doc.assert_invariants();
     }
@@ -222,7 +233,7 @@ mod tests {
         doc.reconcile();
         assert_eq!(doc.selected().unwrap().id(), ids[0]);
 
-        let fresh = doc.create_class(label("C"), vec![]);
+        let fresh = doc.create_class(label("C"), vec![], &mut rng());
         assert!(!ids.contains(&fresh));
     }
 

@@ -153,7 +153,7 @@ fn NewClassForm(can_cancel: bool, on_done: EventHandler<()>) -> Element {
                     }
                 };
                 let (names, notice) = read_roster(&paste.read());
-                state.edit(|doc, _| doc.create_class(label, names));
+                state.edit(|doc, rng| doc.create_class(label, names, rng));
                 if let Some(notice) = notice {
                     state.set_notice(notice);
                 }
@@ -337,7 +337,7 @@ fn Roster() -> Element {
                         let parsed = Label::parse(&draft.read());
                         match parsed {
                             Ok(name) => {
-                                state.edit_class(|class, _| class.add_student(name));
+                                state.edit_class(|class, rng| class.add_student(name, rng));
                                 draft.set(String::new());
                                 error.set(None);
                             }
@@ -359,7 +359,7 @@ fn Roster() -> Element {
                     p { class: "field-error", role: "alert", "{message}" }
                 }
                 ul { class: "roster-list",
-                    for Student { id , name } in students {
+                    for Student { id , name , .. } in students {
                         li { key: "{id.get()}", class: "roster-item",
                             span { "{name}" }
                             button {
@@ -385,9 +385,9 @@ fn Roster() -> Element {
                                 onclick: move |_| {
                                     let (names, notice) = read_roster(&paste.read());
                                     state
-                                        .edit_class(|class, _| {
+                                        .edit_class(|class, rng| {
                                             for name in names {
-                                                class.add_student(name);
+                                                class.add_student(name, rng);
                                             }
                                         });
                                     if let Some(notice) = notice {

@@ -2,6 +2,7 @@
 //! Every random choice takes `&mut impl Rng` and every time-dependent choice takes `Millis`.
 //! Fields are private, so each invariant has exactly one writer.
 
+pub mod avatar;
 pub mod class;
 pub mod doc;
 pub mod grouping;
@@ -12,6 +13,7 @@ pub mod rng;
 pub mod seed;
 pub mod timer;
 
+pub use avatar::Avatar;
 pub use class::{Class, ClassId, GroupView, ParsedRoster, Pick, Student, StudentId, parse_roster};
 pub use doc::Doc;
 pub use grouping::{GroupCount, GroupCountError, GroupIdx, Grouping, MoveError, group_sizes};
@@ -24,7 +26,7 @@ pub use timer::{Millis, Preset, Timer, format_mm_ss};
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use super::{Label, Student, StudentId};
+    use super::{Avatar, Label, Student, StudentId};
 
     pub fn label(raw: &str) -> Label {
         Label::parse(raw).unwrap()
@@ -44,7 +46,8 @@ pub(crate) mod testing {
         (0..)
             .map(StudentId)
             .zip(numbered(n))
-            .map(|(id, name)| Student { id, name })
+            .zip(Avatar::ALL.into_iter().cycle())
+            .map(|((id, name), avatar)| Student { id, name, avatar })
             .collect()
     }
 }

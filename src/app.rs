@@ -152,7 +152,7 @@ pub fn use_escape(handler: impl FnMut() + 'static) {
 
 #[component]
 pub fn App() -> Element {
-    let initial = use_hook(|| Rc::new(store::load(&LocalStorage)));
+    let initial = use_hook(|| Rc::new(store::load(&LocalStorage, &mut JsRng)));
     let doc = use_signal(|| initial.doc.clone());
     let mut notice = use_signal(|| initial.notice.clone());
     let state = use_context_provider(|| AppState {
