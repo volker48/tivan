@@ -54,8 +54,7 @@ pub fn BuildMode() -> Element {
     }
 }
 
-/// Shown while a timer exists, so a teacher in Build can see it is still counting. Only a running
-/// timer reads the clock, so a paused one does not redraw four times a second.
+/// Shown while a timer exists, so a teacher in Build can see it is still counting.
 #[component]
 fn TimerChip() -> Element {
     let mut state = use_app();
@@ -72,8 +71,8 @@ fn TimerChip() -> Element {
                 }
             };
         }
-        timer @ Timer::Running { .. } => (format_mm_ss(timer.remaining(state.now())), "Timer"),
-        Timer::Paused { remaining, .. } => (format_mm_ss(remaining), "Paused"),
+        Timer::Running { .. } => (format_mm_ss(state.remaining()), "Timer"),
+        Timer::Paused { .. } => (format_mm_ss(state.remaining()), "Paused"),
     };
     rsx! {
         button {

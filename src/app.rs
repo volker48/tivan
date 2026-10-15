@@ -96,9 +96,16 @@ impl AppState {
         *self.timer.read()
     }
 
-    /// Reactive, and changes four times a second. Read it only where a countdown is drawn.
-    pub fn now(&self) -> Millis {
-        *self.now.read()
+    /// Time left on the countdown. Only a running timer reads the clock, which changes four
+    /// times a second, so a paused one does not redraw.
+    pub fn remaining(&self) -> Millis {
+        let timer = self.timer();
+        let now = if timer.is_running() {
+            *self.now.read()
+        } else {
+            Millis(0)
+        };
+        timer.remaining(now)
     }
 
     /// Applies a timer transition at a fresh clock reading, so a button press never acts on a

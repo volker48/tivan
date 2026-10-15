@@ -169,15 +169,16 @@ fn TimerControls() -> Element {
     }
 }
 
-/// The big countdown. Only a running timer reads the clock.
+/// The big countdown.
 #[component]
 fn TimerStrip() -> Element {
     let state = use_app();
-    let (remaining, paused) = match state.timer() {
-        timer @ Timer::Running { .. } => (timer.remaining(state.now()), false),
-        Timer::Paused { remaining, .. } => (remaining, true),
+    let paused = match state.timer() {
+        Timer::Running { .. } => false,
+        Timer::Paused { .. } => true,
         Timer::Idle | Timer::Finished { .. } => return rsx! {},
     };
+    let remaining = state.remaining();
     rsx! {
         div {
             class: "timer-strip",
@@ -217,7 +218,7 @@ fn TimesUp() -> Element {
 struct WallLayout {
     cols: usize,
     rows: usize,
-    /// Text lines in the fullest card, counting the group name as a line and a half.
+    /// Text lines to fit in the fullest card: its members plus two for the group name and padding.
     lines: usize,
 }
 
@@ -252,9 +253,7 @@ fn GroupWall() -> Element {
     let Some((cards, students)) =
         state.with_class(|class| (group_cards(class), class.students().len()))
     else {
-        return rsx! {
-            p { class: "wall-empty", "No class is selected." }
-        };
+        return rsx! {};
     };
     if cards.is_empty() {
         return rsx! {
