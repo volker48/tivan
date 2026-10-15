@@ -4,8 +4,8 @@ use crate::app::{AppState, Mode, use_app, use_escape};
 use crate::domain::{Millis, Pick, Preset, Timer, format_mm_ss};
 use crate::ui::{group_cards, hue};
 
-/// The oracle's latest answer. `seq` keys the card so each pick replays the entrance animation,
-/// which a reused DOM node would otherwise play once and never again.
+/// The oracle's latest answer. `seq` keys the overlay so each pick replays the entrance
+/// animation, which a reused DOM node would otherwise play once and never again.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Reveal {
     seq: u32,
@@ -77,39 +77,41 @@ fn OracleReveal(reveal: Signal<Option<Reveal>>) -> Element {
     let left = state
         .with_class(|class| class.oracle_remaining())
         .unwrap_or_default();
-    let Some(Reveal { seq, pick }) = reveal() else {
-        return rsx! {};
-    };
+    // `key` only takes effect on the root of a block, so the overlay is the root of this `if`.
     rsx! {
-        div { class: "overlay", onclick: move |_| reveal.set(None),
+        if let Some(Reveal { seq, pick }) = reveal() {
             div {
                 key: "{seq}",
-                class: "reveal-card",
-                role: "dialog",
-                aria_label: "The oracle has chosen",
-                onclick: move |event| event.stop_propagation(),
-                p { class: "reveal-line",
-                    "The oracle has chosen "
-                    strong { class: "reveal-name", "{pick.name}!" }
-                }
-                p { class: "reveal-left",
-                    "{left} left"
-                    if left == 0 {
-                        ". That is everyone, so the next pick starts a new round."
+                class: "overlay",
+                onclick: move |_| reveal.set(None),
+                div {
+                    class: "reveal-card",
+                    role: "dialog",
+                    aria_label: "The oracle has chosen",
+                    onclick: move |event| event.stop_propagation(),
+                    p { class: "reveal-line",
+                        "The oracle has chosen "
+                        strong { class: "reveal-name", "{pick.name}!" }
                     }
-                }
-                div { class: "form-actions",
-                    button {
-                        class: "btn btn-primary",
-                        r#type: "button",
-                        onclick: move |_| draw(state, reveal),
-                        "Pick again"
+                    p { class: "reveal-left",
+                        "{left} left"
+                        if left == 0 {
+                            ". That is everyone, so the next pick starts a new round."
+                        }
                     }
-                    button {
-                        class: "btn",
-                        r#type: "button",
-                        onclick: move |_| reveal.set(None),
-                        "Done"
+                    div { class: "form-actions",
+                        button {
+                            class: "btn btn-primary",
+                            r#type: "button",
+                            onclick: move |_| draw(state, reveal),
+                            "Pick again"
+                        }
+                        button {
+                            class: "btn",
+                            r#type: "button",
+                            onclick: move |_| reveal.set(None),
+                            "Done"
+                        }
                     }
                 }
             }
