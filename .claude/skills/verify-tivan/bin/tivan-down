@@ -1,0 +1,43 @@
+#!/bin/bash
+# Closes this run's browser session and stops its dx server. Keeps the evidence directory.
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+load_run "${1:-}"
+
+for _ in 1 2 3; do
+	session_listed || break
+	ab close >/dev/null || true
+	sleep 1
+done
+# A page stuck in a loop blocks close, so stop the session's own daemon, which takes its Chrome
+# with it.
+daemon="$(session_daemon_pid)"
+if [[ -n "$daemon" ]]; then
+	kill "$daemon"
+	echo "stopped stuck agent-browser daemon pid $daemon for $SESSION"
+fi
+if session_listed; then
+	echo "warning: session $SESSION is still listed after cleanup" >&2
+fi
+
+pid="$(server_pid)"
+if is_our_server "$pid"; then
+	# A kill mid-build would otherwise orphan the cargo child.
+	pkill -TERM -P "$pid" || true
+	kill "$pid"
+	for _ in $(seq 1 20); do
+		ps -p "$pid" >/dev/null || break
+		sleep 0.5
+	done
+	ps -p "$pid" >/dev/null && die "dx pid $pid did not exit after SIGTERM"
+	echo "stopped dx pid $pid"
+elif [[ -n "$pid" ]]; then
+	echo "pid $pid is no longer this run's dx server, so it was left alone"
+fi
+rm -f "$EVIDENCE/server.pid"
+
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+	echo "note: port $PORT is still in use by another process" >&2
+fi
+echo "evidence kept in $EVIDENCE"

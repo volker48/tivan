@@ -1,0 +1,87 @@
+#!/bin/bash
+# Builds Tivan, serves it on a free port with rebuilds off, and opens a fresh agent-browser session
+# on it. Prints the run id every other helper takes.
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+build_timeout_s="${TIVAN_BUILD_TIMEOUT_S:-900}"
+
+for tool in dx agent-browser curl lsof; do
+	command -v "$tool" >/dev/null || die "$tool is not on PATH (see Prerequisites in SKILL.md)"
+done
+dx_version="$(dx --version | awk '{print $2}')"
+[[ "$dx_version" == "0.7.10" ]] || die "dx $dx_version found, the repo pins dioxus 0.7.10"
+
+# Two dx processes in one checkout write the same target/dx/tivan output, so a second server can
+# end up serving the other one's build.
+for pid in $(pgrep -x dx || true); do
+	cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+	if [[ "$cwd" == "$repo" ]]; then
+		die "dx (pid $pid) is already running in $repo: $(ps -p "$pid" -o command=). Ask the user before stopping it; it may be theirs."
+	fi
+done
+
+port=""
+for candidate in $(seq 8090 8099); do
+	if ! lsof -nP -iTCP:"$candidate" -sTCP:LISTEN >/dev/null 2>&1; then
+		port="$candidate"
+		break
+	fi
+done
+[[ -n "$port" ]] || die "ports 8090-8099 are all taken"
+
+run="$(date +%Y%m%d-%H%M%S)-$$"
+evidence="$runs/$run"
+mkdir -p "$evidence"
+session="tivan-verify-$run"
+started="$(date +%s)"
+git_rev="$(git -C "$repo" rev-parse --short HEAD)"
+if [[ -n "$(git -C "$repo" status --porcelain -- src assets Cargo.toml Cargo.lock Dioxus.toml)" ]]; then
+	git_rev="$git_rev+dirty"
+fi
+
+cat >"$evidence/run.env" <<EOF
+RUN=$run
+PORT=$port
+URL=http://127.0.0.1:$port/
+SESSION=$session
+EVIDENCE=$evidence
+STARTED=$started
+GIT_REV=$git_rev
+EOF
+load_run "$run"
+
+cd "$repo"
+nohup dx serve --platform web --addr 127.0.0.1 --port "$port" \
+	--open false --interactive false --watch false --hot-reload false \
+	>"$evidence/dx.log" 2>&1 &
+pid=$!
+echo "$pid" >"$evidence/server.pid"
+echo "dx serve pid $pid on port $port, building (log: $evidence/dx.log)"
+
+# dx prints its "Serving your app" banner and answers HTTP before the build exists, so only the
+# build result counts.
+deadline=$((started + build_timeout_s))
+while :; do
+	if grep -q "Build completed successfully" "$evidence/dx.log"; then
+		break
+	fi
+	if grep -q -E "Build failed|ERROR" "$evidence/dx.log" || ! ps -p "$pid" >/dev/null; then
+		tail -40 "$evidence/dx.log" >&2
+		die "the build failed or dx exited. Run tivan-down $run to clean up."
+	fi
+	if (($(date +%s) > deadline)); then
+		die "no build result after ${build_timeout_s}s. Run tivan-down $run to clean up."
+	fi
+	sleep 2
+done
+
+ab open "$URL" >/dev/null
+# Usable means the wasm app rendered its shell, not that the page loaded.
+ab wait --fn "document.querySelector('.app h1.brand')?.textContent === 'Tivan'" >/dev/null ||
+	die "the page loaded but the app never rendered. Run tivan-down $run to clean up."
+
+echo
+echo "ready: run $RUN"
+cat "$evidence/run.env"

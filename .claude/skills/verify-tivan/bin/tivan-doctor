@@ -1,0 +1,69 @@
+#!/bin/bash
+# Read-only: says whether the run's server is worth driving. Starts no browser and kills nothing.
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+load_run "${1:-}"
+
+failed=0
+ok() { echo "ok    $*"; }
+bad() {
+	echo "FAIL  $*"
+	failed=1
+}
+
+pid="$(server_pid)"
+if is_our_server "$pid"; then
+	ok "dx serve pid $pid is running"
+else
+	bad "no dx serve for this run (pid file: ${pid:-none}). Start a new run with tivan-up."
+fi
+
+owner="$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -1 || true)"
+if [[ -n "$pid" && "$owner" == "$pid" ]]; then
+	ok "port $PORT is owned by pid $pid"
+else
+	bad "port $PORT is owned by '${owner:-nobody}', not this run's pid '${pid:-none}'"
+fi
+
+if grep -q -E "Build failed|ERROR" "$EVIDENCE/dx.log"; then
+	bad "dx.log reports a failure: $(grep -m1 -E "Build failed|ERROR" "$EVIDENCE/dx.log")"
+elif grep -q "Build completed successfully" "$EVIDENCE/dx.log"; then
+	ok "build completed"
+else
+	bad "no build result in $EVIDENCE/dx.log yet"
+fi
+
+if curl -fsS --max-time 5 "$URL" 2>/dev/null | grep -q "<title>Tivan</title>"; then
+	ok "$URL serves the Tivan page"
+else
+	bad "$URL does not serve the Tivan page"
+fi
+
+# The server was launched with rebuilds off, so it serves the source as it was when tivan-up wrote
+# run.env.
+newest="$(find "$repo/src" "$repo/assets" "$repo/Cargo.toml" "$repo/Cargo.lock" "$repo/Dioxus.toml" \
+	-type f -newer "$EVIDENCE/run.env" -print 2>/dev/null | head -3)"
+if [[ -z "$newest" ]]; then
+	ok "build is current (launched at rev $GIT_REV, no source edited since)"
+else
+	bad "source changed after launch, so the served build is stale: ${newest//$'\n'/, }. Run tivan-down then tivan-up."
+fi
+
+if session_listed; then
+	ok "browser session $SESSION is open"
+	# agent-browser relaunches a crashed Chrome on about:blank with an empty profile, which silently
+	# resets the app to seed data.
+	page="$(session_url)"
+	if [[ -z "$page" ]]; then
+		bad "the page did not answer within 10 s, so it is probably stuck in a loop. Capture what you have, then run tivan-down."
+	elif [[ "$page" == "$URL"* ]]; then
+		ok "session is on $page"
+	else
+		bad "session is on '$page', not $URL. Its browser was relaunched and the saved state is gone: restart the journey in a new run."
+	fi
+else
+	bad "browser session $SESSION is not open. Reopen it with: agent-browser --session $SESSION open $URL"
+fi
+
+exit "$failed"

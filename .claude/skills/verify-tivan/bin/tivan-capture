@@ -1,0 +1,21 @@
+#!/bin/bash
+# Saves the current page as proof: <label>.png, <label>.aria.txt (accessibility tree) and
+# <label>.state.json (the saved document in localStorage, or null when nothing is saved).
+set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+load_run "${1:-}"
+label="${2:-}"
+[[ "$label" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "usage: tivan-capture <run> <label>, label in kebab-case like groups-made"
+session_listed || die "browser session $SESSION is not open, so there is nothing to capture"
+page="$(session_url)"
+[[ "$page" == "$URL"* ]] || die "the session is on '${page:-no answer}', not $URL. Run tivan-doctor $RUN."
+
+out="$EVIDENCE/$label"
+ab screenshot --full "$out.png" >/dev/null
+ab snapshot >"$out.aria.txt"
+ab eval "JSON.parse(localStorage.getItem('tivan.state'))" >"$out.state.json"
+
+echo "$out.png"
+echo "$out.aria.txt"
+echo "$out.state.json"
