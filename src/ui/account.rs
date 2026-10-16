@@ -40,9 +40,9 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
                 a { class: "btn btn-small", href: "/auth/login", "Sign in with Google" }
             }
         },
-        Session::SignedIn { email, .. } => rsx! {
+        Session::SignedIn(me) => rsx! {
             div { class: "account",
-                span { class: "account-chip", title: "{email}", "{chip}" }
+                span { class: "account-chip", title: "{me.email}", "{chip}" }
                 button {
                     class: "btn btn-small",
                     r#type: "button",
@@ -64,8 +64,7 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
                             save_remotely_now(state, outbox.clone()).await;
                             // A refused flush or a session that ended during it already told the
                             // teacher what happened, and reloading now could drop the edit.
-                            let still_signed_in =
-                                matches!(state.session(), Session::SignedIn { .. });
+                            let still_signed_in = state.session().is_signed_in();
                             if outbox.borrow().has_unsent() || !still_signed_in {
                                 signing_out.set(false);
                                 return;
@@ -102,7 +101,7 @@ fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>, outbox: Sha
             Err(ApiError::Reauthorize) => {
                 // Leaving the page cancels a save still waiting or on the wire.
                 save_remotely_now(state, outbox.clone()).await;
-                if !matches!(state.session(), Session::SignedIn { .. }) {
+                if !state.session().is_signed_in() {
                     sync.set(SyncState::Closed);
                 } else if outbox.borrow().has_unsent() {
                     sync.set(SyncState::Failed(
@@ -126,7 +125,7 @@ fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>, outbox: Sha
 #[component]
 pub fn SyncPanel(sync: Signal<SyncState>) -> Element {
     let mut state = use_app();
-    if !matches!(state.session(), Session::SignedIn { .. }) {
+    if !state.session().is_signed_in() {
         return rsx! {};
     }
     let close = move |_| sync.set(SyncState::Closed);

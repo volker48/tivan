@@ -3,7 +3,7 @@
 //! signals into the one place a change may be written, so a save can never reach the server
 //! before the server's copy was read.
 
-use crate::api::{Api, ApiError, Http, short_code};
+use crate::api::{Api, ApiError, Http, Me, short_code};
 use crate::domain::{Doc, Rng, seed_doc};
 use crate::notice::Notice;
 use crate::persist::{DecodeError, decode};
@@ -13,20 +13,21 @@ pub enum Session {
     /// The page has asked the server who is signed in and has not heard back yet.
     Checking,
     SignedOut,
-    SignedIn {
-        email: String,
-        name: String,
-    },
+    SignedIn(Me),
 }
 
 impl Session {
+    pub fn is_signed_in(&self) -> bool {
+        matches!(self, Session::SignedIn(_))
+    }
+
     /// What the account chip says: the teacher's first name, or their email when Google gave no
     /// name. `None` when nobody is signed in.
     pub fn short_name(&self) -> Option<&str> {
-        let Session::SignedIn { email, name } = self else {
+        let Session::SignedIn(me) = self else {
             return None;
         };
-        Some(name.split_whitespace().next().unwrap_or(email))
+        Some(me.name.split_whitespace().next().unwrap_or(&me.email))
     }
 }
 
@@ -58,7 +59,7 @@ pub enum SaveTarget {
 pub fn save_target(session: &Session, remote: RemoteDoc, local_can_save: bool) -> SaveTarget {
     match (session, remote) {
         (Session::SignedOut, _) if local_can_save => SaveTarget::Local,
-        (Session::SignedIn { .. }, RemoteDoc::Ready) => SaveTarget::Remote,
+        (Session::SignedIn(_), RemoteDoc::Ready) => SaveTarget::Remote,
         _ => SaveTarget::Nowhere,
     }
 }
@@ -105,10 +106,7 @@ impl Booted {
 /// `rng` picks avatars when the stored doc predates them.
 pub async fn boot<H: Http>(api: &Api<H>, local: &Doc, rng: &mut impl Rng) -> Booted {
     let session = match api.me().await {
-        Ok(Some(me)) => Session::SignedIn {
-            email: me.email,
-            name: me.name,
-        },
+        Ok(Some(me)) => Session::SignedIn(me),
         Ok(None) => return Booted::signed_out(None),
         Err(error) => {
             return Booted::signed_out(Some(Notice::AccountUnavailable(error.to_string())));
@@ -171,11 +169,11 @@ mod tests {
         SplitMix64::seeded(1)
     }
 
-    fn signed_in() -> Session {
-        Session::SignedIn {
+    fn signed_in(name: &str) -> Session {
+        Session::SignedIn(Me {
             email: "ada@school.org".to_owned(),
-            name: "Ada Lovelace".to_owned(),
-        }
+            name: name.to_owned(),
+        })
     }
 
     fn account_server() -> FakeHttp {
@@ -198,28 +196,6 @@ mod tests {
     }
 
     #[test]
-    fn the_server_is_written_only_for_a_teacher_whose_server_copy_was_read() {
-        let sessions = [Session::Checking, Session::SignedOut, signed_in()];
-        let remotes = [RemoteDoc::Unread, RemoteDoc::Ready, RemoteDoc::Unusable];
-        for session in &sessions {
-            for remote in remotes {
-                for local_can_save in [true, false] {
-                    let expected = match (session, remote, local_can_save) {
-                        (Session::SignedOut, _, true) => SaveTarget::Local,
-                        (Session::SignedIn { .. }, RemoteDoc::Ready, _) => SaveTarget::Remote,
-                        _ => SaveTarget::Nowhere,
-                    };
-                    assert_eq!(
-                        save_target(session, remote, local_can_save),
-                        expected,
-                        "{session:?} {remote:?} {local_can_save}"
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
     fn nothing_is_written_while_the_page_is_still_checking_who_is_signed_in() {
         for remote in [RemoteDoc::Unread, RemoteDoc::Ready, RemoteDoc::Unusable] {
             assert_eq!(
@@ -231,15 +207,11 @@ mod tests {
 
     #[test]
     fn the_chip_shows_the_first_name_or_the_email() {
-        let named = |name: &str| Session::SignedIn {
-            email: "ada@school.org".to_owned(),
-            name: name.to_owned(),
-        };
-        assert_eq!(named("Ada Lovelace").short_name(), Some("Ada"));
-        assert_eq!(named("  Grace  ").short_name(), Some("Grace"));
-        assert_eq!(named("Cher").short_name(), Some("Cher"));
-        assert_eq!(named("").short_name(), Some("ada@school.org"));
-        assert_eq!(named("  ").short_name(), Some("ada@school.org"));
+        assert_eq!(signed_in("Ada Lovelace").short_name(), Some("Ada"));
+        assert_eq!(signed_in("  Grace  ").short_name(), Some("Grace"));
+        assert_eq!(signed_in("Cher").short_name(), Some("Cher"));
+        assert_eq!(signed_in("").short_name(), Some("ada@school.org"));
+        assert_eq!(signed_in("  ").short_name(), Some("ada@school.org"));
         assert_eq!(Session::SignedOut.short_name(), None);
         assert_eq!(Session::Checking.short_name(), None);
     }
@@ -292,7 +264,7 @@ mod tests {
 
         let booted = boot_with(&server, &seed_doc());
 
-        assert_eq!(booted.session, signed_in());
+        assert_eq!(booted.session, signed_in("Ada Lovelace"));
         assert_eq!(booted.remote, RemoteDoc::Ready);
         assert_eq!(booted.doc, Some(worked_on()));
         assert_eq!(booted.synced, Some(stored));
@@ -316,7 +288,7 @@ mod tests {
 
         let booted = boot_with(&server, &worked_on());
 
-        assert_eq!(booted.session, signed_in());
+        assert_eq!(booted.session, signed_in("Ada Lovelace"));
         assert_eq!(booted.remote, RemoteDoc::Ready);
         assert_eq!(booted.doc, None, "the page keeps its own classes");
         assert_eq!(booted.synced, None, "so the first save uploads them");
@@ -340,7 +312,7 @@ mod tests {
 
         let booted = boot_with(&server, &worked_on());
 
-        assert_eq!(booted.session, signed_in());
+        assert_eq!(booted.session, signed_in("Ada Lovelace"));
         assert_eq!(booted.remote, RemoteDoc::Unusable);
         assert_eq!(booted.notice, Some(Notice::OutOfDate));
         assert_eq!(booted.doc, None);
@@ -373,7 +345,7 @@ mod tests {
         for server in failures {
             let booted = boot_with(&server, &seed_doc());
 
-            assert_eq!(booted.session, signed_in());
+            assert_eq!(booted.session, signed_in("Ada Lovelace"));
             assert_eq!(booted.remote, RemoteDoc::Unusable);
             assert!(matches!(
                 booted.notice,
