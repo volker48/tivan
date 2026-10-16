@@ -5,8 +5,13 @@ use std::num::NonZeroUsize;
 use dioxus::logger::tracing::warn;
 use js_sys::{Date, Math};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
-use web_sys::{KeyboardEvent, Storage, Window};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{
+    AbortSignal, Headers, KeyboardEvent, RequestCache, RequestInit, Response, Storage, Window,
+};
 
+use crate::account;
+use crate::api::{Api, Http, HttpReply, HttpRequest, TransportError};
 use crate::domain::{Millis, Rng};
 use crate::store::{self, StorageError};
 
@@ -62,6 +67,101 @@ fn describe(thrown: &JsValue) -> String {
         .map(|error| String::from(error.message()))
         .or_else(|| thrown.as_string())
         .unwrap_or_else(|| format!("{thrown:?}"))
+}
+
+/// How long a request may take. Until the first one returns nothing is saved, so a hung request
+/// must end in an error rather than hold the page's saving off.
+const REQUEST_TIMEOUT_MS: u32 = 10_000;
+
+/// `fetch` against the page's own origin, which carries the session cookie.
+pub struct Fetch;
+
+impl Http for Fetch {
+    async fn send(&self, request: HttpRequest<'_>) -> Result<HttpReply, TransportError> {
+        let window = web_sys::window().ok_or_else(|| TransportError::new("there is no window"))?;
+        let init = RequestInit::new();
+        init.set_method(request.method.as_str());
+        // A stale answer to a read would later be written back over newer data.
+        init.set_cache(RequestCache::NoStore);
+        init.set_signal(Some(&AbortSignal::timeout_with_u32(REQUEST_TIMEOUT_MS)));
+        if let Some(body) = request.body {
+            let headers = Headers::new().map_err(|cause| TransportError::new(describe(&cause)))?;
+            headers
+                .set("Content-Type", "application/json")
+                .map_err(|cause| TransportError::new(describe(&cause)))?;
+            init.set_headers(&headers);
+            init.set_body(&JsValue::from_str(body));
+        }
+        let response = JsFuture::from(window.fetch_with_str_and_init(request.path, &init))
+            .await
+            .map_err(|cause| TransportError::new(describe(&cause)))?;
+        let response: Response = response
+            .dyn_into()
+            .map_err(|_| TransportError::new("fetch did not return a response"))?;
+        let text = response
+            .text()
+            .map_err(|cause| TransportError::new(describe(&cause)))?;
+        let body = JsFuture::from(text)
+            .await
+            .map_err(|cause| TransportError::new(describe(&cause)))?
+            .as_string()
+            .ok_or_else(|| TransportError::new("the reply was not text"))?;
+        Ok(HttpReply {
+            status: response.status(),
+            body,
+        })
+    }
+}
+
+pub fn api() -> Api<Fetch> {
+    Api::new(Fetch)
+}
+
+/// Sends the browser to Google through the server. The page is replaced, so nothing after this
+/// call matters.
+pub fn go_to_login() {
+    let outcome = web_sys::window()
+        .ok_or_else(|| JsValue::from_str("there is no window"))
+        .and_then(|window| window.location().set_href("/auth/login"));
+    if let Err(cause) = outcome {
+        warn!("could not go to the sign-in page: {}", describe(&cause));
+    }
+}
+
+pub fn reload() {
+    let outcome = web_sys::window()
+        .ok_or_else(|| JsValue::from_str("there is no window"))
+        .and_then(|window| window.location().reload());
+    if let Err(cause) = outcome {
+        warn!("could not reload the page: {}", describe(&cause));
+    }
+}
+
+/// The sign-in failure code the server left in the address, if any. The query is cleared as it is
+/// read, so reloading the page does not show the same failure again.
+pub fn take_auth_error() -> Option<String> {
+    let window = web_sys::window()?;
+    let location = window.location();
+    let search = match location.search() {
+        Ok(search) => search,
+        Err(cause) => {
+            warn!("could not read the address: {}", describe(&cause));
+            return None;
+        }
+    };
+    let code = account::auth_error_code(&search)?;
+    let cleared = location.pathname().and_then(|path| {
+        window
+            .history()?
+            .replace_state_with_url(&JsValue::NULL, "", Some(&path))
+    });
+    if let Err(cause) = cleared {
+        warn!(
+            "could not clear the sign-in error from the address: {}",
+            describe(&cause)
+        );
+    }
+    Some(code)
 }
 
 /// Keeps the Escape listener registered. Dropping it removes the listener.
