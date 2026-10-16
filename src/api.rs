@@ -146,11 +146,18 @@ impl<H: Http> Api<H> {
 
     /// Who is signed in, or `None` when nobody is. A host with no account service counts as
     /// nobody: the dev server answers every path with its index page and a static host with a
-    /// 404, and neither is a failure worth a banner.
+    /// 404, and neither is a failure worth a banner. Any other 200 that is not a teacher is a
+    /// failure, so a broken server cannot switch the app to local-only saving unnoticed.
     pub async fn me(&self) -> Result<Option<Me>, ApiError> {
         let reply = self.get("/api/me").await?;
         match reply.status {
-            200 => Ok(serde_json::from_str(&reply.body).ok()),
+            200 => match serde_json::from_str(&reply.body) {
+                Ok(me) => Ok(Some(me)),
+                Err(_) if reply.body.trim_start().starts_with('<') => Ok(None),
+                Err(error) => Err(ApiError::Failed(format!(
+                    "the server sent an account answer Tivan could not read: {error}"
+                ))),
+            },
             401 | 404 => Ok(None),
             _ => Err(error_of(&reply)),
         }
@@ -330,6 +337,16 @@ mod tests {
         assert_eq!(me_with(401, r#"{"error":"unauthorized"}"#), Ok(None));
         assert_eq!(me_with(404, ""), Ok(None));
         assert_eq!(me_with(200, "<!DOCTYPE html><html></html>"), Ok(None));
+    }
+
+    #[test]
+    fn a_200_that_is_neither_a_teacher_nor_a_page_is_a_failure() {
+        for body in ["", "{}", r#"{"email":"a@b.c"}"#, "null", "not json"] {
+            assert!(
+                matches!(me_with(200, body), Err(ApiError::Failed(_))),
+                "body {body:?}"
+            );
+        }
     }
 
     #[test]

@@ -150,7 +150,7 @@ pub fn sync_summary(report: &SyncReport) -> String {
     let removed = (report.students_removed() > 0)
         .then(|| plural(report.students_removed(), "student", "students"));
     match (added.is_empty(), removed) {
-        (true, None) => "Already up to date.".to_owned(),
+        (true, None) => "No changes made.".to_owned(),
         (false, None) => format!("Added {}.", added.join(", ")),
         (true, Some(removed)) => format!("Removed {removed}."),
         (false, Some(removed)) => format!("Added {}, removed {removed}.", added.join(", ")),
@@ -223,9 +223,9 @@ mod tests {
     }
 
     #[test]
-    fn a_sync_that_changes_nothing_says_it_is_up_to_date() {
+    fn a_sync_that_changes_nothing_says_so_without_claiming_classroom_is_imported() {
         let same = report_of(&[("A", &["x"])], &[("A", &["x"])]);
-        assert_eq!(sync_summary(&same), "Already up to date.");
+        assert_eq!(sync_summary(&same), "No changes made.");
     }
 
     #[test]

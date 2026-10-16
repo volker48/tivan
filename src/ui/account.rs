@@ -62,7 +62,11 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
                         let outbox = outbox.clone();
                         spawn(async move {
                             save_remotely_now(state, outbox.clone()).await;
-                            if outbox.borrow().has_unsent() {
+                            // A refused flush or a session that ended during it already told the
+                            // teacher what happened, and reloading now could drop the edit.
+                            let still_signed_in =
+                                matches!(state.session(), Session::SignedIn { .. });
+                            if outbox.borrow().has_unsent() || !still_signed_in {
                                 signing_out.set(false);
                                 return;
                             }
@@ -97,7 +101,9 @@ fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>, outbox: Sha
             Err(ApiError::Reauthorize) => {
                 // Leaving the page cancels a save still waiting or on the wire.
                 save_remotely_now(state, outbox.clone()).await;
-                if outbox.borrow().has_unsent() {
+                if !matches!(state.session(), Session::SignedIn { .. }) {
+                    sync.set(SyncState::Closed);
+                } else if outbox.borrow().has_unsent() {
                     sync.set(SyncState::Failed(
                         "Your latest changes are not saved yet, so Tivan did not leave for Google. \
                          Try again in a moment."
