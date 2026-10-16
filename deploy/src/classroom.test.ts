@@ -280,6 +280,27 @@ describe("when Google rejects the teacher", () => {
     expect(await response.json()).toEqual({ error: "classroom_unavailable" });
   });
 
+  it("answers 502 when a roster is not a list, but accepts a course with no roster field", async () => {
+    const wrongType = await signedIn(
+      failing(
+        (path) => path === "/v1/courses/course-1/students",
+        async () => Response.json({ students: "none" }),
+      ),
+    );
+    expect((await courses(wrongType)).status).toBe(502);
+
+    const omitted = await signedIn(
+      failing(
+        (path) => path === "/v1/courses/course-1/students",
+        async () => Response.json({}),
+      ),
+    );
+    const response = await courses(omitted);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { courses: { id: string; students: unknown[] }[] };
+    expect(body.courses.find((course) => course.id === "course-1")?.students).toEqual([]);
+  });
+
   it("answers 502 when a course entry has no id", async () => {
     const app = await signedIn(
       failing(

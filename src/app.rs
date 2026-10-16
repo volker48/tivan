@@ -144,7 +144,7 @@ impl AppState {
         self.session.set(Session::SignedOut);
         self.remote.set(RemoteDoc::Unread);
         self.save_succeeded();
-        self.set_notice(Notice::SessionEnded);
+        self.set_notice(Notice::after_session_ended(self.local_can_save));
     }
 
     fn save_target(&self) -> SaveTarget {

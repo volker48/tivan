@@ -98,8 +98,14 @@ async function listAll<T>(
       return { kind: "unavailable" };
     }
 
+    // Google leaves the field out when there is nothing to list, but a field of another type is
+    // a broken answer, and reading it as empty would make the next sync remove students.
     const raw = body[itemsKey];
-    for (const item of Array.isArray(raw) ? raw : []) {
+    if (raw !== undefined && !Array.isArray(raw)) {
+      logEvent("classroom_request_failed", { reason: "unreadable_list" });
+      return { kind: "unavailable" };
+    }
+    for (const item of raw ?? []) {
       const parsed = parseItem(item);
       if (parsed === null) {
         // A partial roster would read as students who left, and the next sync would remove them.

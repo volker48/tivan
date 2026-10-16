@@ -70,6 +70,19 @@ impl Notice {
         )
     }
 
+    /// What to say when the account session ends. Edits go to this browser's storage from then
+    /// on, unless that cannot be written either, and then they are lost on close and the
+    /// warning must say so and stay.
+    pub fn after_session_ended(local_can_save: bool) -> Notice {
+        if local_can_save {
+            Notice::SessionEnded
+        } else {
+            Notice::SaveFailed(
+                "your session ended and this browser cannot save classes either".to_owned(),
+            )
+        }
+    }
+
     /// A notice the teacher can dismiss never replaces one they cannot, so hiding a routine
     /// message cannot also hide that changes are not being saved.
     pub fn may_replace(&self, current: &Notice) -> bool {
@@ -215,6 +228,14 @@ mod tests {
     fn a_sync_that_changes_nothing_says_so_without_claiming_classroom_is_imported() {
         let same = report_of(&[("A", &["x"])], &[("A", &["x"])]);
         assert_eq!(sync_summary(&same), "No changes made.");
+    }
+
+    #[test]
+    fn an_ended_session_promises_browser_saving_only_when_the_browser_can_save() {
+        assert_eq!(Notice::after_session_ended(true), Notice::SessionEnded);
+        let lost = Notice::after_session_ended(false);
+        assert!(!lost.is_dismissible());
+        assert!(lost.message().contains("could not be saved"));
     }
 
     #[test]
