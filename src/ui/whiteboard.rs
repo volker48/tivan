@@ -1,16 +1,20 @@
 use dioxus::prelude::*;
+use gloo_timers::future::TimeoutFuture;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
-use crate::domain::{Draw, Grouping, Millis, Pick, Preset, Timer, format_mm_ss};
+use crate::domain::{Draw, Grouping, Millis, Pick, Preset, Reel, Timer, format_mm_ss};
+use crate::platform;
 use crate::ui::avatar::AvatarIcon;
 use crate::ui::{GroupCard, RotateControls, center_slots, group_cards, hue};
 
 /// The oracle's latest answer. `seq` keys the overlay so each pick replays the entrance
-/// animation, which a reused DOM node would otherwise play once and never again.
+/// animation, which a reused DOM node would otherwise play once and never again. `reel` is the
+/// spin that runs before the answer is shown.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Reveal {
     seq: u32,
     pick: Pick,
+    reel: Reel,
 }
 
 /// Under this the countdown turns red.
@@ -58,12 +62,16 @@ pub fn WhiteboardMode() -> Element {
 }
 
 fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>, kind: Draw) {
-    if let Some(pick) = state
-        .edit_class(|class, rng| class.draw(kind, rng))
+    if let Some((pick, reel)) = state
+        .edit_class(|class, rng| {
+            let pick = class.draw(kind, rng)?;
+            let reel = Reel::new(class.candidates(kind), &pick, rng);
+            Some((pick, reel))
+        })
         .flatten()
     {
         let seq = reveal.peek().as_ref().map_or(0, |current| current.seq + 1);
-        reveal.set(Some(Reveal { seq, pick }));
+        reveal.set(Some(Reveal { seq, pick, reel }));
     }
 }
 
@@ -139,12 +147,82 @@ fn reveal_class(pick: &Pick) -> String {
 fn OracleReveal(reveal: Signal<Option<Reveal>>) -> Element {
     // `key` only takes effect on the root of a block, so the overlay is the root of this `if`.
     rsx! {
-        if let Some(Reveal { seq, pick }) = reveal() {
+        if let Some(Reveal { seq, pick, reel }) = reveal() {
             div {
                 key: "{seq}",
                 class: "overlay",
                 onclick: move |_| reveal.set(None),
-                RevealCard { reveal, pick }
+                RevealStage { reveal, pick, reel }
+            }
+        }
+    }
+}
+
+/// Where the overlay is: flashing through the candidates, or showing the answer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Stage {
+    Spinning { frame: usize },
+    Landed,
+}
+
+impl Stage {
+    /// Skips the spin when there is nothing to spin through or the teacher asked for less motion.
+    fn first(reel: &Reel, reduced_motion: bool) -> Stage {
+        if reel.is_empty() || reduced_motion {
+            Stage::Landed
+        } else {
+            Stage::Spinning { frame: 0 }
+        }
+    }
+}
+
+/// The spin and then the card. Each pick mounts a fresh stage under the keyed overlay, so the
+/// spin restarts per pick, and dismissing the overlay drops the spin's timer with it.
+#[component]
+fn RevealStage(reveal: Signal<Option<Reveal>>, pick: Pick, reel: Reel) -> Element {
+    let mut stage = use_signal(|| Stage::first(&reel, platform::prefers_reduced_motion()));
+    let spin = reel.clone();
+    use_future(move || {
+        let spin = spin.clone();
+        async move {
+            if *stage.peek() == Stage::Landed {
+                return;
+            }
+            for (frame, flash) in spin.frames().iter().enumerate() {
+                stage.set(Stage::Spinning { frame });
+                TimeoutFuture::new(flash.hold.0 as u32).await;
+            }
+            stage.set(Stage::Landed);
+        }
+    });
+    match stage() {
+        Stage::Spinning { frame } => rsx! {
+            SpinFace { pick: reel.frames()[frame].pick.clone(), frame }
+        },
+        Stage::Landed => rsx! { RevealCard { reveal, pick } },
+    }
+}
+
+/// One flash of the spin. It does not stop clicks, so tapping anywhere mid-spin dismisses the
+/// overlay.
+#[component]
+fn SpinFace(pick: Pick, frame: usize) -> Element {
+    // `key` only takes effect on the root of a block, so each name is the root of its `match` arm.
+    // A new key remounts the name, which restarts its flash animation.
+    rsx! {
+        div {
+            class: "{reveal_class(&pick)} reveal-spinning",
+            aria_hidden: "true",
+            match &pick {
+                Pick::Student(student) => rsx! {
+                    strong { key: "{frame}", class: "reveal-name",
+                        AvatarIcon { avatar: student.avatar }
+                        "{student.name}"
+                    }
+                },
+                Pick::Group { name, .. } => rsx! {
+                    strong { key: "{frame}", class: "reveal-name", "{name}" }
+                },
             }
         }
     }
@@ -407,7 +485,17 @@ fn WallCard(card: GroupCard) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::MAX_GROUPS;
+    use crate::domain::testing::roster;
+    use crate::domain::{MAX_GROUPS, SplitMix64};
+
+    #[test]
+    fn the_spin_runs_only_for_a_reel_with_frames_and_motion_allowed() {
+        let pool: Vec<Pick> = roster(5).into_iter().map(Pick::Student).collect();
+        let spin = Reel::new(pool.clone(), &pool[2], &mut SplitMix64::seeded(1));
+        assert_eq!(Stage::first(&spin, false), Stage::Spinning { frame: 0 });
+        assert_eq!(Stage::first(&spin, true), Stage::Landed);
+        assert_eq!(Stage::first(&Reel::default(), false), Stage::Landed);
+    }
 
     #[test]
     fn the_count_line_names_the_unit_and_says_what_a_spent_round_does_next() {
