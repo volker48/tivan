@@ -11,9 +11,8 @@ import {
   parseSessionToken,
   randomBytes,
 } from "./crypto.ts";
+import { TEST_KEY } from "./testing/app.ts";
 import type { EncryptionKey } from "./types.ts";
-
-const TEST_KEY = btoa(String.fromCharCode(...randomBytes(32)));
 
 function key(text = TEST_KEY): EncryptionKey {
   const parsed = parseEncryptionKey(text);
