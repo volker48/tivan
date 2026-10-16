@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Installs everything needed to build Tivan and verify it in a headless browser on a fresh
 # Linux machine (e.g. a cloud environment setup script). The Rust version, components and wasm
-# target come from rust-toolchain.toml.
+# target come from rust-toolchain.toml. Needs Node.js with npm on the machine already, for
+# agent-browser.
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Keep in sync with the dioxus crate in Cargo.toml. Bumping it means replacing the sha256s below
@@ -64,8 +65,18 @@ fi
 if [[ $(uname -s) == Linux ]]; then
 	# --with-deps always runs apt-get through sudo, which root-only containers often lack.
 	if [[ $EUID -eq 0 ]] && ! command -v sudo >/dev/null; then
-		apt-get update
-		apt-get install --yes sudo
+		# The same order agent-browser tries its package managers in.
+		if command -v apt-get >/dev/null; then
+			apt-get update
+			apt-get install --yes sudo
+		elif command -v dnf >/dev/null; then
+			dnf install --assumeyes sudo
+		elif command -v yum >/dev/null; then
+			yum install --assumeyes sudo
+		else
+			echo "bootstrap.sh: sudo is missing and none of apt-get, dnf or yum is available" >&2
+			exit 1
+		fi
 	fi
 	agent-browser install --with-deps
 else
