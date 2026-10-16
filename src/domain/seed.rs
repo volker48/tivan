@@ -3,14 +3,13 @@ use super::doc::Doc;
 use super::label::Label;
 use super::rng::SplitMix64;
 
-/// First-run content: invented G-rated first names, no groupings yet.
+/// First-run classes and rosters, no groupings yet.
 const CLASSES: &[(&str, &[&str])] = &[
     (
-        "Room 12 Morning",
+        "McCurdy HR",
         &[
-            "Ava", "Ben", "Chloe", "Diego", "Ella", "Felix", "Grace", "Hugo", "Isla", "Jamal",
-            "Kira", "Leo", "Maya", "Noah", "Olivia", "Priya", "Quinn", "Ruby", "Sam", "Theo",
-            "Uma", "Violet", "Wyatt", "Zara",
+            "Abigail", "Aria", "Aspen", "Cooper", "Fiona", "Frank", "Haidyn", "Jack", "Jaelynn",
+            "Lincoln", "Matteo", "Mia", "Nolan", "Oliver", "Stella", "Strummer", "Vaun", "Zander",
         ],
     ),
     (

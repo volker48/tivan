@@ -19,7 +19,7 @@ On the whiteboard a teacher starts a 1, 2, 3, 5 or 10 minute countdown that show
 
 Preconditions:
 
-- Baseline seed, `Room 12 Morning` selected, on the whiteboard (`find role button click --name "Whiteboard" --exact`).
+- Baseline seed, `McCurdy HR` selected, on the whiteboard (`find role button click --name "Whiteboard" --exact`).
 - Every command below is prefixed with `source target/verify/<run>/run.env &&`.
 
 - **Start.** Run `agent-browser --session "$SESSION" find role button click --name "Start a 1 minute timer"`. The `Timer` group now holds `Pause` and `Cancel`. `agent-browser --session "$SESSION" get text ".timer-strip"` prints `1:00` or `0:59`, and a second read a few seconds later prints a smaller value.

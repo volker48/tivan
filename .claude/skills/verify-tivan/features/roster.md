@@ -18,14 +18,14 @@ A teacher adds students to the current class one at a time or by pasting a colum
 
 Preconditions:
 
-- Baseline seed, `Room 12 Morning` selected (24 students, panel expanded).
+- Baseline seed, `McCurdy HR` selected (18 students, panel expanded).
 - Every command below is prefixed with `source target/verify/<run>/run.env &&`.
 
-- **Add one.** Run `agent-browser --session "$SESSION" find role textbox fill "Rin" --name "Add a student"` and `agent-browser --session "$SESSION" press Enter`. The roster ends with `Rin`, the toggle reads `Students 25`, the header meta reads `25 students`, and the textbox is empty again.
-- **Remove one.** Run `agent-browser --session "$SESSION" find role button click --name "Remove Rin"`. Rin is gone and the counts return to 24.
-- **Paste a list.** Run `agent-browser --session "$SESSION" find role button click --name "Paste a list"`, then `agent-browser --session "$SESSION" find placeholder "One name per line" fill $'Rin\nSol\n'"$(printf 'x%.0s' {1..41})"`. The hint reads `2 names ready, 1 line too long and will be skipped`. Run `agent-browser --session "$SESSION" find role button click --name "Add these names"`. `Rin` and `Sol` are added (26 students), and a `status` notice reads `2 names added, 1 line too long. Names can be up to 40 characters.` with `Dismiss`.
+- **Add one.** Run `agent-browser --session "$SESSION" find role textbox fill "Rin" --name "Add a student"` and `agent-browser --session "$SESSION" press Enter`. The roster ends with `Rin`, the toggle reads `Students 19`, the header meta reads `19 students`, and the textbox is empty again.
+- **Remove one.** Run `agent-browser --session "$SESSION" find role button click --name "Remove Rin"`. Rin is gone and the counts return to 18.
+- **Paste a list.** Run `agent-browser --session "$SESSION" find role button click --name "Paste a list"`, then `agent-browser --session "$SESSION" find placeholder "One name per line. A column copied from a spreadsheet works." fill $'Rin\nSol\n'"$(printf 'x%.0s' {1..41})"`. The hint reads `2 names ready, 1 line too long and will be skipped`. Run `agent-browser --session "$SESSION" find role button click --name "Add these names"`. `Rin` and `Sol` are added (20 students), and a `status` notice reads `2 names added, 1 line too long. Names can be up to 40 characters.` with `Dismiss`.
 - **Dismiss the notice.** Run `agent-browser --session "$SESSION" find role button click --name "Dismiss"`. The notice is gone.
-- **Proof.** Reload and run `tivan-capture <run> roster-final`. `jq '[.doc.classes[0].students[].name] | length' "$EVIDENCE/roster-final.state.json"` gives `26` and the list ends `"Rin","Sol"`.
+- **Proof.** Reload and run `tivan-capture <run> roster-final`. `jq '[.doc.classes[0].students[].name] | length' "$EVIDENCE/roster-final.state.json"` gives `20` and the list ends `"Rin","Sol"`.
 
 ## Gotchas
 

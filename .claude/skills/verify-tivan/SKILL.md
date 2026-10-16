@@ -99,7 +99,7 @@ agent-browser --session "$SESSION" reload
 agent-browser --session "$SESSION" eval "JSON.parse(localStorage.getItem('tivan.state'))" | jq '.doc.classes[0].grouping'
 ```
 
-`find role button … --name` matches substrings. `"Ava"` also matches `"Remove Ava"`, and `"Ask the oracle"` matches `"Ask the oracle 24 left"`. Add `--exact` when a shorter name is a prefix or substring of another visible button.
+`find role button … --name` matches substrings. `"Abigail"` also matches `"Remove Abigail"`, and `"Ask the oracle"` matches `"Ask the oracle 18 left"`. Add `--exact` when a shorter name is a prefix or substring of another visible button.
 
 The handles by screen:
 
