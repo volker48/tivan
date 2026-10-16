@@ -84,21 +84,42 @@ pub fn group_sizes(n: usize, m: GroupCount) -> Vec<usize> {
     (0..m).map(|i| base + usize::from(i < extra)).collect()
 }
 
+/// Shuffles `students` and cuts them into `count` groups by [`group_sizes`].
+fn deal(
+    students: &[Student],
+    count: GroupCount,
+    rng: &mut impl Rng,
+) -> BTreeMap<StudentId, GroupIdx> {
+    let mut ids: Vec<StudentId> = students.iter().map(|s| s.id).collect();
+    shuffle(&mut ids, rng);
+
+    let mut shuffled = ids.into_iter();
+    let mut of = BTreeMap::new();
+    for (group, size) in group_sizes(students.len(), count).into_iter().enumerate() {
+        for id in shuffled.by_ref().take(size) {
+            of.insert(id, GroupIdx(group));
+        }
+    }
+    of
+}
+
 impl Grouping {
     /// Shuffles `students`, cuts them by [`group_sizes`], and draws fresh unique names.
     pub fn split(students: &[Student], count: GroupCount, rng: &mut impl Rng) -> Grouping {
-        let mut ids: Vec<StudentId> = students.iter().map(|s| s.id).collect();
-        shuffle(&mut ids, rng);
+        let of = deal(students, count, rng);
         let names = draw_names(count.get(), rng);
-
-        let mut shuffled = ids.into_iter();
-        let mut of = BTreeMap::new();
-        for (group, size) in group_sizes(students.len(), count).into_iter().enumerate() {
-            for id in shuffled.by_ref().take(size) {
-                of.insert(id, GroupIdx(group));
-            }
-        }
         Grouping { names, of }
+    }
+
+    /// Re-deals `students` evenly across the existing groups and keeps every name, hand-made
+    /// ones included. When the roster has shrunk below the group count, the first groups survive
+    /// with their names and the rest are dropped. Does nothing for an empty roster.
+    pub fn reshuffle(&mut self, students: &[Student], rng: &mut impl Rng) {
+        let Ok(count) = GroupCount::nearest(self.names.len(), students.len()) else {
+            return;
+        };
+        self.names.truncate(count.get());
+        self.of = deal(students, count, rng);
     }
 
     pub fn len(&self) -> usize {
@@ -322,6 +343,55 @@ mod tests {
             })
             .collect();
         assert_eq!(landed, HashSet::from([0, 1, 2]));
+    }
+
+    #[test]
+    fn reshuffle_keeps_names_covers_the_roster_and_rebalances() {
+        let students = roster(11);
+        for seed in 0..40 {
+            let mut rng = SplitMix64::seeded(seed);
+            let mut grouping = Grouping::split(&students, count(4, 11), &mut rng);
+            grouping.rename(GroupIdx(2), label("Table Four")).unwrap();
+            grouping.move_member(students[0].id, GroupIdx(3)).unwrap();
+            grouping.move_member(students[1].id, GroupIdx(3)).unwrap();
+            let names = grouping.names().to_vec();
+
+            grouping.reshuffle(&students, &mut rng);
+
+            assert_eq!(grouping.names(), names);
+            grouping.assert_invariants(&students);
+            assert_eq!(sizes(&grouping), group_sizes(11, count(4, 11)));
+        }
+    }
+
+    #[test]
+    fn reshuffle_is_deterministic_for_a_seed_and_moves_students() {
+        let students = roster(12);
+        let start = Grouping::split(&students, count(3, 12), &mut SplitMix64::seeded(1));
+        let reshuffled = |seed| {
+            let mut grouping = start.clone();
+            grouping.reshuffle(&students, &mut SplitMix64::seeded(seed));
+            grouping
+        };
+        assert_eq!(reshuffled(7), reshuffled(7));
+        assert!(
+            (0..20).any(|seed| reshuffled(seed).of != start.of),
+            "some seed should deal differently"
+        );
+    }
+
+    #[test]
+    fn reshuffle_keeps_the_first_groups_when_the_roster_is_smaller_than_the_group_count() {
+        let students = roster(6);
+        let mut grouping = Grouping::split(&students, count(6, 6), &mut SplitMix64::seeded(1));
+        let names = grouping.names().to_vec();
+        let remaining = &students[..2];
+
+        grouping.reshuffle(remaining, &mut SplitMix64::seeded(2));
+
+        assert_eq!(grouping.names(), &names[..2]);
+        grouping.assert_invariants(remaining);
+        assert_eq!(sizes(&grouping), [1, 1]);
     }
 
     fn two_groups() -> (Vec<Student>, Grouping) {

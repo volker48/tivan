@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 
 use dioxus::logger::tracing::warn;
 use js_sys::{Date, Math};
-use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
 use web_sys::{KeyboardEvent, Storage, Window};
 
 use crate::domain::{Millis, Rng};
@@ -96,4 +96,12 @@ pub fn on_escape(mut handler: impl FnMut() + 'static) -> Result<KeyGuard, String
         .add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
         .map_err(|cause| format!("could not listen for key presses: {}", describe(&cause)))?;
     Ok(KeyGuard { window, closure })
+}
+
+#[wasm_bindgen(module = "/src/animate_shuffle.js")]
+extern "C" {
+    /// Makes the chips that change group when the DOM is next patched fly to their new places.
+    /// Call it immediately before the state change that re-deals them.
+    #[wasm_bindgen(js_name = animateShuffle)]
+    pub fn animate_shuffle();
 }
