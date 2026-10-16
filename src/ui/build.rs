@@ -32,6 +32,14 @@ pub fn BuildMode() -> Element {
                 onclick: move |_| state.set_mode(Mode::Whiteboard),
                 "Whiteboard"
             }
+            button {
+                class: "icon-btn",
+                r#type: "button",
+                aria_label: "Settings",
+                title: "Settings",
+                onclick: move |_| state.set_mode(Mode::Settings),
+                GearIcon {}
+            }
         }
         NoticeBanner {}
         main { class: "build",
@@ -765,6 +773,27 @@ fn DiceIcon() -> Element {
                     fill: "currentColor",
                     stroke: "none",
                 }
+            }
+        }
+    }
+}
+
+#[component]
+fn GearIcon() -> Element {
+    rsx! {
+        svg {
+            width: "24",
+            height: "24",
+            view_box: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            stroke_width: "2",
+            "aria-hidden": "true",
+            circle { cx: "12", cy: "12", r: "6.5" }
+            circle { cx: "12", cy: "12", r: "2.4" }
+            path {
+                stroke_width: "3.6",
+                d: "M12 2.6v3.6M12 17.8v3.6M2.6 12h3.6M17.8 12h3.6M5.35 5.35l2.55 2.55M16.1 16.1l2.55 2.55M18.65 5.35l-2.55 2.55M7.9 16.1l-2.55 2.55",
             }
         }
     }

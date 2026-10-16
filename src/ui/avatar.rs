@@ -1,11 +1,15 @@
 use dioxus::prelude::*;
 
-use crate::domain::Avatar;
+use crate::app::use_app;
+use crate::domain::{Avatar, Skin};
 
 /// Static markup with no user data, so it is safe to inject. It must be in the page once and must
 /// not sit in a `display: none` container, which would break its clip paths; its own zero size
 /// and absolute position already hide it.
-const SPRITE: &str = include_str!("../../assets/avatars.svg");
+const SPRITE: &str = concat!(
+    include_str!("../../assets/avatars.svg"),
+    include_str!("../../assets/skins.svg")
+);
 
 /// The shared definitions every [`AvatarIcon`] points at.
 #[component]
@@ -15,9 +19,19 @@ pub fn AvatarSprite() -> Element {
     }
 }
 
-/// Decorative: the student's name beside it is what assistive technology reads.
+/// An avatar wearing whatever skin the teacher has switched on today. Decorative: the student's
+/// name beside it is what assistive technology reads.
 #[component]
 pub fn AvatarIcon(avatar: Avatar) -> Element {
+    let skin = use_app().active_skin();
+    rsx! {
+        SkinnedAvatar { avatar, skin }
+    }
+}
+
+/// An avatar with a given skin drawn over it, for a place that is not showing the active one.
+#[component]
+pub fn SkinnedAvatar(avatar: Avatar, skin: Option<Skin>) -> Element {
     rsx! {
         svg {
             class: "avatar",
@@ -25,6 +39,9 @@ pub fn AvatarIcon(avatar: Avatar) -> Element {
             "aria-hidden": "true",
             "focusable": "false",
             r#use { href: "#avatar-{avatar.name()}" }
+            if let Some(skin) = skin {
+                r#use { href: "#skin-{skin.name()}" }
+            }
         }
     }
 }
@@ -43,6 +60,19 @@ mod tests {
             SPRITE.matches("<symbol id=\"avatar-").count(),
             Avatar::ALL.len(),
             "art without an Avatar"
+        );
+    }
+
+    #[test]
+    fn the_sprite_has_one_symbol_for_every_skin() {
+        for skin in Skin::ALL {
+            let symbol = format!("<symbol id=\"skin-{}\"", skin.name());
+            assert!(SPRITE.contains(&symbol), "no art for {skin:?}");
+        }
+        assert_eq!(
+            SPRITE.matches("<symbol id=\"skin-").count(),
+            Skin::ALL.len(),
+            "art without a Skin"
         );
     }
 }

@@ -7,7 +7,7 @@ use js_sys::{Date, Math};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
 use web_sys::{KeyboardEvent, Storage, Window};
 
-use crate::domain::{Millis, Rng};
+use crate::domain::{CalendarDay, Millis, Rng};
 use crate::store::{self, StorageError};
 
 /// Not cryptographic, which classroom groups do not need. Chosen over `rand` to avoid the
@@ -23,6 +23,15 @@ impl Rng for JsRng {
 
 pub fn now() -> Millis {
     Millis(Date::now() as u64)
+}
+
+/// The date on the teacher's wall clock, which is what a season means to them.
+pub fn today() -> CalendarDay {
+    let now = Date::new_0();
+    CalendarDay {
+        month: now.get_month() as u8 + 1,
+        day: now.get_date() as u8,
+    }
 }
 
 /// `window.localStorage`. Each call opens it afresh, because access itself can throw (blocked
