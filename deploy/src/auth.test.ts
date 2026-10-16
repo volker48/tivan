@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FAKE_REFRESH_TOKEN, FAKE_TEACHER } from "../dev/fake-google-core.ts";
 import { SESSION_COOKIE, SESSION_TTL_MS, STATE_COOKIE } from "./auth.ts";
-import { decryptToken, parseEncryptionKey } from "./crypto.ts";
+import { decryptToken, encodeBase64Url, parseEncryptionKey } from "./crypto.ts";
 import { parseIdToken } from "./google.ts";
 import { ENVELOPE, TEST_CLIENT_ID, TEST_KEY, TEST_ORIGIN, createTestApp } from "./testing/app.ts";
 
@@ -319,11 +319,7 @@ describe("parseIdToken", () => {
   };
 
   function token(claims: Record<string, unknown>): string {
-    const payload = btoa(JSON.stringify(claims))
-      .replaceAll("+", "-")
-      .replaceAll("/", "_")
-      .replaceAll("=", "");
-    return `e30.${payload}.sig`;
+    return `e30.${encodeBase64Url(new TextEncoder().encode(JSON.stringify(claims)))}.sig`;
   }
 
   it("reads the teacher from a current token for this client", () => {

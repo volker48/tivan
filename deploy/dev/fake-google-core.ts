@@ -7,6 +7,7 @@
  * `courseStates=ACTIVE`, single-use codes, matching redirect URI), so a Worker that sends the
  * wrong request fails here instead of in production.
  */
+import { encodeBase64Url } from "../src/crypto.ts";
 
 export interface FakeStudent {
   readonly id: string;
@@ -78,7 +79,7 @@ export interface FakeGoogle {
 }
 
 function base64UrlJson(value: unknown): string {
-  return btoa(JSON.stringify(value)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  return encodeBase64Url(new TextEncoder().encode(JSON.stringify(value)));
 }
 
 function idToken(audience: string, nowMs: number): string {
