@@ -1,6 +1,7 @@
 use super::class::Class;
 use super::doc::Doc;
 use super::label::Label;
+use super::rng::SplitMix64;
 
 /// First-run content: invented G-rated first names, no groupings yet.
 const CLASSES: &[(&str, &[&str])] = &[
@@ -30,6 +31,9 @@ const CLASSES: &[(&str, &[&str])] = &[
     ),
 ];
 
+/// Fixed so every first run shows the same faces and tests can compare against `seed_doc()`.
+const AVATAR_SEED: u64 = 0x5EED;
+
 fn label(raw: &str) -> Label {
     Label::parse(raw).expect("seed names are valid labels")
 }
@@ -37,9 +41,11 @@ fn label(raw: &str) -> Label {
 /// Built through [`Doc::create_class`] so the seed obeys the same invariants as teacher-made
 /// classes. Selects the first class.
 pub fn seed_doc() -> Doc {
+    let mut rng = SplitMix64::seeded(AVATAR_SEED);
     let mut doc = Doc::default();
     for (name, students) in CLASSES {
-        doc.create_class(label(name), students.iter().map(|s| label(s)).collect());
+        let students = students.iter().map(|s| label(s)).collect();
+        doc.create_class(label(name), students, &mut rng);
     }
     if let Some(first) = doc.classes().first().map(Class::id) {
         doc.select(first);
@@ -70,6 +76,11 @@ mod tests {
             let names: HashSet<_> = class.students().iter().map(|s| &s.name).collect();
             assert_eq!(names.len(), class.students().len(), "{}", class.name());
         }
+    }
+
+    #[test]
+    fn the_seed_is_the_same_on_every_call() {
+        assert_eq!(seed_doc(), seed_doc());
     }
 
     #[test]

@@ -4,7 +4,7 @@
 
 use std::fmt;
 
-use crate::domain::{Doc, seed_doc};
+use crate::domain::{Doc, Rng, seed_doc};
 use crate::notice::Notice;
 use crate::persist::{BACKUP_KEY, DecodeError, KEY, LoadPlan, encode, plan_load};
 
@@ -44,8 +44,9 @@ pub struct Loaded {
 
 /// Reads storage once, at startup. An unreadable blob is copied to [`BACKUP_KEY`] before the
 /// first save can replace it, and saving stays off when that copy fails. A blob from a newer build is never replaced, and its copy is not
-/// made because the original stays where it is.
-pub fn load(storage: &impl Storage) -> Loaded {
+/// made because the original stays where it is. `rng` picks avatars for a blob stored before
+/// students had them.
+pub fn load(storage: &impl Storage, rng: &mut impl Rng) -> Loaded {
     let stored = match storage.get(KEY) {
         Ok(stored) => stored,
         Err(error) => {
@@ -56,7 +57,7 @@ pub fn load(storage: &impl Storage) -> Loaded {
             };
         }
     };
-    match plan_load(stored.as_deref()) {
+    match plan_load(stored.as_deref(), rng) {
         LoadPlan::FirstRun => Loaded {
             doc: seed_doc(),
             notice: None,
@@ -100,6 +101,7 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
+    use crate::domain::SplitMix64;
     use crate::persist::SCHEMA_VERSION;
 
     #[derive(Default)]
@@ -145,13 +147,17 @@ mod tests {
         }
     }
 
+    fn rng() -> SplitMix64 {
+        SplitMix64::seeded(1)
+    }
+
     fn newer_blob() -> String {
         format!(r#"{{"version":{},"doc":{{}}}}"#, SCHEMA_VERSION + 1)
     }
 
     #[test]
     fn empty_storage_starts_from_the_seed_without_a_notice() {
-        let loaded = load(&MemoryStorage::default());
+        let loaded = load(&MemoryStorage::default(), &mut rng());
         assert_eq!(loaded.doc, seed_doc());
         assert_eq!(loaded.notice, None);
         assert!(loaded.can_save);
@@ -164,16 +170,30 @@ mod tests {
         doc.delete_class(doc.classes()[0].id());
         save(&storage, &doc).unwrap();
 
-        let loaded = load(&storage);
+        let loaded = load(&storage, &mut rng());
         assert_eq!(loaded.doc, doc);
         assert_eq!(loaded.notice, None);
         assert!(loaded.can_save);
     }
 
     #[test]
+    fn a_version_1_blob_is_upgraded_and_its_avatars_stay_once_saved() {
+        let storage = MemoryStorage::with(KEY, include_str!("../tests/fixtures/v1.json"));
+        let first = load(&storage, &mut SplitMix64::seeded(1));
+        assert_eq!(first.notice, None);
+        assert!(first.can_save);
+        save(&storage, &first.doc).unwrap();
+
+        let second = load(&storage, &mut SplitMix64::seeded(2));
+
+        assert_eq!(second.doc, first.doc);
+        assert_eq!(second.notice, None);
+    }
+
+    #[test]
     fn an_unreadable_blob_is_copied_aside_before_the_seed_replaces_it() {
         let storage = MemoryStorage::with(KEY, "{not json");
-        let loaded = load(&storage);
+        let loaded = load(&storage, &mut rng());
 
         assert_eq!(loaded.doc, seed_doc());
         assert_eq!(loaded.notice, Some(Notice::StartedFresh));
@@ -188,7 +208,7 @@ mod tests {
             fail_writes_to: Some(BACKUP_KEY),
             ..MemoryStorage::with(KEY, "{not json")
         };
-        let loaded = load(&storage);
+        let loaded = load(&storage, &mut rng());
 
         assert_eq!(
             loaded.notice,
@@ -205,7 +225,7 @@ mod tests {
             .entries
             .borrow_mut()
             .insert(BACKUP_KEY.to_owned(), "older backup".to_owned());
-        let loaded = load(&storage);
+        let loaded = load(&storage, &mut rng());
 
         assert_eq!(loaded.notice, Some(Notice::OutOfDate));
         assert!(!loaded.can_save);
@@ -220,7 +240,7 @@ mod tests {
             fail_reads: true,
             ..MemoryStorage::default()
         };
-        let loaded = load(&storage);
+        let loaded = load(&storage, &mut rng());
 
         assert_eq!(
             loaded.notice,

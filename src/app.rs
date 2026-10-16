@@ -15,6 +15,7 @@ use crate::domain::{Class, Doc, Millis, Timer};
 use crate::notice::Notice;
 use crate::platform::{self, JsRng, LocalStorage};
 use crate::store;
+use crate::ui::avatar::AvatarSprite;
 use crate::ui::build::BuildMode;
 use crate::ui::whiteboard::WhiteboardMode;
 
@@ -152,7 +153,7 @@ pub fn use_escape(handler: impl FnMut() + 'static) {
 
 #[component]
 pub fn App() -> Element {
-    let initial = use_hook(|| Rc::new(store::load(&LocalStorage)));
+    let initial = use_hook(|| Rc::new(store::load(&LocalStorage, &mut JsRng)));
     let doc = use_signal(|| initial.doc.clone());
     let mut notice = use_signal(|| initial.notice.clone());
     let state = use_context_provider(|| AppState {
@@ -188,6 +189,7 @@ pub fn App() -> Element {
 
     rsx! {
         document::Stylesheet { href: MAIN_CSS }
+        AvatarSprite {}
         div { class: "app",
             match state.mode() {
                 Mode::Build => rsx! { BuildMode {} },

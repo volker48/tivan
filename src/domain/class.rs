@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::avatar::{self, Avatar};
 use super::grouping::{GroupCount, GroupIdx, Grouping, MoveError};
 use super::label::{Label, LabelError};
 use super::oracle::Oracle;
@@ -29,13 +30,15 @@ impl ClassId {
 pub struct Student {
     pub id: StudentId,
     pub name: Label,
+    pub avatar: Avatar,
 }
 
-/// The oracle's answer, resolved to a name so the UI never looks it up after the fact.
+/// The oracle's answer, resolved to a name and avatar so the UI never looks it up after the fact.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pick {
     pub id: StudentId,
     pub name: Label,
+    pub avatar: Avatar,
 }
 
 /// One group with its members resolved, in roster order.
@@ -59,7 +62,7 @@ pub struct Class {
 }
 
 impl Class {
-    pub(super) fn new(id: ClassId, name: Label, students: Vec<Label>) -> Class {
+    pub(super) fn new(id: ClassId, name: Label, students: Vec<Label>, rng: &mut impl Rng) -> Class {
         let mut class = Class {
             id,
             name,
@@ -69,7 +72,7 @@ impl Class {
             oracle: Oracle::default(),
         };
         for student in students {
-            class.enroll(student);
+            class.enroll(student, rng);
         }
         class
     }
@@ -102,9 +105,10 @@ impl Class {
         self.id = id;
     }
 
-    /// A student added after grouping joins the smallest group.
-    pub fn add_student(&mut self, name: Label) -> StudentId {
-        let id = self.enroll(name);
+    /// A student added after grouping joins the smallest group. Their avatar is chosen here, once,
+    /// and never changes afterwards.
+    pub fn add_student(&mut self, name: Label, rng: &mut impl Rng) -> StudentId {
+        let id = self.enroll(name, rng);
         self.reconcile();
         id
     }
@@ -177,6 +181,7 @@ impl Class {
         Some(Pick {
             id,
             name: student.name.clone(),
+            avatar: student.avatar,
         })
     }
 
@@ -185,10 +190,12 @@ impl Class {
         self.oracle.remaining(&self.students)
     }
 
-    fn enroll(&mut self, name: Label) -> StudentId {
+    /// The avatar is per student, not per name, so two children called Emma get different faces.
+    fn enroll(&mut self, name: Label, rng: &mut impl Rng) -> StudentId {
         let id = StudentId(self.next_student);
         self.next_student += 1;
-        self.students.push(Student { id, name });
+        let avatar = avatar::pick(self.students.iter().map(|s| s.avatar), rng);
+        self.students.push(Student { id, name, avatar });
         id
     }
 
@@ -263,7 +270,7 @@ pub fn parse_roster(text: &str) -> ParsedRoster {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
     use std::num::NonZeroUsize;
 
     use super::*;
@@ -273,7 +280,7 @@ mod tests {
     use crate::domain::testing::{label, labels, numbered};
 
     fn class_of(n: u32) -> Class {
-        Class::new(ClassId(0), label("Room 1"), numbered(n))
+        Class::new(ClassId(0), label("Room 1"), numbered(n), &mut rng(0))
     }
 
     fn count(m: usize, class: &Class) -> GroupCount {
@@ -310,7 +317,12 @@ mod tests {
 
     #[test]
     fn a_new_class_numbers_students_in_order_with_no_grouping() {
-        let class = Class::new(ClassId(7), label("Art"), labels(&["Ava", "Ben", "Ava"]));
+        let class = Class::new(
+            ClassId(7),
+            label("Art"),
+            labels(&["Ava", "Ben", "Ava"]),
+            &mut rng(1),
+        );
         let ids: Vec<u32> = class.students().iter().map(|s| s.id.get()).collect();
         assert_eq!(ids, [0, 1, 2]);
         let names: Vec<&str> = class.students().iter().map(|s| s.name.as_str()).collect();
@@ -326,7 +338,7 @@ mod tests {
         let mut class = class_of(3);
         let last = class.students()[2].id;
         class.remove_student(last);
-        let newcomer = class.add_student(label("New"));
+        let newcomer = class.add_student(label("New"), &mut rng(1));
         assert_ne!(newcomer, last);
         assert!(class.student(last).is_none());
         assert_eq!(class.student(newcomer).unwrap().name.as_str(), "New");
@@ -338,9 +350,93 @@ mod tests {
         let mut class = class_of(3);
         class.next_student = 0;
         class.reconcile();
-        let newcomer = class.add_student(label("New"));
+        let newcomer = class.add_student(label("New"), &mut rng(1));
         assert!(class.students()[..3].iter().all(|s| s.id != newcomer));
         class.assert_invariants();
+    }
+
+    fn avatars(class: &Class) -> HashMap<StudentId, Avatar> {
+        class.students().iter().map(|s| (s.id, s.avatar)).collect()
+    }
+
+    #[test]
+    fn a_small_class_gives_every_student_a_different_avatar() {
+        let class = class_of(Avatar::ALL.len() as u32);
+        let distinct: HashSet<Avatar> = avatars(&class).into_values().collect();
+        assert_eq!(distinct.len(), Avatar::ALL.len());
+    }
+
+    #[test]
+    fn two_students_with_the_same_name_get_different_avatars() {
+        for seed in 0..20 {
+            let class = Class::new(
+                ClassId(0),
+                label("Art"),
+                labels(&["Emma", "Emma"]),
+                &mut rng(seed),
+            );
+            let [first, second] = class.students() else {
+                panic!("two students were enrolled");
+            };
+            assert_ne!(first.avatar, second.avatar, "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn a_student_added_later_gets_an_avatar_nobody_in_the_class_has() {
+        for seed in 0..20 {
+            let mut class = class_of(5);
+            let before = avatars(&class);
+
+            let id = class.add_student(label("Late"), &mut rng(seed));
+
+            let added = class.student(id).unwrap().avatar;
+            assert!(
+                !before.values().any(|&avatar| avatar == added),
+                "seed {seed}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_freed_avatar_is_handed_out_again_before_any_repeats() {
+        let mut class = class_of(Avatar::ALL.len() as u32 - 1);
+        let gone = class.students()[4].id;
+        let freed = class.student(gone).unwrap().avatar;
+        class.remove_student(gone);
+
+        let id = class.add_student(label("Late"), &mut rng(4));
+        let taken = class.add_student(label("Later"), &mut rng(5));
+
+        assert_eq!(class.student(id).unwrap().avatar, freed);
+        assert_ne!(class.student(taken).unwrap().avatar, freed);
+    }
+
+    #[test]
+    fn avatars_stay_with_their_students_through_every_roster_and_group_edit() {
+        let mut class = class_of(10);
+        let mut before = avatars(&class);
+        let mut rng = rng(6);
+
+        class.regroup(count(3, &class), &mut rng);
+        class.reshuffle(&mut rng);
+        let mover = class.students()[0].id;
+        let home = class.grouping().unwrap().group_of(mover).unwrap();
+        class
+            .move_student(mover, GroupIdx((home.get() + 1) % 3))
+            .unwrap();
+        class.draw(&mut rng).unwrap();
+        class.add_student(label("Late"), &mut rng);
+        let gone = class.students()[5].id;
+        class.remove_student(gone);
+        before.remove(&gone);
+        class.reconcile();
+
+        let after = avatars(&class);
+        assert_eq!(after.len(), 10);
+        for (id, avatar) in before {
+            assert_eq!(after[&id], avatar, "student {} changed avatar", id.get());
+        }
     }
 
     #[test]
@@ -441,7 +537,7 @@ mod tests {
         class.regroup(count(2, &class), &mut rng(1));
         assert_eq!(group_sizes(&class), [3, 2]);
 
-        let id = class.add_student(label("Late"));
+        let id = class.add_student(label("Late"), &mut rng(2));
 
         assert_eq!(class.grouping().unwrap().group_of(id), Some(GroupIdx(1)));
         assert_eq!(group_sizes(&class), [3, 3]);
@@ -590,7 +686,8 @@ mod tests {
         let mut chosen = HashSet::new();
         for left in (0..5).rev() {
             let pick = class.draw(&mut rng).unwrap();
-            assert_eq!(class.student(pick.id).unwrap().name, pick.name);
+            let student = class.student(pick.id).unwrap();
+            assert_eq!((&student.name, student.avatar), (&pick.name, pick.avatar));
             assert!(chosen.insert(pick.id));
             assert_eq!(class.oracle_remaining(), left);
         }
@@ -619,7 +716,7 @@ mod tests {
                 let ids: Vec<StudentId> = class.students().iter().map(|s| s.id).collect();
                 match roll(&mut rng, 7) {
                     0 => {
-                        class.add_student(label("Newcomer"));
+                        class.add_student(label("Newcomer"), &mut rng);
                     }
                     1 if !ids.is_empty() => {
                         class.remove_student(ids[roll(&mut rng, ids.len())]);

@@ -8,6 +8,7 @@ use crate::domain::{
     Class, GroupIdx, Label, LabelError, MAX_LABEL_CHARS, MoveError, Student, StudentId,
 };
 
+pub mod avatar;
 pub mod build;
 pub mod whiteboard;
 

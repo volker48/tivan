@@ -1,18 +1,20 @@
-//! Persistence format and load policy: one versioned JSON envelope, `{"version":1,"doc":{..}}`,
+//! Persistence format and load policy: one versioned JSON envelope, `{"version":2,"doc":{..}}`,
 //! stored under [`KEY`]. This is the pure half. It owns the format and the corrupt or newer-blob
 //! policy and runs natively under `cargo test`. The domain types are the stored shape, so a schema
-//! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm that reads the old shape from a frozen
-//! copy of the old structs. `tests/fixtures/v1.json` is that guard: it must never be edited.
+//! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm for the old shape. Version 1 differs
+//! only by lacking each student's avatar, so its arm upgrades the JSON value in place and reads it
+//! as the current shape instead of keeping a frozen copy of the old structs. The fixtures under
+//! `tests/fixtures/` are the guard: they must never be edited.
 
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::domain::Doc;
+use crate::domain::{Doc, Rng, avatar};
 
 pub const KEY: &str = "tivan.state";
 /// Where an unreadable blob is copied before the app starts over.
 pub const BACKUP_KEY: &str = "tivan.state.backup";
-pub const SCHEMA_VERSION: u64 = 1;
+pub const SCHEMA_VERSION: u64 = 2;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -37,10 +39,10 @@ pub fn encode(doc: &Doc) -> String {
     serde_json::to_string(&envelope).expect("a Doc always serializes")
 }
 
-/// Parses a stored blob. A version 1 document is repaired with [`Doc::reconcile`] rather than
-/// rejected, so dangling references from a hand edit or an older bug do not cost a teacher their
-/// classes.
-pub fn decode(raw: &str) -> Result<Doc, DecodeError> {
+/// Parses a stored blob. A document is repaired with [`Doc::reconcile`] rather than rejected, so
+/// dangling references from a hand edit or an older bug do not cost a teacher their classes.
+/// A version 1 document gets an avatar for each student, chosen with `rng`.
+pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
     let mut envelope: Value =
         serde_json::from_str(raw).map_err(|e| DecodeError::Malformed(e.to_string()))?;
     let version = envelope
@@ -48,13 +50,15 @@ pub fn decode(raw: &str) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        SCHEMA_VERSION => {
+        1 | SCHEMA_VERSION => {
             let doc = envelope
                 .get_mut("doc")
-                .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?
-                .take();
-            let mut doc: Doc =
-                serde_json::from_value(doc).map_err(|e| DecodeError::Malformed(e.to_string()))?;
+                .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
+            if version == 1 {
+                add_avatars(doc, rng);
+            }
+            let mut doc: Doc = serde_json::from_value(doc.take())
+                .map_err(|e| DecodeError::Malformed(e.to_string()))?;
             doc.reconcile();
             Ok(doc)
         }
@@ -62,6 +66,26 @@ pub fn decode(raw: &str) -> Result<Doc, DecodeError> {
         other => Err(DecodeError::Malformed(format!(
             "unsupported version {other}"
         ))),
+    }
+}
+
+/// Gives every student of a version 1 document an avatar, distinct within their class until the
+/// class outgrows the set. Anything not shaped like version 1 is left alone for deserializing to
+/// reject.
+fn add_avatars(doc: &mut Value, rng: &mut impl Rng) {
+    let Some(classes) = doc.get_mut("classes").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for class in classes {
+        let Some(students) = class.get_mut("students").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        let mut taken = Vec::new();
+        for student in students.iter_mut().filter_map(Value::as_object_mut) {
+            let avatar = avatar::pick(taken.iter().copied(), rng);
+            taken.push(avatar);
+            student.insert("avatar".to_owned(), avatar.name().into());
+        }
     }
 }
 
@@ -79,11 +103,11 @@ pub enum LoadPlan {
     },
 }
 
-pub fn plan_load(stored: Option<&str>) -> LoadPlan {
+pub fn plan_load(stored: Option<&str>, rng: &mut impl Rng) -> LoadPlan {
     let Some(raw) = stored else {
         return LoadPlan::FirstRun;
     };
-    match decode(raw) {
+    match decode(raw, rng) {
         Ok(doc) => LoadPlan::Use(doc),
         Err(reason) => LoadPlan::StartFresh {
             stash: raw.to_owned(),
@@ -94,13 +118,22 @@ pub fn plan_load(stored: Option<&str>) -> LoadPlan {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use serde_json::json;
+
     use super::*;
-    use crate::domain::{GroupCount, Label, SplitMix64, seed_doc};
+    use crate::domain::{Avatar, GroupCount, Label, SplitMix64, seed_doc};
 
-    const FIXTURE: &str = include_str!("../tests/fixtures/v1.json");
+    const V1: &str = include_str!("../tests/fixtures/v1.json");
+    const V2: &str = include_str!("../tests/fixtures/v2.json");
 
-    fn fixture_value() -> Value {
-        serde_json::from_str(FIXTURE).unwrap()
+    fn rng() -> SplitMix64 {
+        SplitMix64::seeded(1)
+    }
+
+    fn parse(raw: &str) -> Value {
+        serde_json::from_str(raw).unwrap()
     }
 
     fn label(raw: &str) -> Label {
@@ -112,14 +145,14 @@ mod tests {
     fn worked_doc() -> Doc {
         let mut doc = seed_doc();
         let mut rng = SplitMix64::seeded(11);
-        let doomed = doc.create_class(label("Doomed"), vec![label("Zed")]);
+        let doomed = doc.create_class(label("Doomed"), vec![label("Zed")], &mut rng);
         doc.delete_class(doomed);
         doc.select(doc.classes()[1].id());
 
         let class = doc.selected_mut().unwrap();
         let first = class.students()[0].id;
         class.remove_student(first);
-        class.add_student(label("Newcomer"));
+        class.add_student(label("Newcomer"), &mut rng);
         let groups = GroupCount::new(4, class.students().len()).unwrap();
         class.regroup(groups, &mut rng);
         let idx = class.group_views()[2].idx;
@@ -129,36 +162,8 @@ mod tests {
         doc
     }
 
-    #[test]
-    fn the_seed_survives_an_encode_decode_round_trip() {
-        let doc = seed_doc();
-        assert_eq!(decode(&encode(&doc)).unwrap(), doc);
-    }
-
-    #[test]
-    fn groupings_oracle_rounds_and_counters_survive_a_round_trip() {
-        let doc = worked_doc();
-        let class = doc.selected().unwrap();
-        assert!(class.grouping().is_some());
-        assert!(class.oracle_remaining() < class.students().len());
-
-        let decoded = decode(&encode(&doc)).unwrap();
-
-        assert_eq!(decoded, doc);
-        decoded.assert_invariants();
-    }
-
-    #[test]
-    fn encode_wraps_the_doc_in_a_versioned_envelope() {
-        let value: Value = serde_json::from_str(&encode(&seed_doc())).unwrap();
-        assert_eq!(value["version"], 1);
-        assert_eq!(value["doc"]["classes"].as_array().unwrap().len(), 3);
-    }
-
-    #[test]
-    fn the_frozen_v1_fixture_still_decodes_to_the_same_classes() {
-        let doc = decode(FIXTURE).unwrap();
-
+    /// What both fixtures say apart from avatars, which version 1 never stored.
+    fn assert_fixture_classes(doc: &Doc) {
         assert_eq!(doc.classes().len(), 2);
         assert_eq!(doc.selected().unwrap().name().as_str(), "Second Class");
 
@@ -183,25 +188,108 @@ mod tests {
         assert!(doc.classes()[1].grouping().is_none());
     }
 
+    fn avatars_by_class(doc: &Doc) -> Vec<Vec<Avatar>> {
+        doc.classes()
+            .iter()
+            .map(|class| class.students().iter().map(|s| s.avatar).collect())
+            .collect()
+    }
+
     #[test]
-    fn the_frozen_v1_fixture_re_encodes_to_itself() {
-        let doc = decode(FIXTURE).unwrap();
-        let again: Value = serde_json::from_str(&encode(&doc)).unwrap();
+    fn the_seed_survives_an_encode_decode_round_trip() {
+        let doc = seed_doc();
+        assert_eq!(decode(&encode(&doc), &mut rng()).unwrap(), doc);
+    }
+
+    #[test]
+    fn groupings_oracle_rounds_and_counters_survive_a_round_trip() {
+        let doc = worked_doc();
+        let class = doc.selected().unwrap();
+        assert!(class.grouping().is_some());
+        assert!(class.oracle_remaining() < class.students().len());
+
+        let decoded = decode(&encode(&doc), &mut rng()).unwrap();
+
+        assert_eq!(decoded, doc);
+        decoded.assert_invariants();
+    }
+
+    #[test]
+    fn encode_wraps_the_doc_in_a_versioned_envelope() {
+        let doc = seed_doc();
+        let value = parse(&encode(&doc));
+        assert_eq!(value["version"], 2);
+        assert_eq!(value["doc"]["classes"].as_array().unwrap().len(), 3);
+        let first = &doc.classes()[0].students()[0];
         assert_eq!(
-            again,
-            fixture_value(),
+            value["doc"]["classes"][0]["students"][0]["avatar"],
+            first.avatar.name()
+        );
+    }
+
+    #[test]
+    fn the_frozen_v1_fixture_is_upgraded_to_the_same_classes() {
+        assert_fixture_classes(&decode(V1, &mut rng()).unwrap());
+    }
+
+    #[test]
+    fn upgrading_v1_gives_each_student_an_avatar_distinct_within_their_class() {
+        let mut value = parse(V1);
+        value["doc"]["classes"][1]["students"] = (0..18)
+            .map(|id| json!({"id": id, "name": format!("Student {id}")}))
+            .collect();
+
+        for seed in 0..10 {
+            let doc = decode(&value.to_string(), &mut SplitMix64::seeded(seed)).unwrap();
+            for class in doc.classes() {
+                let distinct: HashSet<Avatar> = class.students().iter().map(|s| s.avatar).collect();
+                assert_eq!(
+                    distinct.len(),
+                    class.students().len(),
+                    "seed {seed}, {}",
+                    class.name()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_frozen_v2_fixture_decodes_to_its_stored_avatars_whatever_the_rng() {
+        for seed in [1, 2] {
+            let doc = decode(V2, &mut SplitMix64::seeded(seed)).unwrap();
+
+            assert_fixture_classes(&doc);
+            assert_eq!(
+                avatars_by_class(&doc),
+                [
+                    vec![Avatar::Bear, Avatar::Panda, Avatar::Cat, Avatar::Fox],
+                    vec![Avatar::Bunny],
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn the_frozen_v2_fixture_re_encodes_to_itself() {
+        let doc = decode(V2, &mut rng()).unwrap();
+        assert_eq!(
+            parse(&encode(&doc)),
+            parse(V2),
             "stored shape drifted: bump SCHEMA_VERSION"
         );
     }
 
     #[test]
     fn counters_from_the_fixture_keep_ids_that_were_handed_out_before_unique() {
-        let mut doc = decode(FIXTURE).unwrap();
+        let mut doc = decode(V2, &mut rng()).unwrap();
         let first_class = doc.classes()[0].id();
         doc.select(first_class);
 
-        let student = doc.selected_mut().unwrap().add_student(label("New"));
-        let class = doc.create_class(label("Third"), vec![]);
+        let student = doc
+            .selected_mut()
+            .unwrap()
+            .add_student(label("New"), &mut rng());
+        let class = doc.create_class(label("Third"), vec![], &mut rng());
 
         assert_eq!(student.get(), 7, "students 5 and 6 were removed earlier");
         assert_eq!(class.get(), 5, "classes 3 and 4 were deleted earlier");
@@ -209,19 +297,22 @@ mod tests {
 
     #[test]
     fn no_stored_blob_means_first_run() {
-        assert_eq!(plan_load(None), LoadPlan::FirstRun);
+        assert_eq!(plan_load(None, &mut rng()), LoadPlan::FirstRun);
     }
 
     #[test]
     fn a_valid_blob_is_used_as_is() {
         let doc = worked_doc();
-        assert_eq!(plan_load(Some(&encode(&doc))), LoadPlan::Use(doc));
+        assert_eq!(
+            plan_load(Some(&encode(&doc)), &mut rng()),
+            LoadPlan::Use(doc)
+        );
     }
 
     #[test]
     fn unreadable_blobs_are_stashed_byte_for_byte_and_never_dropped() {
         let doc_with = |tweak: fn(&mut Value)| {
-            let mut value = fixture_value();
+            let mut value = parse(V1);
             tweak(&mut value);
             value.to_string()
         };
@@ -238,7 +329,9 @@ mod tests {
             "{\"version\":0,\"doc\":{}}".to_owned(),
             doc_with(|v| v["doc"]["classes"][0]["name"] = "   ".into()),
             doc_with(|v| v["doc"]["classes"][0]["students"][0]["id"] = "zero".into()),
-            doc_with(|v| v["doc"]["classes"][0]["grouping"]["of"] = serde_json::json!({"x": 0})),
+            doc_with(|v| v["doc"]["classes"][0]["students"] = "nobody".into()),
+            doc_with(|v| v["doc"]["classes"][0]["students"][0] = "Ava".into()),
+            doc_with(|v| v["doc"]["classes"][0]["grouping"]["of"] = json!({"x": 0})),
             doc_with(|v| {
                 v["doc"]
                     .as_object_mut()
@@ -249,7 +342,7 @@ mod tests {
             }),
         ];
         for raw in blobs {
-            match plan_load(Some(&raw)) {
+            match plan_load(Some(&raw), &mut rng()) {
                 LoadPlan::StartFresh {
                     stash,
                     reason: DecodeError::Malformed(_),
@@ -260,32 +353,57 @@ mod tests {
     }
 
     #[test]
+    fn a_v2_student_without_a_known_avatar_is_unreadable() {
+        let doc_with = |tweak: fn(&mut Value)| {
+            let mut value = parse(V2);
+            tweak(&mut value);
+            value.to_string()
+        };
+        let blobs = [
+            doc_with(|v| {
+                v["doc"]["classes"][0]["students"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("avatar");
+            }),
+            doc_with(|v| v["doc"]["classes"][0]["students"][0]["avatar"] = "dodo".into()),
+            doc_with(|v| v["doc"]["classes"][0]["students"][0]["avatar"] = 3.into()),
+        ];
+        for raw in blobs {
+            assert!(
+                matches!(decode(&raw, &mut rng()), Err(DecodeError::Malformed(_))),
+                "{raw}"
+            );
+        }
+    }
+
+    #[test]
     fn a_newer_version_is_stashed_untouched_instead_of_repaired() {
-        let raw = r#"{"version":2,"somethingNew":{"classes":"different"}}"#;
+        let raw = r#"{"version":3,"somethingNew":{"classes":"different"}}"#;
         assert_eq!(
-            plan_load(Some(raw)),
+            plan_load(Some(raw), &mut rng()),
             LoadPlan::StartFresh {
                 stash: raw.to_owned(),
-                reason: DecodeError::NewerVersion(2),
+                reason: DecodeError::NewerVersion(3),
             }
         );
         assert_eq!(
-            decode(r#"{"version":99}"#),
+            decode(r#"{"version":99}"#, &mut rng()),
             Err(DecodeError::NewerVersion(99))
         );
     }
 
     #[test]
     fn dangling_references_are_repaired_not_rejected() {
-        let mut value = fixture_value();
+        let mut value = parse(V1);
         let class = &mut value["doc"]["classes"][0];
-        class["grouping"]["of"] = serde_json::json!({"0": 0, "1": 1, "4": 7, "77": 0});
-        class["oracle"]["drawn"] = serde_json::json!([99, 1]);
+        class["grouping"]["of"] = json!({"0": 0, "1": 1, "4": 7, "77": 0});
+        class["oracle"]["drawn"] = json!([99, 1]);
         class["next_student"] = 0.into();
         value["doc"]["selected"] = 42.into();
         value["doc"]["next_class"] = 0.into();
 
-        let LoadPlan::Use(mut doc) = plan_load(Some(&value.to_string())) else {
+        let LoadPlan::Use(mut doc) = plan_load(Some(&value.to_string()), &mut rng()) else {
             panic!("a repairable blob must load");
         };
 
@@ -301,15 +419,21 @@ mod tests {
         );
         assert_eq!(class.oracle_remaining(), 3, "only student 1 had gone");
 
-        let fresh_student = doc.selected_mut().unwrap().add_student(label("New"));
+        let fresh_student = doc
+            .selected_mut()
+            .unwrap()
+            .add_student(label("New"), &mut rng());
         assert_eq!(fresh_student.get(), 5);
-        assert_eq!(doc.create_class(label("Later"), vec![]).get(), 3);
+        assert_eq!(
+            doc.create_class(label("Later"), vec![], &mut rng()).get(),
+            3
+        );
     }
 
     #[test]
     fn an_empty_doc_round_trips_with_nothing_selected() {
         let doc = Doc::default();
-        let decoded = decode(&encode(&doc)).unwrap();
+        let decoded = decode(&encode(&doc), &mut rng()).unwrap();
         assert_eq!(decoded, doc);
         assert!(decoded.selected().is_none());
     }

@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
 use crate::domain::{Millis, Pick, Preset, Timer, format_mm_ss};
+use crate::ui::avatar::AvatarIcon;
 use crate::ui::{group_cards, hue};
 
 /// The oracle's latest answer. `seq` keys the overlay so each pick replays the entrance
@@ -101,7 +102,10 @@ fn OracleReveal(reveal: Signal<Option<Reveal>>) -> Element {
                     onclick: move |event| event.stop_propagation(),
                     p { class: "reveal-line",
                         "The oracle has chosen "
-                        strong { class: "reveal-name", "{pick.name}!" }
+                        strong { class: "reveal-name",
+                            AvatarIcon { avatar: pick.avatar }
+                            "{pick.name}!"
+                        }
                     }
                     p { class: "reveal-left",
                         "{left} left"
@@ -292,7 +296,10 @@ fn GroupWall() -> Element {
                     h2 { class: "wall-name", "{card.name}" }
                     ul { class: "wall-members",
                         for student in card.members {
-                            li { key: "{student.id.get()}", "{student.name}" }
+                            li { key: "{student.id.get()}",
+                                AvatarIcon { avatar: student.avatar }
+                                "{student.name}"
+                            }
                         }
                     }
                 }

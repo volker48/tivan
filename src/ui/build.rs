@@ -7,6 +7,7 @@ use crate::domain::{
 };
 use crate::notice::{Notice, count};
 use crate::platform;
+use crate::ui::avatar::AvatarIcon;
 use crate::ui::{
     GroupCard, NameInput, NoticeBanner, Selection, focus_on_mount, group_cards, hue,
     label_error_text, log_failed, selection,
@@ -154,7 +155,7 @@ fn NewClassForm(can_cancel: bool, on_done: EventHandler<()>) -> Element {
                     }
                 };
                 let (names, notice) = read_roster(&paste.read());
-                state.edit(|doc, _| doc.create_class(label, names));
+                state.edit(|doc, rng| doc.create_class(label, names, rng));
                 if let Some(notice) = notice {
                     state.set_notice(notice);
                 }
@@ -338,7 +339,7 @@ fn Roster() -> Element {
                         let parsed = Label::parse(&draft.read());
                         match parsed {
                             Ok(name) => {
-                                state.edit_class(|class, _| class.add_student(name));
+                                state.edit_class(|class, rng| class.add_student(name, rng));
                                 draft.set(String::new());
                                 error.set(None);
                             }
@@ -360,8 +361,9 @@ fn Roster() -> Element {
                     p { class: "field-error", role: "alert", "{message}" }
                 }
                 ul { class: "roster-list",
-                    for Student { id , name } in students {
+                    for Student { id , name , avatar } in students {
                         li { key: "{id.get()}", class: "roster-item",
+                            AvatarIcon { avatar }
                             span { "{name}" }
                             button {
                                 class: "icon-btn",
@@ -386,9 +388,9 @@ fn Roster() -> Element {
                                 onclick: move |_| {
                                     let (names, notice) = read_roster(&paste.read());
                                     state
-                                        .edit_class(|class, _| {
+                                        .edit_class(|class, rng| {
                                             for name in names {
-                                                class.add_student(name);
+                                                class.add_student(name, rng);
                                             }
                                         });
                                     if let Some(notice) = notice {
@@ -524,6 +526,7 @@ fn GroupBoard() -> Element {
                 div { class: "moving-bar", role: "status",
                     span {
                         "Moving "
+                        AvatarIcon { avatar: selected.student.avatar }
                         strong { "{selected.student.name}" }
                         ". Tap a group to place them."
                     }
@@ -615,7 +618,7 @@ fn GroupCardView(
                 }
             }
             ul { class: "chips",
-                for (id , name) in card.members.iter().map(|student| (student.id, &student.name)) {
+                for (id , name , avatar) in card.members.iter().map(|student| (student.id, &student.name, student.avatar)) {
                     li { key: "{id.get()}",
                         button {
                             class: "chip",
@@ -626,6 +629,7 @@ fn GroupCardView(
                                 event.stop_propagation();
                                 moving.set(if selected_id == Some(id) { None } else { Some(id) });
                             },
+                            AvatarIcon { avatar }
                             "{name}"
                         }
                     }
