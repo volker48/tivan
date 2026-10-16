@@ -120,7 +120,7 @@ describe("GET /auth/callback", () => {
       (state) => ({ state: `${state.slice(0, -1)}${state.endsWith("A") ? "B" : "A"}` }),
       false,
     ],
-  ])("rejects %s, before talking to Google", async (_label, forge, leavesNoTrace) => {
+  ])("rejects %s, before talking to Google", async (_label, forge, fullCheck) => {
     const app = createTestApp();
     const { state, cookie } = forge(await app.startLogin());
 
@@ -131,7 +131,7 @@ describe("GET /auth/callback", () => {
 
     expect(response.headers.get("location")).toBe("/?auth_error=state");
     expect(app.google.requests).toEqual([]);
-    if (leavesNoTrace) {
+    if (fullCheck) {
       expect(response.status).toBe(302);
       expect(
         setCookies(response).some((candidate) => candidate.startsWith(`${SESSION_COOKIE}=`)),
