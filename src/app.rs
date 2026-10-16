@@ -54,6 +54,8 @@ pub struct AppState {
     now: Signal<Millis>,
     session: Signal<Session>,
     remote: Signal<RemoteDoc>,
+    /// Whether this browser's storage may be written, as the startup load found it.
+    local_can_save: bool,
 }
 
 impl AppState {
@@ -116,8 +118,11 @@ impl AppState {
     /// The server no longer knows this session. The page keeps its doc and saves it in this
     /// browser from now on, and says so.
     pub fn session_ended(&mut self) {
-        // About the account's doc, which this page no longer uses.
-        if matches!(*self.notice.peek(), Some(Notice::AccountDocUnreadable(_))) {
+        // About the account's doc, which this page no longer uses. It stays when nothing is
+        // saved in this browser either, because then it is the only warning that edits are lost.
+        if self.local_can_save
+            && matches!(*self.notice.peek(), Some(Notice::AccountDocUnreadable(_)))
+        {
             self.notice.set(None);
         }
         self.session.set(Session::SignedOut);
@@ -276,6 +281,7 @@ pub fn App() -> Element {
         now: Signal::new(platform::now()),
         session: Signal::new(Session::Checking),
         remote: Signal::new(RemoteDoc::Unread),
+        local_can_save: initial.can_save,
     });
     use_hook(|| {
         if let Some(code) = platform::take_auth_error() {

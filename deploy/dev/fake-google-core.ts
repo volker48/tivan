@@ -79,6 +79,23 @@ export interface FakeGoogle {
   readonly requests: string[];
 }
 
+/** The shape `POST /__courses` accepts, or `null` for anything else. */
+export function parseFakeCourses(value: unknown): FakeCourse[] | null {
+  const isText = (item: unknown): item is string => typeof item === "string" && item !== "";
+  if (!Array.isArray(value)) return null;
+  for (const course of value as unknown[]) {
+    if (typeof course !== "object" || course === null) return null;
+    const { id, name, students } = course as Record<string, unknown>;
+    if (!isText(id) || typeof name !== "string" || !Array.isArray(students)) return null;
+    for (const student of students as unknown[]) {
+      if (typeof student !== "object" || student === null) return null;
+      const fields = student as Record<string, unknown>;
+      if (!isText(fields["id"]) || typeof fields["name"] !== "string") return null;
+    }
+  }
+  return value as FakeCourse[];
+}
+
 function base64UrlJson(value: unknown): string {
   return btoa(JSON.stringify(value)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }

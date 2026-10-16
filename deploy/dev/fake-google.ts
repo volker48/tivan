@@ -15,7 +15,7 @@
  * Worker sees from then on.
  */
 import { createServer } from "node:http";
-import { createFakeGoogle } from "./fake-google-core.ts";
+import { createFakeGoogle, parseFakeCourses } from "./fake-google-core.ts";
 
 const port = Number(process.env["PORT"] ?? 8788);
 const google = createFakeGoogle();
@@ -38,12 +38,21 @@ const server = createServer(async (incoming, outgoing) => {
     chunks.push(chunk as Buffer);
   }
   if (incoming.method === "POST" && url.pathname === "/__courses") {
+    let parsed: unknown = null;
     try {
-      google.setCourses(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-      outgoing.writeHead(204).end();
+      parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     } catch {
-      outgoing.writeHead(400).end("expected a JSON array of courses\n");
+      // Not JSON, so it fails the shape check below.
     }
+    const courses = parseFakeCourses(parsed);
+    if (courses === null) {
+      outgoing
+        .writeHead(400)
+        .end("expected a JSON array of { id, name, students: [{ id, name }] }\n");
+      return;
+    }
+    google.setCourses(courses);
+    outgoing.writeHead(204).end();
     return;
   }
   const hasBody = incoming.method !== "GET" && incoming.method !== "HEAD";
