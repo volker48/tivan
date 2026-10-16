@@ -38,6 +38,8 @@ export interface TestApp {
   request(path: string, init?: RequestInit & { origin?: string }): Promise<Response>;
   /** Cookies the browser would currently hold. */
   readonly cookies: Map<string, string>;
+  /** Starts a sign-in and returns the `state` Google would echo back. The state cookie is kept. */
+  startLogin(): Promise<string>;
   /** Runs the whole sign-in as the fake teacher and returns the callback response. */
   signIn(origin?: string): Promise<Response>;
   /** Wraps the network from now on, to inject failures into later calls. */
@@ -99,6 +101,15 @@ export function createTestApp(options: TestAppOptions = {}): TestApp {
     return response;
   }
 
+  async function startLogin(): Promise<string> {
+    const login = await request("/auth/login");
+    const state = new URL(login.headers.get("location") ?? "").searchParams.get("state");
+    if (state === null) {
+      throw new Error("the login redirect carried no state");
+    }
+    return state;
+  }
+
   async function signIn(origin = TEST_ORIGIN): Promise<Response> {
     const login = await request("/auth/login", { origin });
     const authorized = await google.fetch(new Request(login.headers.get("location") ?? ""));
@@ -110,5 +121,5 @@ export function createTestApp(options: TestAppOptions = {}): TestApp {
     network = wrap(network);
   }
 
-  return { google, clock, db, deps, request, cookies, signIn, interceptNetwork };
+  return { google, clock, db, deps, request, cookies, startLogin, signIn, interceptNetwork };
 }

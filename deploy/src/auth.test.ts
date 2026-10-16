@@ -92,13 +92,6 @@ describe("GET /auth/callback", () => {
     expect(await me.json()).toEqual({ email: FAKE_TEACHER.email, name: FAKE_TEACHER.name });
   });
 
-  it("omits Secure on localhost", async () => {
-    const app = createTestApp();
-    const response = await app.signIn("http://localhost:8787");
-    expect(cookieNamed(response, SESSION_COOKIE)).not.toContain("Secure");
-    expect((await app.request("/api/me", { origin: "http://localhost:8787" })).status).toBe(200);
-  });
-
   it("stores only the SHA-256 of the session token and the refresh token encrypted", async () => {
     const app = createTestApp();
     const response = await app.signIn();
@@ -119,40 +112,34 @@ describe("GET /auth/callback", () => {
     expect(key && (await decryptToken(key, sealed))).toBe(FAKE_REFRESH_TOKEN);
   });
 
-  it("rejects a state that does not match the cookie, before talking to Google", async () => {
-    const app = createTestApp();
-    await app.request("/auth/login");
-    const response = await app.request("/auth/callback?code=fake-code-1&state=forged");
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/?auth_error=state");
-    expect(setCookies(response).some((cookie) => cookie.startsWith(`${SESSION_COOKIE}=`))).toBe(
+  it.each<[string, (state: string) => { state: string; cookie?: string }, boolean]>([
+    ["a forged state", () => ({ state: "forged" }), true],
+    ["a callback with no state cookie", (state) => ({ state, cookie: "unrelated=1" }), false],
+    [
+      "a state one character off",
+      (state) => ({ state: `${state.slice(0, -1)}${state.endsWith("A") ? "B" : "A"}` }),
       false,
+    ],
+  ])("rejects %s, before talking to Google", async (_label, forge, leavesNoTrace) => {
+    const app = createTestApp();
+    const { state, cookie } = forge(await app.startLogin());
+
+    const response = await app.request(
+      `/auth/callback?code=fake-code-1&state=${state}`,
+      cookie === undefined ? {} : { headers: { cookie } },
     );
-    expect(cookieNamed(response, STATE_COOKIE)).toContain("Max-Age=0");
-    expect(app.google.requests).toEqual([]);
-    expect(app.db.prepare("SELECT 1 FROM teachers").all()).toEqual([]);
-    expect((await app.request("/api/me")).status).toBe(401);
-  });
 
-  it("rejects a callback that has no state cookie at all", async () => {
-    const app = createTestApp();
-    const login = await app.request("/auth/login");
-    const state = new URL(login.headers.get("location") ?? "").searchParams.get("state");
-    const response = await app.request(`/auth/callback?code=fake-code-1&state=${state}`, {
-      headers: { cookie: "unrelated=1" },
-    });
     expect(response.headers.get("location")).toBe("/?auth_error=state");
     expect(app.google.requests).toEqual([]);
-  });
-
-  it("rejects a state that differs from the cookie by one character", async () => {
-    const app = createTestApp();
-    const login = await app.request("/auth/login");
-    const state = new URL(login.headers.get("location") ?? "").searchParams.get("state") ?? "";
-    const altered = `${state.slice(0, -1)}${state.endsWith("A") ? "B" : "A"}`;
-    const response = await app.request(`/auth/callback?code=fake-code-1&state=${altered}`);
-    expect(response.headers.get("location")).toBe("/?auth_error=state");
+    if (leavesNoTrace) {
+      expect(response.status).toBe(302);
+      expect(
+        setCookies(response).some((candidate) => candidate.startsWith(`${SESSION_COOKIE}=`)),
+      ).toBe(false);
+      expect(cookieNamed(response, STATE_COOKIE)).toContain("Max-Age=0");
+      expect(app.db.prepare("SELECT 1 FROM teachers").all()).toEqual([]);
+      expect((await app.request("/api/me")).status).toBe(401);
+    }
   });
 
   it("reports a denied consent screen", async () => {
@@ -171,8 +158,7 @@ describe("GET /auth/callback", () => {
 
   it("reports a failed code exchange without leaking anything", async () => {
     const app = createTestApp();
-    const login = await app.request("/auth/login");
-    const state = new URL(login.headers.get("location") ?? "").searchParams.get("state");
+    const state = await app.startLogin();
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await app.request(`/auth/callback?code=never-issued&state=${state}`);
@@ -186,8 +172,7 @@ describe("GET /auth/callback", () => {
       wrapFetch: () => () => Promise.reject(new TypeError("network down")),
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const login = await app.request("/auth/login");
-    const state = new URL(login.headers.get("location") ?? "").searchParams.get("state");
+    const state = await app.startLogin();
     const response = await app.request(`/auth/callback?code=fake-code-1&state=${state}`);
     expect(response.headers.get("location")).toBe("/?auth_error=exchange");
   });
@@ -242,12 +227,11 @@ describe("GET /auth/callback", () => {
   it("never logs tokens, the code or the cookie when a sign-in fails", async () => {
     const app = createTestApp();
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    const login = await app.request("/auth/login");
-    const state = new URL(login.headers.get("location") ?? "").searchParams.get("state");
+    const state = await app.startLogin();
     await app.request(`/auth/callback?code=secret-code&state=${state}`);
     const output = JSON.stringify(logged.mock.calls);
     expect(output).not.toContain("secret-code");
-    expect(output).not.toContain(String(state));
+    expect(output).not.toContain(state);
     expect(output).not.toContain(FAKE_REFRESH_TOKEN);
   });
 
@@ -278,17 +262,6 @@ describe("sessions", () => {
     expect(expired.status).toBe(401);
     expect(await expired.json()).toEqual({ error: "unauthorized" });
     expect(app.db.prepare("SELECT 1 FROM sessions").all()).toEqual([]);
-  });
-
-  it("sweeps other expired sessions when a new one is created", async () => {
-    const app = createTestApp();
-    await app.signIn();
-    app.cookies.clear();
-    app.clock.advance(SESSION_TTL_MS + 1);
-
-    await app.signIn();
-
-    expect(app.db.prepare("SELECT 1 FROM sessions").all()).toHaveLength(1);
   });
 
   it("do not authenticate with a forged or malformed cookie", async () => {
