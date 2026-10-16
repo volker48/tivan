@@ -10,7 +10,6 @@
 //! come back.
 
 use std::collections::BTreeSet;
-use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
@@ -22,18 +21,9 @@ use super::rng::Rng;
 const STUDENT_FALLBACK: &str = "Student";
 const COURSE_FALLBACK: &str = "Class";
 
-/// A Classroom id was the empty string. Google never issues one, so it means a broken payload or a
+/// Why an id was refused. Google never issues an empty one, so it means a broken payload or a
 /// hand-edited blob.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EmptyIdError;
-
-impl fmt::Display for EmptyIdError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a Classroom id is empty")
-    }
-}
-
-impl std::error::Error for EmptyIdError {}
+const EMPTY_ID: &str = "a Classroom id is empty";
 
 /// Ids are compared exactly as Google sent them, so unlike a `Label` they are not trimmed.
 /// Deserialization goes through `parse`, so a stored blob cannot hold an id the sync could
@@ -46,7 +36,7 @@ macro_rules! classroom_id {
         pub struct $name(String);
 
         impl $name {
-            pub fn parse(raw: &str) -> Result<$name, EmptyIdError> {
+            pub fn parse(raw: &str) -> Result<$name, &'static str> {
                 $name::try_from(raw.to_owned())
             }
 
@@ -56,11 +46,11 @@ macro_rules! classroom_id {
         }
 
         impl TryFrom<String> for $name {
-            type Error = EmptyIdError;
+            type Error = &'static str;
 
             fn try_from(raw: String) -> Result<Self, Self::Error> {
                 if raw.is_empty() {
-                    Err(EmptyIdError)
+                    Err(EMPTY_ID)
                 } else {
                     Ok($name(raw))
                 }
@@ -153,18 +143,6 @@ impl ClassroomCourse {
     }
 }
 
-/// The Worker's answer was not the shape the contract promises.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PayloadError(String);
-
-impl fmt::Display for PayloadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl std::error::Error for PayloadError {}
-
 #[derive(Deserialize)]
 struct WireCourses {
     courses: Vec<WireCourse>,
@@ -188,9 +166,8 @@ struct WireStudent {
 /// Reads `{"courses":[{"id","name","students":[{"id","name"}]}]}`. Names are made to fit and
 /// repeated student ids collapse, but a missing or empty id fails the whole payload, because a
 /// student without an identity could not be matched on the next sync.
-pub fn parse_courses(body: &str) -> Result<Vec<ClassroomCourse>, PayloadError> {
-    let wire: WireCourses =
-        serde_json::from_str(body).map_err(|error| PayloadError(error.to_string()))?;
+pub fn parse_courses(body: &str) -> Result<Vec<ClassroomCourse>, serde_json::Error> {
+    let wire: WireCourses = serde_json::from_str(body)?;
     let courses = wire
         .courses
         .into_iter()
@@ -441,8 +418,8 @@ mod tests {
 
     #[test]
     fn an_empty_id_is_refused() {
-        assert_eq!(ClassroomCourseId::parse(""), Err(EmptyIdError));
-        assert_eq!(ClassroomUserId::parse(""), Err(EmptyIdError));
+        assert_eq!(ClassroomCourseId::parse(""), Err(EMPTY_ID));
+        assert_eq!(ClassroomUserId::parse(""), Err(EMPTY_ID));
     }
 
     #[test]
