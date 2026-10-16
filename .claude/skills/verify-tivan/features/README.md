@@ -40,6 +40,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 - [Classes](./classes.md): create, switch, rename and delete classes.
 - [Roster](./roster.md): add, remove and paste students into a class.
 - [Groups](./groups.md): choose a group count, make and reshuffle groups, move students, rename groups.
+- [Centers](./centers.md): turn learning centers on for a grouped class, rotate the groups through them, rename them.
 - [Whiteboard and oracle](./whiteboard.md): the projected group wall and the random student picker.
 - [Timer](./timer.md): preset countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.
 
@@ -53,6 +54,7 @@ Status as of 2026-10-15, rev `5f58097`:
   - `groups-reroll` passed with reload proof in a separate run. It passed again on a renamed group in the rename run below.
   - `groups-rename` passed with Enter, with reload proof, on agent-browser 0.39.1 and Chrome for Testing 155.0.8059.79, in `target/verify/20261015-171929-68457/` (rev `5a93ab4`, same `src/` as `5f58097`). Eight more Enter renames, each followed straight away by a snapshot, all passed. Saving by clicking away passed in `target/verify/20261015-163754-65558/`. The earlier failures were a Chrome for Testing 151 bug, not the app. See the Groups gotchas.
   - Evidence: `target/verify/20261015-155559-59094/` (main journey), `target/verify/20261015-155811-59592/` (reroll), `target/verify/20261015-163754-65558/` (rename by clicking away, then reroll) and `target/verify/20261015-171929-68457/` (rename with Enter). `target/verify/20261015-154121-57727/` holds an earlier hang.
+- **Centers**: written from the code, after a smoke pass over the handles on one run (rev `8c89a04+dirty`, with the UI changes uncommitted): `Use centers`, `Rotate` in Build and on the whiteboard (cards animated), a center rename with Enter, `Make groups` keeping the renamed center and appending `Center 4`..`Center 12`, `Remove centers`, and the `.centers` saved shape after a reload. The recipe has not been run step by step with captures, so the first agent to run it fixes any step that does not match the app and updates this list.
 - **Classes, Roster, Whiteboard and oracle, Timer**: written from the code and from one exploratory pass over their handles. They have not been run step by step. The first agent to run one fixes any step that does not match the app and updates this list.
   - Exception: `classes-rename` passed with reload proof, on the seed's `Room 12 Morning` rather than the recipe's new class. It passed with Enter in `target/verify/20261015-171929-68457/` and by clicking away in `target/verify/20261015-163949-66174/`.
 
