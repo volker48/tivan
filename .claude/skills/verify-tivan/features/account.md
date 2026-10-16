@@ -28,7 +28,7 @@ Preconditions:
 - The local Worker is running with fake Google, serving the built app, and the app is not the `tivan-up` server. `tivan-up` serves only the static build, where `/api/me` answers with the app's own page and the page reads that as signed out. That makes it the right place for `account-signed-out` and the wrong place for everything else.
 - A fresh `agent-browser` session with nothing saved, so the page starts from the seed. `APP` is the Worker's address with a trailing slash.
 - The fake Google account has never signed in to this Worker, so the server holds no doc for it. A second sign-in finds the doc the first one stored.
-- The fake Google account teaches at least two courses. One of them has a student with no name, and one has a name over 40 characters, to see the stand-ins.
+- The bundled fake Google teaches three courses (`Period 1 Science` with five students, `Period 3 Math` with two, and an empty `Homeroom`). Nameless and over-long Classroom names are covered by `cargo test`, not here.
 - The README's "Sign-in and sync locally" section lists the one-time setup (`.dev.vars`, local D1 migration). The next block starts the two servers and the session. Stop them with `pkill -f fake-google; pkill -f "cf dev"; pkill -f workerd`.
 
 ```bash
@@ -47,7 +47,13 @@ SESSION=acct-verify
 - **Saved to the server.** Wait 2 s. Run `agent-browser --session "$SESSION" open "${APP}api/doc"` and `agent-browser --session "$SESSION" get text body`. It is JSON with `"version":5`, and each created class has a `classroom_course_id` and each student a `classroom_user_id`. Run `agent-browser --session "$SESSION" open "$APP"` and `wait --text "Sign out"` to come back.
 - **Edits are debounced.** Click `Make groups`, then `Shuffle again` three times in quick succession, and wait 2 s. `agent-browser --session "$SESSION" network requests --filter /api/doc` lists one `PUT` for the burst, not four.
 - **Resync is a no-op.** Run `Sync Classroom` again. Every course now reads `already in Tivan, refreshed` and has no checkbox, except a course that was unchecked, which still has one. Run `Apply`. For all-linked courses the `status` reads `No changes made.`, and `network requests --filter /api/doc` shows no new `PUT`.
-- **Resync after a change in Classroom.** Have the fake Google remove one student from a synced course and add another, then run `Sync Classroom` and `Apply`. The `status` reads `Added 1 new student, removed 1 student.` The removed student's `Remove <name>` button is gone, the new one is present, existing group cards keep their members and names, and a student added by hand beforehand is still there.
+- **Resync after a change in Classroom.** Change the fake's rosters while it runs, dropping Margaret Hamilton from `course-1` and adding Dorothy Vaughan:
+
+  ```bash
+  curl -s -X POST localhost:8788/__courses -d '[{"id":"course-1","name":"Period 1 Science","students":[{"id":"s-101","name":"Ada Lovelace"},{"id":"s-102","name":"Grace Hopper"},{"id":"s-103","name":"Katherine Johnson"},{"id":"s-104","name":"Alan Turing"},{"id":"s-106","name":"Dorothy Vaughan"}]},{"id":"course-2","name":"Period 3 Math","students":[{"id":"s-201","name":"Emmy Noether"},{"id":"s-202","name":"Srinivasa Ramanujan"}]},{"id":"course-3","name":"Homeroom","students":[]}]'
+  ```
+
+  Then run `Sync Classroom` and `Apply`. The `status` reads `Added 1 new student, removed 1 student.` The removed student's `Remove <name>` button is gone, the new one is present, existing group cards keep their members and names, and a student added by hand beforehand is still there.
 - **Unchecked and deleted classes.** Delete a synced class with `Delete` then `Yes, delete`, run `Sync Classroom`, and see its course back as a checked checkbox. Uncheck it, run `Apply`, and the class is not created.
 - **Return on a fresh session.** Run `agent-browser --session "$SESSION" close`, open a new session, sign in again with the same account, and wait for `Sign out`. The same classes, groups and names are there, and `network requests --filter /api/doc` shows no `PUT` for this load.
 - **Session ended.** Run `agent-browser --session "$SESSION" cookies clear`, then add a student (`find role textbox fill "Probe" --name "Add a student"` and `press Enter`). A `status` reading `You were signed out.` appears, the top bar returns to `Sign in with Google`, and the student is still on screen. `storage local get tivan.state` now contains `Probe`.

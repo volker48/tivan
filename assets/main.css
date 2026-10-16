@@ -818,8 +818,12 @@ textarea {
     margin-left: 0;
   }
 
-  /* The account controls take a row of their own after the brand and Whiteboard, which keeps the
-     bar at two rows and the moving bar's offset below it right. */
+}
+
+/* Brand, timer chip, account controls and Whiteboard stop fitting on one row near 52rem. The
+   controls then take a row of their own, which keeps the bar at two rows and the moving bar's
+   offset below it right. */
+@media (max-width: 52rem) {
   .account {
     order: 10;
     flex: 1 0 100%;
