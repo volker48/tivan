@@ -131,8 +131,8 @@ mod tests {
 
     use super::*;
     use crate::domain::{
-        Avatar, ClassroomCourseId, ClassroomUserId, Draw, GroupCount, Label, Pick, SplitMix64,
-        seed_doc,
+        Avatar, ClassroomCourse, ClassroomCourseId, ClassroomStudent, ClassroomUserId, Draw,
+        GroupCount, Label, Pick, SplitMix64, SyncPlan, seed_doc,
     };
 
     const V1: &str = include_str!("../tests/fixtures/v1.json");
@@ -236,6 +236,34 @@ mod tests {
 
         assert_eq!(decoded, doc);
         decoded.assert_invariants();
+    }
+
+    #[test]
+    fn a_synced_doc_survives_a_round_trip_with_its_links() {
+        let course = ClassroomCourse::new(
+            ClassroomCourseId::parse("c1").unwrap(),
+            "Math",
+            vec![ClassroomStudent::new(
+                ClassroomUserId::parse("u1").unwrap(),
+                "Ava",
+            )],
+        );
+        let mut doc = seed_doc();
+        SyncPlan::new(&doc, vec![course]).apply(&mut doc, &mut rng());
+
+        let decoded = decode(&encode(&doc), &mut rng()).unwrap();
+
+        assert_eq!(decoded, doc);
+        let linked = &decoded.classes()[3];
+        assert_eq!(linked.classroom_course_id().unwrap().as_str(), "c1");
+        assert_eq!(
+            linked.students()[0]
+                .classroom_user_id
+                .as_ref()
+                .unwrap()
+                .as_str(),
+            "u1"
+        );
     }
 
     #[test]

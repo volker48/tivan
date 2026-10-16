@@ -21,7 +21,10 @@ pub use class::{
     CenterView, Class, ClassId, Draw, GroupView, ParsedRoster, Pick, Student, StudentId,
     parse_roster,
 };
-pub use classroom::{ClassroomCourseId, ClassroomUserId};
+pub use classroom::{
+    ClassroomCourse, ClassroomCourseId, ClassroomStudent, ClassroomUserId, CourseStatus, PlanEntry,
+    SyncPlan, SyncReport, parse_courses,
+};
 pub use doc::Doc;
 pub use grouping::{GroupCount, GroupCountError, GroupIdx, Grouping, MoveError, group_sizes};
 pub use label::{Label, LabelError, MAX_LABEL_CHARS};

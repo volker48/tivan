@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::class::{Class, ClassId};
+use super::classroom::ClassroomCourseId;
 use super::label::Label;
 use super::rng::Rng;
 
@@ -42,11 +43,32 @@ impl Doc {
         students: Vec<Label>,
         rng: &mut impl Rng,
     ) -> ClassId {
-        let id = ClassId(self.next_class);
-        self.next_class += 1;
+        let id = self.next_class_id();
         self.classes.push(Class::new(id, name, students, rng));
         self.selected = Some(id);
         id
+    }
+
+    /// Appends an empty class linked to `course`. Unlike [`Doc::create_class`] it leaves the
+    /// teacher's selection alone, and selects the new class only when nothing was selected.
+    pub(super) fn add_class_linked_to(
+        &mut self,
+        name: Label,
+        course: ClassroomCourseId,
+        rng: &mut impl Rng,
+    ) -> &mut Class {
+        let id = self.next_class_id();
+        let mut class = Class::new(id, name, Vec::new(), rng);
+        class.link_course(course);
+        self.classes.push(class);
+        self.selected.get_or_insert(id);
+        self.classes.last_mut().expect("a class was just pushed")
+    }
+
+    pub(super) fn class_linked_to_mut(&mut self, course: &ClassroomCourseId) -> Option<&mut Class> {
+        self.classes
+            .iter_mut()
+            .find(|class| class.classroom_course_id() == Some(course))
     }
 
     /// Idempotent. Deleting the selected class selects the class after it, or the one before it
@@ -87,6 +109,12 @@ impl Doc {
         if self.selected().is_none() {
             self.selected = self.classes.first().map(Class::id);
         }
+    }
+
+    fn next_class_id(&mut self) -> ClassId {
+        let id = ClassId(self.next_class);
+        self.next_class += 1;
+        id
     }
 
     fn position(&self, id: ClassId) -> Option<usize> {
