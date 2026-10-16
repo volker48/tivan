@@ -29,15 +29,14 @@ Preconditions:
 - A fresh `agent-browser` session with nothing saved, so the page starts from the seed. `APP` is the Worker's address with a trailing slash.
 - The fake Google account has never signed in to this Worker, so the server holds no doc for it. A second sign-in finds the doc the first one stored.
 - The fake Google account teaches at least two courses. One of them has a student with no name, and one has a name over 40 characters, to see the stand-ins.
-- Replace the command lines in the next block once the Worker's dev sequence exists. Nothing else in this file depends on how it is started.
-
-<!-- PLACEHOLDER: the lead fills in the real command lines for the local Worker and fake Google. -->
+- The README's "Sign-in and sync locally" section lists the one-time setup (`.dev.vars`, local D1 migration). The next block starts the two servers and the session. Stop them with `pkill -f fake-google; pkill -f "cf dev"; pkill -f workerd`.
 
 ```bash
-# TODO start the fake Google server
-# TODO start the local Worker against it, serving ../target/dx/tivan/release/web/public
-# TODO APP=http://localhost:<port>/
-# TODO SESSION=acct-verify
+dx bundle --platform web --release
+pnpm --dir deploy run fake-google > target/fake-google.log 2>&1 &
+pnpm --dir deploy run dev > target/worker.log 2>&1 &
+APP=http://localhost:8787/
+SESSION=acct-verify
 ```
 
 - **Signed out.** Run `agent-browser --session "$SESSION" open "$APP"`, then `agent-browser --session "$SESSION" wait --text "Sign in with Google"`. `snapshot -i -c` shows the link `Sign in with Google`, `Whiteboard` and the three sample classes, and no `Sync Classroom`. `agent-browser --session "$SESSION" storage local get tivan.state` prints the saved doc. Keep that output as `before`.
