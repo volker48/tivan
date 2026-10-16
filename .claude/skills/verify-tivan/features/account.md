@@ -40,7 +40,7 @@ SESSION=acct-verify
 ```
 
 - **Signed out.** Run `agent-browser --session "$SESSION" open "$APP"`, then `agent-browser --session "$SESSION" wait --text "Sign in with Google"`. `snapshot -i -c` shows the link `Sign in with Google`, `Whiteboard` and the three sample classes, and no `Sync Classroom`. `agent-browser --session "$SESSION" storage local get tivan.state` prints the saved doc. Keep that output as `before`.
-- **Sign in.** Run `agent-browser --session "$SESSION" find role link click --name "Sign in with Google"` and finish the fake Google consent. Then `agent-browser --session "$SESSION" wait --text "Sign out"`. The top bar shows the first name, `Sync Classroom` and `Sign out`, the link is gone, and the page shows `Welcome to Tivan` because the sample classes were not uploaded. `storage local get tivan.state` is byte for byte the same as `before`.
+- **Sign in.** Run `agent-browser --session "$SESSION" find role link click --name "Sign in with Google"` and let the redirects run. The fake has no consent screen and sends the browser straight back to the Worker. Then `agent-browser --session "$SESSION" wait --text "Sign out"`. The top bar shows the first name, `Sync Classroom` and `Sign out`, the link is gone, and the page shows `Welcome to Tivan` because the sample classes were not uploaded. `storage local get tivan.state` is byte for byte the same as `before`.
 - **Cookie.** Run `agent-browser --session "$SESSION" cookies get`. `tivan_session` is `httpOnly` and `sameSite` Lax, and is `secure` unless the host is localhost.
 - **Open the picker.** Run `agent-browser --session "$SESSION" find role button click --name "Sync Classroom"`, then `agent-browser --session "$SESSION" wait --text "Apply"`. The heading `Sync Classroom` (level 2) sits above one checkbox per course, each checked and named `<course> <n> students`, with `Apply` and `Cancel`.
 - **Apply.** Run `agent-browser --session "$SESSION" uncheck <ref of one checkbox>` using a ref from a fresh `snapshot -i -c`, then `agent-browser --session "$SESSION" find role button click --name "Apply"` and `agent-browser --session "$SESSION" wait --text "Added"`. A `status` reads `Added <a> classes, <s> new students.` with `a` one less than the number of courses, and the class bar has a pill per created class. Run `agent-browser --session "$SESSION" find role button click --name "Done"`.
@@ -59,7 +59,7 @@ SESSION=acct-verify
 - **Session ended.** Run `agent-browser --session "$SESSION" cookies clear`, then add a student (`find role textbox fill "Probe" --name "Add a student"` and `press Enter`). A `status` reading `You were signed out.` appears, the top bar returns to `Sign in with Google`, and the student is still on screen. `storage local get tivan.state` now contains `Probe`.
 - **Sign out.** Sign in again, make an edit, and run `agent-browser --session "$SESSION" find role button click --name "Sign out"` at once. The page reloads signed out, and signing in again shows the edit, which proves the waiting change was sent before the session ended.
 - **Sign-in error.** Run `agent-browser --session "$SESSION" open "${APP}?auth_error=access_denied"` and `wait --text "did not finish"`. A `status` reads `Google sign-in did not finish (access_denied). Please try again.` and `agent-browser --session "$SESSION" get url` no longer has the query. Open `${APP}?auth_error=Call%20555` and no notice appears.
-- **Reauthorize.** Have the fake Google revoke the refresh token, then run `Sync Classroom`. The page leaves for Google again, and after consent returns signed in.
+- **Reauthorize.** Have the fake Google revoke the refresh token, then run `Sync Classroom`. The page leaves for the fake Google, which redirects straight back, and the page returns signed in.
 - **Cleanup.** Run `agent-browser --session "$SESSION" close` and stop the Worker and fake Google the way the block above started them.
 
 ## Gotchas
@@ -74,4 +74,4 @@ SESSION=acct-verify
 - After `account-session-ended`, signing in again loads the server's doc, so changes made while signed out are not in it. They stay in the browser's copy.
 - Two browsers signed in at once overwrite each other: the last save wins.
 - A server doc that is newer than the page, or that cannot be read, gives an `alert` that cannot be dismissed and turns saving off until reload. That is the safe behavior, not a failure.
-- Google's consent screen is the fake's. Never put a real Google account, password or token into a run.
+- The fake has no consent screen or password prompt. Never put a real Google account, password or token into a run.
