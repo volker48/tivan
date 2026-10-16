@@ -4,7 +4,7 @@
 //! before the server's copy was read.
 
 use crate::api::{Api, ApiError, Http, Me, short_code};
-use crate::domain::{Doc, Rng, seed_doc};
+use crate::domain::{Doc, Rng};
 use crate::notice::Notice;
 use crate::persist::{DecodeError, decode};
 
@@ -98,13 +98,13 @@ impl Booted {
     }
 }
 
-/// Asks who is signed in and, for a teacher, reads their classes. `local` is the doc the page
-/// is showing, which an account with nothing stored takes over, except that the sample classes
-/// are not a teacher's data and an empty doc stands in for them. A doc already on the server
-/// always wins, and the copy in this browser is left alone. Never writes: a read that fails
-/// leaves the server's copy `Unusable`, so nothing can overwrite what could not be read.
-/// `rng` picks avatars when the stored doc predates them.
-pub async fn boot<H: Http>(api: &Api<H>, local: &Doc, rng: &mut impl Rng) -> Booted {
+/// Asks who is signed in and, for a teacher, reads their classes. An account with nothing stored
+/// takes over the doc the page is showing, except that the sample classes are not a teacher's
+/// data, so `local_is_seed` (the page still shows them) has an empty doc stand in for them. A
+/// doc already on the server always wins, and the copy in this browser is left alone. Never
+/// writes: a read that fails leaves the server's copy `Unusable`, so nothing can overwrite what
+/// could not be read. `rng` picks avatars when the stored doc predates them.
+pub async fn boot<H: Http>(api: &Api<H>, local_is_seed: bool, rng: &mut impl Rng) -> Booted {
     let session = match api.me().await {
         Ok(Some(me)) => Session::SignedIn(me),
         Ok(None) => return Booted::signed_out(None),
@@ -123,7 +123,7 @@ pub async fn boot<H: Http>(api: &Api<H>, local: &Doc, rng: &mut impl Rng) -> Boo
         return Booted {
             session,
             remote: RemoteDoc::Ready,
-            doc: (*local == seed_doc()).then(Doc::default),
+            doc: local_is_seed.then(Doc::default),
             synced: None,
             notice: None,
         };
@@ -160,7 +160,7 @@ mod tests {
     use super::*;
     use crate::api::Method;
     use crate::api::fake::{FakeHttp, block_on};
-    use crate::domain::SplitMix64;
+    use crate::domain::{SplitMix64, seed_doc};
     use crate::persist::{SCHEMA_VERSION, encode};
 
     const ME: &str = r#"{"email":"ada@school.org","name":"Ada Lovelace"}"#;
@@ -181,7 +181,7 @@ mod tests {
     }
 
     fn boot_with(server: &FakeHttp, local: &Doc) -> Booted {
-        block_on(boot(&Api::new(server), local, &mut rng()))
+        block_on(boot(&Api::new(server), *local == seed_doc(), &mut rng()))
     }
 
     /// A doc a teacher has been working in: one sample class gone.

@@ -17,7 +17,7 @@ use gloo_timers::future::TimeoutFuture;
 
 use crate::account::{self, Booted, RemoteDoc, SaveTarget, Session};
 use crate::api::ApiError;
-use crate::domain::{CalendarDay, Class, Doc, Millis, Skin, Timer};
+use crate::domain::{CalendarDay, Class, Doc, Millis, Skin, Timer, seed_doc};
 use crate::notice::Notice;
 use crate::outbox::{Edit, Outbox};
 use crate::persist;
@@ -342,8 +342,8 @@ pub fn App() -> Element {
         let outbox = booter.clone();
         async move {
             let mut state = state;
-            let local = doc.peek().clone();
-            let mut booted = account::boot(&platform::api(), &local, &mut JsRng).await;
+            let local_is_seed = *doc.peek() == seed_doc();
+            let mut booted = account::boot(&platform::api(), local_is_seed, &mut JsRng).await;
             outbox.borrow_mut().mark_synced(booted.synced.take());
             state.apply_boot(booted);
         }
