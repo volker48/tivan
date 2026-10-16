@@ -696,7 +696,7 @@ textarea {
   flex: 1;
 }
 
-.center .name-edit {
+.center > .name-edit {
   flex: none;
 }
 
