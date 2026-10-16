@@ -60,6 +60,14 @@ impl Pick {
             Pick::Group { .. } => Draw::Group,
         }
     }
+
+    fn of_group(view: &GroupView<'_>) -> Pick {
+        Pick::Group {
+            idx: view.idx,
+            name: view.name.clone(),
+            members: view.members.iter().map(|&s| s.clone()).collect(),
+        }
+    }
 }
 
 /// One group with its members resolved, in roster order.
@@ -272,14 +280,17 @@ impl Class {
             }
             Draw::Group => {
                 let idx = self.grouping.as_mut()?.draw(rng)?;
-                let views = self.group_views();
-                let view = &views[idx.get()];
-                Some(Pick::Group {
-                    idx,
-                    name: view.name.clone(),
-                    members: view.members.iter().map(|&s| s.clone()).collect(),
-                })
+                Some(Pick::of_group(&self.group_views()[idx.get()]))
             }
+        }
+    }
+
+    /// Everything [`Class::draw`] could answer for `kind`, in roster or group order. It records
+    /// nothing, so the UI can flash these before the real pick lands without spending a draw.
+    pub fn candidates(&self, kind: Draw) -> Vec<Pick> {
+        match kind {
+            Draw::Student => self.students.iter().cloned().map(Pick::Student).collect(),
+            Draw::Group => self.group_views().iter().map(Pick::of_group).collect(),
         }
     }
 
@@ -860,6 +871,54 @@ mod tests {
             picked_names.push(name);
         }
         assert!(picked_names.contains(&label("Table Four")));
+    }
+
+    #[test]
+    fn candidates_list_every_student_in_roster_order_and_every_group_in_group_order() {
+        let mut class = class_of(7);
+        let students: Vec<Pick> = class
+            .students()
+            .iter()
+            .cloned()
+            .map(Pick::Student)
+            .collect();
+        assert_eq!(class.candidates(Draw::Student), students);
+        assert_eq!(class.candidates(Draw::Group), []);
+
+        class.regroup(count(3, &class), &mut rng(1));
+        let groups = class.candidates(Draw::Group);
+        let views = class.group_views();
+        assert_eq!(groups.len(), views.len());
+        for (pick, view) in groups.iter().zip(&views) {
+            let Pick::Group { idx, name, members } = pick else {
+                panic!("expected a group, got {pick:?}");
+            };
+            assert_eq!((*idx, name), (view.idx, view.name));
+            assert_eq!(members.iter().collect::<Vec<_>>(), view.members);
+        }
+    }
+
+    #[test]
+    fn an_empty_class_has_no_candidates() {
+        let class = class_of(0);
+        for kind in [Draw::Student, Draw::Group] {
+            assert_eq!(class.candidates(kind), []);
+        }
+    }
+
+    #[test]
+    fn every_draw_is_one_of_the_candidates() {
+        for seed in 0..20 {
+            let mut rng = rng(seed);
+            let mut class = class_of(9);
+            class.regroup(count(4, &class), &mut rng);
+            for kind in [Draw::Student, Draw::Group] {
+                for _ in 0..12 {
+                    let pick = class.draw(kind, &mut rng).unwrap();
+                    assert!(class.candidates(kind).contains(&pick), "seed {seed}");
+                }
+            }
+        }
     }
 
     #[test]
