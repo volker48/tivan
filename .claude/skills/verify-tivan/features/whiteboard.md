@@ -8,6 +8,7 @@ Whiteboard mode drops the editing UI and projects the current class's groups as 
 - `wb-wall`: one card per group, with the group name as a heading and members listed.
 - `wb-empty`: an ungrouped class shows `No groups yet.` with `Go back to Build and press Make groups.`
 - `wb-leave`: `Back to Build` or Escape with no overlay open returns to Build.
+- `oracle-spin`: for about two seconds after either oracle button, the overlay flashes through the students (or groups) fast then slowing, with no buttons, and lands on the pick. Reduced motion, or a class of one, skips it.
 - `oracle-pick`: `Ask the oracle` opens the reveal dialog with one name, and `<n> left` drops by one.
 - `oracle-again`: `Pick again` in the dialog picks the next student.
 - `oracle-close`: `Done`, a click outside the card, or Escape closes the dialog and stays on the wall.
@@ -51,7 +52,9 @@ Preconditions:
 - `--name "Ask the oracle"` matches the full name `Ask the oracle <n> left`, which changes with every pick. The group button's name is `Pick a group <n> left`, which does not contain `Ask the oracle`, and `Pick again` does not match `Pick a group`.
 - `.grouping.oracle` is absent from the saved state until the first group pick, and again after `Make groups`. Read it as `.grouping.oracle.drawn // []`.
 - The group pick is random. Assert it is one of `.grouping.names` not already in `.grouping.oracle.drawn`, never a specific group. A group with no members, possible after students are removed without a shuffle, can be picked and then lists no names.
-- Each pick remounts the dialog and replays its half-second pop-in, on the student and group path alike. A `Pick again` click sent before it settles can miss, so `agent-browser --session "$SESSION" wait 800` after each pick, and read the saved `drawn` length to see whether a click landed.
+- Each pick first spins for about two seconds, then remounts the dialog and replays its half-second pop-in, on the student and group path alike. `Pick again` does not exist until the spin ends, so `agent-browser --session "$SESSION" wait 3000` after each pick, and read the saved `drawn` length to see whether a click landed. The saved pick is written when the spin starts, so it already names the student the spin lands on.
+- Headless Chrome can mark the tab `hidden`, which throttles every timer to one second and stretches the spin to half a minute. If `document.visibilityState` is `hidden`, run `agent-browser --session "$SESSION" tab t1` to bring the tab forward. `set media` can hide it again, so re-run it after.
+- Reduced motion is `agent-browser --session "$SESSION" set media light reduced-motion`, and `set media light no-preference` undoes it. With it on, the dialog shows at once with no spin.
 - The group count line is singular at one, `1 group left`, so `wait --text "groups left"` never matches the third pick of four. Wait on `1 group left`.
 - `Shuffle again` is already on screen when you press `Make groups` or `Shuffle again` on a grouped class, so `wait --text "Shuffle again"` returns at once. Use a fixed `wait` before you capture or leave Build. A class with no groups has no `Shuffle again` at all.
 - Escape closes only the topmost layer: reveal, then Time's up, then the whiteboard itself. One Escape too many leaves the whiteboard.
