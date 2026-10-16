@@ -20,7 +20,7 @@ A teacher keeps several classes, one per set of students, switches between them 
 
 Preconditions:
 
-- Baseline seed, three classes, `Room 12 Morning` selected.
+- Baseline seed, three classes, `McCurdy HR` selected.
 - Every command below is prefixed with `source target/verify/<run>/run.env &&`.
 
 - **Switch.** Run `agent-browser --session "$SESSION" find role button click --name "Period 3 Science"`. The level-2 heading reads `Period 3 Science`, the meta text reads `20 students`, and the pill reports `pressed=true`. `.doc.selected` in saved state is the id of `Period 3 Science`.

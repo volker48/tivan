@@ -12,6 +12,7 @@ use crate::platform;
 pub mod account;
 pub mod avatar;
 pub mod build;
+pub mod settings;
 pub mod whiteboard;
 
 /// Group colors repeat after this many. The stylesheet defines `hue-0` to `hue-7`.

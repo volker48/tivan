@@ -5,11 +5,10 @@
       {
         "id": 0,
         "name": "Fixture Class",
-        "classroom_course_id": "course-1",
         "students": [
-          { "id": 0, "name": "Ava", "avatar": "bear", "classroom_user_id": "user-ava" },
+          { "id": 0, "name": "Ava", "avatar": "bear" },
           { "id": 1, "name": "Ben", "avatar": "panda" },
-          { "id": 2, "name": "Chloe", "avatar": "cat", "classroom_user_id": "user-chloe" },
+          { "id": 2, "name": "Chloe", "avatar": "cat" },
           { "id": 4, "name": "Diego", "avatar": "fox" }
         ],
         "next_student": 7,
@@ -31,6 +30,7 @@
       }
     ],
     "selected": 2,
-    "next_class": 5
+    "next_class": 5,
+    "settings": { "skin": { "fixed": "christmas" } }
   }
 }

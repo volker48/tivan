@@ -5,7 +5,7 @@
 //!   from `session` and `remote`, through [`account::save_target`].
 //! - `session` and `remote` say who is signed in and whether their classes on the server were
 //!   read. The startup check sets them once, and a rejected session sets them again.
-//! - `mode`, `notice`, `timer` and `now` are in memory. The timer lives here, not in the
+//! - `mode`, `notice`, `timer`, `now` and `today` are in memory. The timer lives here, not in the
 //!   whiteboard, so it keeps running while the teacher is back in Build.
 
 use std::cell::RefCell;
@@ -17,7 +17,7 @@ use gloo_timers::future::TimeoutFuture;
 
 use crate::account::{self, Booted, RemoteDoc, SaveTarget, Session};
 use crate::api::ApiError;
-use crate::domain::{Class, Doc, Millis, Timer};
+use crate::domain::{CalendarDay, Class, Doc, Millis, Skin, Timer};
 use crate::notice::Notice;
 use crate::outbox::{Edit, Outbox};
 use crate::persist;
@@ -25,6 +25,7 @@ use crate::platform::{self, JsRng, LocalStorage};
 use crate::store;
 use crate::ui::avatar::AvatarSprite;
 use crate::ui::build::BuildMode;
+use crate::ui::settings::SettingsMode;
 use crate::ui::whiteboard::WhiteboardMode;
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -43,6 +44,7 @@ const IN_FLIGHT_POLL_MS: u32 = 50;
 pub enum Mode {
     Build,
     Whiteboard,
+    Settings,
 }
 
 #[derive(Clone, Copy)]
@@ -56,6 +58,8 @@ pub struct AppState {
     remote: Signal<RemoteDoc>,
     /// Whether this browser's storage may be written, as the startup load found it.
     local_can_save: bool,
+    today: Signal<CalendarDay>,
+    skin: Memo<Option<Skin>>,
 }
 
 impl AppState {
@@ -81,6 +85,17 @@ impl AppState {
             .write()
             .selected_mut()
             .map(|class| f(class, &mut JsRng))
+    }
+
+    /// Reactive read of the skin to draw on every avatar. A memo, so avatars wake only when the
+    /// skin itself changes and not on every document edit.
+    pub fn active_skin(&self) -> Option<Skin> {
+        (self.skin)()
+    }
+
+    /// Reactive read. Changes at midnight, so a tab left open across a season's edge follows it.
+    pub fn today(&self) -> CalendarDay {
+        *self.today.read()
     }
 
     pub fn mode(&self) -> Mode {
@@ -206,6 +221,10 @@ impl AppState {
         if next != timer {
             self.timer.set(next);
         }
+        let today = platform::today();
+        if today != *self.today.peek() {
+            self.today.set(today);
+        }
     }
 }
 
@@ -273,6 +292,8 @@ pub fn App() -> Element {
     let initial = use_hook(|| Rc::new(store::load(&LocalStorage, &mut JsRng)));
     let doc = use_signal(|| initial.doc.clone());
     let notice = use_signal(|| initial.notice.clone());
+    let today = use_signal(platform::today);
+    let skin = use_memo(move || doc.read().settings().active_skin(*today.read()));
     let state = use_context_provider(|| AppState {
         doc,
         mode: Signal::new(Mode::Build),
@@ -282,6 +303,8 @@ pub fn App() -> Element {
         session: Signal::new(Session::Checking),
         remote: Signal::new(RemoteDoc::Unread),
         local_can_save: initial.can_save,
+        today,
+        skin,
     });
     use_hook(|| {
         if let Some(code) = platform::take_auth_error() {
@@ -335,6 +358,7 @@ pub fn App() -> Element {
             match state.mode() {
                 Mode::Build => rsx! { BuildMode {} },
                 Mode::Whiteboard => rsx! { WhiteboardMode {} },
+                Mode::Settings => rsx! { SettingsMode {} },
             }
         }
     }

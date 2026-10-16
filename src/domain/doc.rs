@@ -4,6 +4,7 @@ use super::class::{Class, ClassId};
 use super::classroom::ClassroomCourseId;
 use super::label::Label;
 use super::rng::Rng;
+use super::skin::{Settings, SkinChoice};
 
 /// Everything that is persisted, and nothing else. Mode, timer, and the oracle announcement are
 /// UI state. `selected` names a real class whenever any class exists, and is `None` otherwise.
@@ -13,6 +14,8 @@ pub struct Doc {
     classes: Vec<Class>,
     selected: Option<ClassId>,
     next_class: u32,
+    #[serde(default)]
+    settings: Settings,
 }
 
 impl Doc {
@@ -85,6 +88,14 @@ impl Doc {
                 .or_else(|| self.classes.last())
                 .map(Class::id);
         }
+    }
+
+    pub fn settings(&self) -> &Settings {
+        &self.settings
+    }
+
+    pub fn set_skin_choice(&mut self, choice: SkinChoice) {
+        self.settings.set_skin(choice);
     }
 
     /// Restores every cross-reference after deserializing: each class reconciles its grouping and
@@ -249,6 +260,16 @@ mod tests {
     }
 
     #[test]
+    fn choosing_a_skin_changes_the_settings_and_nothing_else() {
+        let (mut doc, _) = doc_with(&["A", "B"]);
+        let before = doc.clone();
+        doc.set_skin_choice(SkinChoice::Plain);
+        assert_eq!(doc.settings().skin(), SkinChoice::Plain);
+        doc.set_skin_choice(SkinChoice::default());
+        assert_eq!(doc, before);
+    }
+
+    #[test]
     fn reconcile_repairs_selection_and_counters() {
         let (mut doc, ids) = doc_with(&["A", "B"]);
         doc.selected = Some(ClassId(500));
@@ -271,6 +292,7 @@ mod tests {
             classes: vec![],
             selected: Some(ClassId(3)),
             next_class: 0,
+            settings: Settings::default(),
         };
         doc.reconcile();
         assert_eq!(doc.selected, None);
