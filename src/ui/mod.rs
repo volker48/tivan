@@ -5,8 +5,10 @@ use dioxus::prelude::*;
 
 use crate::app::use_app;
 use crate::domain::{
-    Class, GroupIdx, Label, LabelError, MAX_LABEL_CHARS, MoveError, Student, StudentId,
+    CenterIdx, Class, GroupIdx, GroupView, Label, LabelError, MAX_LABEL_CHARS, MoveError, Student,
+    StudentId,
 };
+use crate::platform;
 
 pub mod avatar;
 pub mod build;
@@ -27,16 +29,38 @@ pub struct GroupCard {
     pub members: Vec<Student>,
 }
 
+fn group_card(view: GroupView<'_>) -> GroupCard {
+    GroupCard {
+        idx: view.idx,
+        name: view.name.clone(),
+        members: view.members.into_iter().cloned().collect(),
+    }
+}
+
 pub fn group_cards(class: &Class) -> Vec<GroupCard> {
-    class
-        .group_views()
+    class.group_views().into_iter().map(group_card).collect()
+}
+
+/// One center with the group card standing in it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CenterCard {
+    pub idx: CenterIdx,
+    pub name: Label,
+    pub card: GroupCard,
+}
+
+/// The centers in center order. `None` when the class does not use centers.
+pub fn center_cards(class: &Class) -> Option<Vec<CenterCard>> {
+    let views = class.center_views()?;
+    let cards = views
         .into_iter()
-        .map(|view| GroupCard {
+        .map(|view| CenterCard {
             idx: view.idx,
             name: view.name.clone(),
-            members: view.members.into_iter().cloned().collect(),
+            card: group_card(view.group),
         })
-        .collect()
+        .collect();
+    Some(cards)
 }
 
 pub fn label_error_text(error: LabelError) -> String {
@@ -61,6 +85,37 @@ pub fn focus_on_mount(mounted: MountedEvent) {
             warn!("could not focus a new field: {error:?}");
         }
     });
+}
+
+/// "Round r of n" and the Rotate button, for a class that uses centers. Nothing otherwise. With
+/// a single group there is nowhere to rotate to, so the button is off.
+#[component]
+pub fn RotateControls() -> Element {
+    let mut state = use_app();
+    let Some((round, total)) = state
+        .with_class(|class| {
+            let centers = class.grouping()?.centers()?;
+            Some((centers.round(), centers.names().len()))
+        })
+        .flatten()
+    else {
+        return rsx! {};
+    };
+    rsx! {
+        div { class: "rotate",
+            span { class: "round", "Round {round} of {total}" }
+            button {
+                class: "btn btn-primary",
+                r#type: "button",
+                disabled: total < 2,
+                onclick: move |_| {
+                    platform::animate_rotation();
+                    state.edit_class(|class, _| class.rotate_centers());
+                },
+                "Rotate"
+            }
+        }
+    }
 }
 
 #[component]

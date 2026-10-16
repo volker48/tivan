@@ -665,6 +665,61 @@ textarea {
   cursor: pointer;
 }
 
+/* Learning centers: each frame is a station in the room, and its group card moves from frame to
+   frame as the teacher rotates. The frame stays put, so it is neutral rather than group-colored. */
+
+.cards-centered {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: 1.4rem;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 0.6rem;
+  border: 3px dashed var(--line);
+  border-radius: calc(var(--radius) + 0.6rem);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.center .group-card {
+  flex: 1;
+}
+
+.center .name-edit {
+  flex: none;
+}
+
+.center-name {
+  align-self: center;
+  min-height: 44px;
+  padding: 0.2rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 1.05rem;
+  font-weight: 900;
+  cursor: text;
+}
+
+.center-name:hover {
+  background: #4a3a57;
+}
+
+.rotate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.round {
+  font-weight: 800;
+}
+
 @keyframes nudge {
   0%, 100% { transform: rotate(0); }
   25% { transform: rotate(-2deg); }
@@ -738,6 +793,10 @@ textarea {
 
 .btn-oracle .sub {
   font-size: 0.6em;
+}
+
+.wb-bar .rotate {
+  font-size: clamp(1rem, 1.4vw, 1.5rem);
 }
 
 .timer-controls {
@@ -816,10 +875,37 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+/* A center frame wraps the card and is the grid cell, so it carries the same type size as the
+   card inside it and the center name above the card is one more line of that text. */
+.wall-center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 0.2em 0.2em;
+  border: 2px dashed rgba(255, 248, 236, 0.6);
+  border-radius: 1.6rem;
+  font-size: clamp(1.1rem, 2.4vw, 3rem);
+  line-height: var(--leading);
+  overflow-wrap: anywhere;
+}
+
+.wall-center > .wall-card {
+  flex: 1;
+  min-height: 0;
+}
+
+.wall-center-name {
+  margin: 0;
+  font-weight: 800;
+  text-align: center;
+}
+
 /* Size the type from the wall's own box: no larger than a 12-letter name and its avatar fit
    across a column, and no larger than the fullest card fits down a row. */
 @supports (width: 1cqw) {
-  .wall-card {
+  .wall-card,
+  .wall-center {
     font-size: clamp(
       1rem,
       min(
@@ -985,7 +1071,8 @@ textarea {
     grid-auto-rows: auto;
   }
 
-  .wall-card {
+  .wall-card,
+  .wall-center {
     font-size: 1.2rem;
   }
 }

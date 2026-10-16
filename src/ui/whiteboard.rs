@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::app::{AppState, Mode, use_app, use_escape};
 use crate::domain::{Millis, Pick, Preset, Timer, format_mm_ss};
 use crate::ui::avatar::AvatarIcon;
-use crate::ui::{group_cards, hue};
+use crate::ui::{GroupCard, RotateControls, center_cards, group_cards, hue};
 
 /// The oracle's latest answer. `seq` keys the overlay so each pick replays the entrance
 /// animation, which a reused DOM node would otherwise play once and never again.
@@ -45,6 +45,7 @@ pub fn WhiteboardMode() -> Element {
                 }
                 span { class: "wb-class", "{class_name}" }
                 OracleButton { reveal }
+                RotateControls {}
                 TimerControls {}
             }
             TimerStrip {}
@@ -232,7 +233,8 @@ fn TimesUp() -> Element {
 struct WallLayout {
     cols: usize,
     rows: usize,
-    /// Text lines to fit in the fullest card: its members plus two for the group name and padding.
+    /// Text lines to fit in the fullest card: its members plus two for the group name and padding,
+    /// and one more for the center name above the card when centers are on.
     lines: usize,
 }
 
@@ -252,21 +254,25 @@ fn wall_columns(groups: usize) -> usize {
     }
 }
 
-fn wall_layout(groups: usize, fullest: usize) -> WallLayout {
+fn wall_layout(groups: usize, fullest: usize, centers: bool) -> WallLayout {
     let cols = wall_columns(groups);
     WallLayout {
         cols,
         rows: groups.div_ceil(cols).max(1),
-        lines: fullest + 2,
+        lines: fullest + 2 + usize::from(centers),
     }
 }
 
 #[component]
 fn GroupWall() -> Element {
     let state = use_app();
-    let Some((cards, students)) =
-        state.with_class(|class| (group_cards(class), class.students().len()))
-    else {
+    let Some((cards, centers, students)) = state.with_class(|class| {
+        (
+            group_cards(class),
+            center_cards(class),
+            class.students().len(),
+        )
+    }) else {
         return rsx! {};
     };
     if cards.is_empty() {
@@ -286,21 +292,39 @@ fn GroupWall() -> Element {
         .map(|card| card.members.len())
         .max()
         .unwrap_or(0);
-    let WallLayout { cols, rows, lines } = wall_layout(cards.len(), fullest);
+    let WallLayout { cols, rows, lines } = wall_layout(cards.len(), fullest, centers.is_some());
     rsx! {
         section {
             class: "wall",
             style: "--cols: {cols}; --rows: {rows}; --lines: {lines}",
-            for card in cards {
-                article { key: "{card.idx.get()}", class: "wall-card hue-{hue(card.idx)}",
-                    h2 { class: "wall-name", "{card.name}" }
-                    ul { class: "wall-members",
-                        for student in card.members {
-                            li { key: "{student.id.get()}",
-                                AvatarIcon { avatar: student.avatar }
-                                "{student.name}"
-                            }
-                        }
+            if let Some(centers) = centers {
+                for center in centers {
+                    div { key: "{center.idx.get()}", class: "wall-center",
+                        p { class: "wall-center-name", "{center.name}" }
+                        WallCard { card: center.card }
+                    }
+                }
+            } else {
+                for card in cards {
+                    WallCard { key: "{card.idx.get()}", card }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn WallCard(card: GroupCard) -> Element {
+    rsx! {
+        article {
+            class: "wall-card hue-{hue(card.idx)}",
+            "data-group": "{card.idx.get()}",
+            h2 { class: "wall-name", "{card.name}" }
+            ul { class: "wall-members",
+                for student in card.members {
+                    li { key: "{student.id.get()}",
+                        AvatarIcon { avatar: student.avatar }
+                        "{student.name}"
                     }
                 }
             }
@@ -335,7 +359,7 @@ mod tests {
     #[test]
     fn layout_counts_rows_and_reserves_lines_for_the_fullest_card() {
         assert_eq!(
-            wall_layout(4, 5),
+            wall_layout(4, 5, false),
             WallLayout {
                 cols: 2,
                 rows: 2,
@@ -343,12 +367,20 @@ mod tests {
             }
         );
         assert_eq!(
-            wall_layout(5, 3),
+            wall_layout(5, 3, false),
             WallLayout {
                 cols: 3,
                 rows: 2,
                 lines: 5
             }
         );
+    }
+
+    #[test]
+    fn layout_reserves_one_more_line_for_the_center_name_when_centers_are_on() {
+        let plain = wall_layout(4, 5, false);
+        let centered = wall_layout(4, 5, true);
+        assert_eq!(centered.lines, plain.lines + 1);
+        assert_eq!((centered.cols, centered.rows), (plain.cols, plain.rows));
     }
 }
