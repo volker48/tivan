@@ -11,7 +11,7 @@ use web_sys::{
 };
 
 use crate::account;
-use crate::api::{Api, Http, HttpReply, HttpRequest, TransportError};
+use crate::api::{Api, Http, HttpReply, HttpRequest, TransportError, timeout_ms};
 use crate::domain::{Millis, Rng};
 use crate::store::{self, StorageError};
 
@@ -69,10 +69,6 @@ fn describe(thrown: &JsValue) -> String {
         .unwrap_or_else(|| format!("{thrown:?}"))
 }
 
-/// How long a request may take. Until the first one returns nothing is saved, so a hung request
-/// must end in an error rather than hold the page's saving off.
-const REQUEST_TIMEOUT_MS: u32 = 10_000;
-
 /// `fetch` against the page's own origin, which carries the session cookie.
 pub struct Fetch;
 
@@ -83,7 +79,9 @@ impl Http for Fetch {
         init.set_method(request.method.as_str());
         // A stale answer to a read would later be written back over newer data.
         init.set_cache(RequestCache::NoStore);
-        init.set_signal(Some(&AbortSignal::timeout_with_u32(REQUEST_TIMEOUT_MS)));
+        init.set_signal(Some(&AbortSignal::timeout_with_u32(timeout_ms(
+            request.path,
+        ))));
         if let Some(body) = request.body {
             let headers = Headers::new().map_err(|cause| TransportError::new(describe(&cause)))?;
             headers

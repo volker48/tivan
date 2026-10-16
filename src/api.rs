@@ -29,6 +29,17 @@ impl Method {
     }
 }
 
+/// How long a request to `path` may take. Until the first one returns nothing is saved, so a hung
+/// request must end in an error rather than hold the page's saving off. The Classroom lookup
+/// reads every roster one course at a time, so it gets longer.
+pub fn timeout_ms(path: &str) -> u32 {
+    if path.starts_with("/api/classroom/") {
+        60_000
+    } else {
+        10_000
+    }
+}
+
 /// A same-origin request. A body is always JSON.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HttpRequest<'a> {
@@ -497,6 +508,13 @@ mod tests {
 
         let server = FakeHttp::default().reply(Method::Post, "/auth/logout", 401, "");
         assert_eq!(block_on(api(&server).logout()), Err(ApiError::Unauthorized));
+    }
+
+    #[test]
+    fn the_classroom_lookup_may_take_longer_than_a_save_or_the_account_check() {
+        assert_eq!(timeout_ms("/api/me"), 10_000);
+        assert_eq!(timeout_ms("/api/doc"), 10_000);
+        assert!(timeout_ms("/api/classroom/courses") > timeout_ms("/api/doc"));
     }
 
     #[test]

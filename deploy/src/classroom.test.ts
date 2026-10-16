@@ -210,13 +210,43 @@ describe("when Google rejects the teacher", () => {
       wrap: (inner) => (input, init) =>
         new URL(new Request(input, init).url).pathname.endsWith("/course-2/students")
           ? Promise.resolve(
-              Response.json({ error: { status: "PERMISSION_DENIED" } }, { status: 403 }),
+              Response.json(
+                {
+                  error: {
+                    status: "PERMISSION_DENIED",
+                    details: [{ reason: "ACCESS_TOKEN_SCOPE_INSUFFICIENT" }],
+                  },
+                },
+                { status: 403 },
+              ),
             )
           : inner(input, init),
     });
     const response = await courses(app);
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "reauthorize" });
+  });
+
+  it("answers 502, not reauthorize, when Classroom is switched off for the account", async () => {
+    const app = await signedIn({
+      wrap: (inner) => (input, init) =>
+        new URL(new Request(input, init).url).pathname === "/v1/courses"
+          ? Promise.resolve(
+              Response.json(
+                {
+                  error: {
+                    status: "PERMISSION_DENIED",
+                    details: [{ reason: "ClassroomApiDisabled" }],
+                  },
+                },
+                { status: 403 },
+              ),
+            )
+          : inner(input, init),
+    });
+    const response = await courses(app);
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "classroom_unavailable" });
   });
 
   it("answers 403 reauthorize when the stored refresh token can no longer be decrypted", async () => {

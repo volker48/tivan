@@ -41,6 +41,25 @@ function parseStudent(raw: unknown): ClassroomStudent | null {
   return { id: raw["userId"], name: typeof fullName === "string" ? fullName : "" };
 }
 
+/**
+ * A 403 that signing in again can fix: the token lacks a scope. Other 403s, such as Classroom
+ * being switched off for the account, would only send the teacher around in a loop.
+ */
+function isMissingScope(body: unknown): boolean {
+  const error = isRecord(body) ? body["error"] : undefined;
+  if (!isRecord(error)) {
+    return false;
+  }
+  const reasonIn = (key: string, wanted: string): boolean => {
+    const list = error[key];
+    return Array.isArray(list) && list.some((item) => isRecord(item) && item["reason"] === wanted);
+  };
+  return (
+    reasonIn("details", "ACCESS_TOKEN_SCOPE_INSUFFICIENT") ||
+    reasonIn("errors", "insufficientPermissions")
+  );
+}
+
 /** Follows `nextPageToken` until Google stops returning one. */
 async function listAll<T>(
   deps: Deps,
@@ -70,10 +89,10 @@ async function listAll<T>(
       logEvent("classroom_request_failed", { reason: "network", error: errorName(error) });
       return { kind: "unavailable" };
     }
-    if (response.status === 401 || response.status === 403) {
+    const body = await readJson(response);
+    if (response.status === 401 || (response.status === 403 && isMissingScope(body))) {
       return { kind: "reauthorize" };
     }
-    const body = await readJson(response);
     if (!response.ok || !isRecord(body)) {
       logEvent("classroom_request_failed", { status: response.status });
       return { kind: "unavailable" };
