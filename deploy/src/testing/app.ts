@@ -52,14 +52,14 @@ export interface TestAppOptions {
 }
 
 export function createTestApp(options: TestAppOptions = {}): TestApp {
-  const google = createFakeGoogle(options.google);
-  const { sql, db } = sqliteSql();
   const clock: TestClock = {
     now: Date.UTC(2026, 9, 16),
     advance(ms) {
       clock.now += ms;
     },
   };
+  const google = createFakeGoogle({ now: () => clock.now, ...options.google });
+  const { sql, db } = sqliteSql();
 
   const parsed = parseConfig({ ...TEST_ENV, ...options.env });
   if (parsed.kind === "invalid") {

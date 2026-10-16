@@ -87,7 +87,7 @@ export async function exchangeCode(
     return { kind: "failed", code: "no_refresh_token" };
   }
   const idToken = reply.body["id_token"];
-  const teacher = typeof idToken === "string" ? parseIdToken(idToken, clientId) : null;
+  const teacher = typeof idToken === "string" ? parseIdToken(idToken, clientId, deps.now()) : null;
   if (teacher === null) {
     return { kind: "failed", code: "id_token" };
   }
@@ -97,11 +97,19 @@ export async function exchangeCode(
 /**
  * Reads the identity out of an ID token without checking its signature. The token arrived over
  * TLS straight from Google's token endpoint, which OpenID Connect accepts in place of a
- * signature check, so only the audience and the claims we use are verified.
+ * signature check, so only the issuer, audience, expiry and the claims we use are verified.
  */
-export function parseIdToken(idToken: string, clientId: string): Teacher | null {
+export function parseIdToken(idToken: string, clientId: string, nowMs: number): Teacher | null {
   const claims = decodeBase64Json(idToken.split(".")[1] ?? "");
   if (!isRecord(claims)) {
+    return null;
+  }
+  const issuer: unknown = claims["iss"];
+  if (issuer !== "https://accounts.google.com" && issuer !== "accounts.google.com") {
+    return null;
+  }
+  const expiry: unknown = claims["exp"];
+  if (typeof expiry !== "number" || expiry * 1000 <= nowMs) {
     return null;
   }
   const audience: unknown = claims["aud"];

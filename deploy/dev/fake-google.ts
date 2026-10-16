@@ -10,7 +10,9 @@
  *
  * Signing in skips the consent screen and returns straight to the Worker as one fixed teacher.
  * `POST /__revoke` makes the refresh token fail with invalid_grant, which sends the Worker's
- * Classroom route down its `reauthorize` path. `POST /__restore` undoes it.
+ * Classroom route down its `reauthorize` path. `POST /__restore` undoes it. `POST /__courses`
+ * takes a JSON array of `{ id, name, students: [{ id, name }] }` and makes it the Classroom the
+ * Worker sees from then on.
  */
 import { createServer } from "node:http";
 import { createFakeGoogle } from "./fake-google-core.ts";
@@ -34,6 +36,15 @@ const server = createServer(async (incoming, outgoing) => {
   const chunks: Buffer[] = [];
   for await (const chunk of incoming) {
     chunks.push(chunk as Buffer);
+  }
+  if (incoming.method === "POST" && url.pathname === "/__courses") {
+    try {
+      google.setCourses(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+      outgoing.writeHead(204).end();
+    } catch {
+      outgoing.writeHead(400).end("expected a JSON array of courses\n");
+    }
+    return;
   }
   const hasBody = incoming.method !== "GET" && incoming.method !== "HEAD";
   const response = await google.fetch(

@@ -28,10 +28,14 @@ function textOf(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function httpUrl(value: string): URL | null {
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** The client secret and refresh tokens travel to these URLs, so plain HTTP is for loopback only. */
+function endpointUrl(value: string): URL | null {
   try {
     const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:" ? url : null;
+    const secure = url.protocol === "https:";
+    return secure || (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) ? url : null;
   } catch {
     return null;
   }
@@ -42,9 +46,9 @@ export function parseConfig(env: RawEnv): ConfigResult {
   const clientId = textOf(env.GOOGLE_CLIENT_ID);
   const clientSecret = textOf(env.GOOGLE_CLIENT_SECRET);
   const tokenKey = parseEncryptionKey(textOf(env.TOKEN_ENC_KEY));
-  const authorizeUrl = httpUrl(textOf(env.GOOGLE_AUTHORIZE_URL));
-  const tokenUrl = httpUrl(textOf(env.GOOGLE_TOKEN_URL));
-  const classroomUrl = httpUrl(textOf(env.CLASSROOM_API_URL));
+  const authorizeUrl = endpointUrl(textOf(env.GOOGLE_AUTHORIZE_URL));
+  const tokenUrl = endpointUrl(textOf(env.GOOGLE_TOKEN_URL));
+  const classroomUrl = endpointUrl(textOf(env.CLASSROOM_API_URL));
 
   if (
     clientId === "" ||
@@ -58,9 +62,12 @@ export function parseConfig(env: RawEnv): ConfigResult {
       clientId === "" && "GOOGLE_CLIENT_ID is missing",
       clientSecret === "" && "GOOGLE_CLIENT_SECRET is missing",
       tokenKey === null && "TOKEN_ENC_KEY is missing or not base64 of 32 bytes",
-      authorizeUrl === null && "GOOGLE_AUTHORIZE_URL is missing or not an http(s) URL",
-      tokenUrl === null && "GOOGLE_TOKEN_URL is missing or not an http(s) URL",
-      classroomUrl === null && "CLASSROOM_API_URL is missing or not an http(s) URL",
+      authorizeUrl === null &&
+        "GOOGLE_AUTHORIZE_URL is missing, or not an https URL (http only for localhost)",
+      tokenUrl === null &&
+        "GOOGLE_TOKEN_URL is missing, or not an https URL (http only for localhost)",
+      classroomUrl === null &&
+        "CLASSROOM_API_URL is missing, or not an https URL (http only for localhost)",
     ].filter((problem) => problem !== false);
     return { kind: "invalid", problems };
   }

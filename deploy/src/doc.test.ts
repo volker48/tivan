@@ -85,12 +85,25 @@ describe("PUT /api/doc", () => {
 
   it("rejects a declared Content-Length over the cap without reading the body", async () => {
     const app = await signedInApp();
+    let pulled = false;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulled = true;
+          controller.enqueue(new TextEncoder().encode("{}"));
+          controller.close();
+        },
+      },
+      { highWaterMark: 0 },
+    );
     const response = await app.request("/api/doc", {
       method: "PUT",
-      body: "{}",
+      body,
+      duplex: "half",
       headers: { "content-length": String(MAX_DOC_BYTES + 1) },
-    });
+    } as RequestInit);
     expect(response.status).toBe(413);
+    expect(pulled).toBe(false);
   });
 
   it.each([

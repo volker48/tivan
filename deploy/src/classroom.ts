@@ -82,9 +82,12 @@ async function listAll<T>(
     const raw = body[itemsKey];
     for (const item of Array.isArray(raw) ? raw : []) {
       const parsed = parseItem(item);
-      if (parsed !== null) {
-        items.push(parsed);
+      if (parsed === null) {
+        // A partial roster would read as students who left, and the next sync would remove them.
+        logEvent("classroom_request_failed", { reason: "unreadable_item" });
+        return { kind: "unavailable" };
       }
+      items.push(parsed);
     }
     const next = body["nextPageToken"];
     if (typeof next !== "string" || next === "") {

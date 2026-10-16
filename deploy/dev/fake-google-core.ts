@@ -64,6 +64,8 @@ export interface FakeGoogleOptions {
   readonly courses?: readonly FakeCourse[];
   /** Items per page. Small by default so pagination is always exercised. */
   readonly pageSize?: number;
+  /** Milliseconds since the epoch. The ID token's `iat` and `exp` follow it. */
+  readonly now?: () => number;
 }
 
 export interface FakeGoogle {
@@ -71,6 +73,8 @@ export interface FakeGoogle {
   /** Makes the refresh token fail with `invalid_grant`, as after the teacher revokes access. */
   revokeRefreshToken(): void;
   restoreRefreshToken(): void;
+  /** Replaces the rosters later calls see, as after the teacher changes a class in Classroom. */
+  setCourses(courses: readonly FakeCourse[]): void;
   /** `METHOD /path` of every request served, in order. Tests may empty it between steps. */
   readonly requests: string[];
 }
@@ -79,15 +83,16 @@ function base64UrlJson(value: unknown): string {
   return btoa(JSON.stringify(value)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
-function idToken(audience: string): string {
+function idToken(audience: string, nowMs: number): string {
+  const iat = Math.floor(nowMs / 1000);
   const claims = {
     iss: "https://accounts.google.com",
     aud: audience,
     sub: FAKE_TEACHER.sub,
     email: FAKE_TEACHER.email,
     name: FAKE_TEACHER.name,
-    iat: 1_700_000_000,
-    exp: 1_700_003_600,
+    iat,
+    exp: iat + 3600,
   };
   return [base64UrlJson({ alg: "none", typ: "JWT" }), base64UrlJson(claims), "fake-signature"].join(
     ".",
@@ -107,10 +112,12 @@ function oauthError(error: string): Response {
 }
 
 export function createFakeGoogle(options: FakeGoogleOptions = {}): FakeGoogle {
-  const courses = options.courses ?? FAKE_COURSES;
+  let courses = options.courses ?? FAKE_COURSES;
+  const now = options.now ?? Date.now;
   const pageSize = options.pageSize ?? 2;
   const requests: string[] = [];
   const issuedCodes = new Map<string, string>();
+  let codesIssued = 0;
   let revoked = false;
 
   function authorize(url: URL): Response {
@@ -127,7 +134,8 @@ export function createFakeGoogle(options: FakeGoogleOptions = {}): FakeGoogle {
     const missing = REQUIRED_SCOPES.filter((scope) => !scopes.includes(scope));
     if (missing.length > 0) return badRequest(`scopes missing: ${missing.join(", ")}`);
 
-    const code = `fake-code-${issuedCodes.size + 1}`;
+    codesIssued += 1;
+    const code = `fake-code-${codesIssued}`;
     issuedCodes.set(code, redirectUri);
     const target = new URL(redirectUri);
     target.searchParams.set("code", code);
@@ -151,7 +159,7 @@ export function createFakeGoogle(options: FakeGoogleOptions = {}): FakeGoogle {
         return jsonResponse({
           access_token: FAKE_ACCESS_TOKEN,
           refresh_token: FAKE_REFRESH_TOKEN,
-          id_token: idToken(clientId),
+          id_token: idToken(clientId, now()),
           expires_in: 3600,
           scope: REQUIRED_SCOPES.join(" "),
           token_type: "Bearer",
@@ -218,6 +226,9 @@ export function createFakeGoogle(options: FakeGoogleOptions = {}): FakeGoogle {
     },
     restoreRefreshToken: () => {
       revoked = false;
+    },
+    setCourses: (next) => {
+      courses = next;
     },
     async fetch(request) {
       const url = new URL(request.url);

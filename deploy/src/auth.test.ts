@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FAKE_REFRESH_TOKEN, FAKE_TEACHER } from "../dev/fake-google-core.ts";
 import { SESSION_COOKIE, SESSION_TTL_MS, STATE_COOKIE } from "./auth.ts";
 import { decryptToken, parseEncryptionKey } from "./crypto.ts";
+import { parseIdToken } from "./google.ts";
 import { TEST_CLIENT_ID, TEST_KEY, TEST_ORIGIN, createTestApp } from "./testing/app.ts";
 
 afterEach(() => {
@@ -330,5 +331,50 @@ describe("POST /auth/logout", () => {
     await app.request("/auth/logout", { method: "POST" });
     await app.signIn();
     expect(await (await app.request("/api/doc")).text()).toBe('{"version":5,"doc":{}}');
+  });
+});
+
+describe("parseIdToken", () => {
+  const NOW = Date.UTC(2026, 9, 16);
+  const valid = {
+    iss: "https://accounts.google.com",
+    aud: TEST_CLIENT_ID,
+    sub: "sub-1",
+    email: "t@example.test",
+    name: "Tess",
+    exp: NOW / 1000 + 3600,
+  };
+
+  function token(claims: Record<string, unknown>): string {
+    const payload = btoa(JSON.stringify(claims))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replaceAll("=", "");
+    return `e30.${payload}.sig`;
+  }
+
+  it("reads the teacher from a current token for this client", () => {
+    expect(parseIdToken(token(valid), TEST_CLIENT_ID, NOW)).toEqual({
+      sub: "sub-1",
+      email: "t@example.test",
+      name: "Tess",
+    });
+  });
+
+  it("accepts the issuer without a scheme", () => {
+    const claims = { ...valid, iss: "accounts.google.com" };
+    expect(parseIdToken(token(claims), TEST_CLIENT_ID, NOW)).not.toBeNull();
+  });
+
+  it.each([
+    ["another issuer", { iss: "https://evil.example" }],
+    ["no issuer", { iss: undefined }],
+    ["another audience", { aud: "someone-else" }],
+    ["an expired token", { exp: NOW / 1000 - 1 }],
+    ["a token expiring right now", { exp: NOW / 1000 }],
+    ["no expiry", { exp: undefined }],
+    ["an expiry that is not a number", { exp: "9999999999" }],
+  ])("rejects %s", (_label, override) => {
+    expect(parseIdToken(token({ ...valid, ...override }), TEST_CLIENT_ID, NOW)).toBeNull();
   });
 });

@@ -115,7 +115,7 @@ describe("GET /api/classroom/courses", () => {
       wrap: (inner) => async (input, init) => {
         const { pathname } = new URL(new Request(input, init).url);
         if (pathname === "/v1/courses") {
-          return Response.json({ courses: [{ id: "c1", name: "Art" }, { name: "no id" }, 7] });
+          return Response.json({ courses: [{ id: "c1", name: "Art" }] });
         }
         if (pathname === "/v1/courses/c1/students") {
           return Response.json({
@@ -125,7 +125,6 @@ describe("GET /api/classroom/courses", () => {
                 profile: { id: "p1", name: { givenName: "A", fullName: "Ann Álvarez" } },
               },
               { userId: "u2", profile: { id: "p2" } },
-              { profile: { id: "p3", name: { fullName: "No User Id" } } },
             ],
           });
         }
@@ -227,6 +226,41 @@ describe("when Google rejects the teacher", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "reauthorize" });
     expect(app.google.requests).toEqual([]);
+  });
+
+  it("answers 502 instead of a partial roster when a student entry cannot be read", async () => {
+    const app = await signedIn({
+      wrap: (inner) => async (input, init) => {
+        const response = await inner(input, init);
+        if (!new URL(new Request(input, init).url).pathname.endsWith("/course-1/students")) {
+          return response;
+        }
+        const body = (await response.json()) as { students?: unknown[] };
+        return Response.json({ ...body, students: [...(body.students ?? []), { profile: {} }] });
+      },
+    });
+    const response = await courses(app);
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "classroom_unavailable" });
+  });
+
+  it("answers 502 when a course entry has no id", async () => {
+    const app = await signedIn({
+      wrap: (inner) => async (input, init) =>
+        new URL(new Request(input, init).url).pathname === "/v1/courses"
+          ? Response.json({ courses: [{ name: "no id" }] })
+          : inner(input, init),
+    });
+    expect((await courses(app)).status).toBe(502);
+  });
+
+  it("shows the rosters set later with setCourses", async () => {
+    const app = await signedIn();
+    app.google.setCourses([{ id: "only", name: "Only", students: [{ id: "u1", name: "Una" }] }]);
+    const response = await courses(app);
+    expect(await response.json()).toEqual({
+      courses: [{ id: "only", name: "Only", students: [{ id: "u1", name: "Una" }] }],
+    });
   });
 
   it("recovers after the teacher signs in again", async () => {

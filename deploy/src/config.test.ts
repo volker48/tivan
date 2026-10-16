@@ -15,11 +15,17 @@ describe("parseConfig", () => {
   });
 
   it("reports every missing secret by name", () => {
-    const result = parseConfig({ ...TEST_ENV, GOOGLE_CLIENT_ID: undefined, TOKEN_ENC_KEY: "" });
+    const result = parseConfig({
+      ...TEST_ENV,
+      GOOGLE_CLIENT_ID: undefined,
+      GOOGLE_CLIENT_SECRET: undefined,
+      TOKEN_ENC_KEY: "",
+    });
     expect(result).toEqual({
       kind: "invalid",
       problems: [
         "GOOGLE_CLIENT_ID is missing",
+        "GOOGLE_CLIENT_SECRET is missing",
         "TOKEN_ENC_KEY is missing or not base64 of 32 bytes",
       ],
     });
@@ -31,8 +37,21 @@ describe("parseConfig", () => {
     ["a non-string secret", { GOOGLE_CLIENT_SECRET: 42 }],
     ["a URL that does not parse", { GOOGLE_TOKEN_URL: "not a url" }],
     ["a URL with another scheme", { CLASSROOM_API_URL: "ftp://classroom.example" }],
+    ["plain HTTP to a remote token endpoint", { GOOGLE_TOKEN_URL: "http://oauth2.example/token" }],
+    [
+      "plain HTTP to a lookalike of localhost",
+      { GOOGLE_TOKEN_URL: "http://localhost.evil.test/t" },
+    ],
   ])("rejects %s", (_label, override) => {
     expect(parseConfig({ ...TEST_ENV, ...override }).kind).toBe("invalid");
+  });
+
+  it.each([
+    "http://localhost:8788/token",
+    "http://127.0.0.1:8788/token",
+    "http://[::1]:8788/token",
+  ])("allows plain HTTP to loopback %s for local development", (url) => {
+    expect(parseConfig({ ...TEST_ENV, GOOGLE_TOKEN_URL: url }).kind).toBe("ok");
   });
 
   it("never echoes a value in its problems", () => {
