@@ -14,3 +14,4 @@ CREATE TABLE sessions (
   sub TEXT NOT NULL REFERENCES teachers(sub) ON DELETE CASCADE,
   expires_at INTEGER NOT NULL
 );
+CREATE INDEX sessions_expires_at ON sessions (expires_at);
