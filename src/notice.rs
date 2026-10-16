@@ -173,21 +173,14 @@ mod tests {
     /// Syncs `first` into an empty doc, then `later` into the result, and reports the second sync.
     /// A course is `(id, student names)`, and each student's id is their name.
     fn report_of(first: &[(&str, &[&str])], later: &[(&str, &[&str])]) -> SyncReport {
-        use crate::domain::{
-            ClassroomCourse, ClassroomCourseId, ClassroomStudent, ClassroomUserId, Doc, SplitMix64,
-            SyncPlan,
-        };
+        use crate::domain::testing::course;
+        use crate::domain::{ClassroomCourse, Doc, SplitMix64, SyncPlan};
         let build = |courses: &[(&str, &[&str])]| -> Vec<ClassroomCourse> {
             courses
                 .iter()
-                .map(|(id, students)| {
-                    let students = students
-                        .iter()
-                        .map(|name| {
-                            ClassroomStudent::new(ClassroomUserId::parse(name).unwrap(), name)
-                        })
-                        .collect();
-                    ClassroomCourse::new(ClassroomCourseId::parse(id).unwrap(), id, students)
+                .map(|(id, names)| {
+                    let students: Vec<_> = names.iter().map(|name| (*name, *name)).collect();
+                    course(id, id, &students)
                 })
                 .collect()
         };

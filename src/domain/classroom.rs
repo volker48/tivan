@@ -303,26 +303,10 @@ mod tests {
     use crate::domain::grouping::{GroupCount, GroupIdx};
     use crate::domain::rng::SplitMix64;
     use crate::domain::seed::seed_doc;
-    use crate::domain::testing::label;
+    use crate::domain::testing::{course, course_id, label, user_id};
 
     fn rng() -> SplitMix64 {
         SplitMix64::seeded(7)
-    }
-
-    fn course_id(raw: &str) -> ClassroomCourseId {
-        ClassroomCourseId::parse(raw).unwrap()
-    }
-
-    fn user_id(raw: &str) -> ClassroomUserId {
-        ClassroomUserId::parse(raw).unwrap()
-    }
-
-    fn course(id: &str, name: &str, students: &[(&str, &str)]) -> ClassroomCourse {
-        let students = students
-            .iter()
-            .map(|(id, name)| ClassroomStudent::new(user_id(id), name))
-            .collect();
-        ClassroomCourse::new(course_id(id), name, students)
     }
 
     /// Plans and applies in one go, checking the doc's invariants afterwards.

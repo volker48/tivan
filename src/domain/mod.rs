@@ -40,10 +40,30 @@ pub use timer::{Millis, Preset, Timer, format_mm_ss};
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use super::{Avatar, Label, Student, StudentId};
+    use super::{
+        Avatar, ClassroomCourse, ClassroomCourseId, ClassroomStudent, ClassroomUserId, Label,
+        Student, StudentId,
+    };
 
     pub fn label(raw: &str) -> Label {
         Label::parse(raw).unwrap()
+    }
+
+    pub fn course_id(raw: &str) -> ClassroomCourseId {
+        ClassroomCourseId::parse(raw).unwrap()
+    }
+
+    pub fn user_id(raw: &str) -> ClassroomUserId {
+        ClassroomUserId::parse(raw).unwrap()
+    }
+
+    /// A Classroom course whose id is `id`, with `(id, name)` students.
+    pub fn course(id: &str, name: &str, students: &[(&str, &str)]) -> ClassroomCourse {
+        let students = students
+            .iter()
+            .map(|(id, name)| ClassroomStudent::new(user_id(id), name))
+            .collect();
+        ClassroomCourse::new(course_id(id), name, students)
     }
 
     pub fn labels(raw: &[&str]) -> Vec<Label> {
