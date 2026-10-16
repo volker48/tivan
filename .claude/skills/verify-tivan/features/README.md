@@ -5,14 +5,14 @@ This directory is the maintained source for verifying what a teacher can do in T
 ## Baseline preconditions
 
 - A run started with `.claude/skills/verify-tivan/bin/tivan-up`. `tivan-doctor <run>` passes.
-- The run's session is fresh from `tivan-up`, so the page shows the seed: three classes `Room 12 Morning` (24 students, selected), `Period 3 Science` (20), `Reading Club` (27), none grouped, no timer, Build mode.
+- The run's session is fresh from `tivan-up`, so the page shows the seed: three classes `McCurdy HR` (18 students, selected), `Period 3 Science` (20), `Reading Club` (27), none grouped, no timer, Build mode.
 - To get back to baseline mid-run, start a new run. Never clear or write `localStorage` by hand.
 - Every drive command starts with `source target/verify/<run>/run.env &&` so `$SESSION` and `$EVIDENCE` are set.
 
 ## Driving conventions
 
 - Drive through `agent-browser --session "$SESSION"` with `find role|label|placeholder … --name`, `press` and `fill`. Take a fresh `snapshot` after each change before using any `@eN` ref.
-- `--name` matches substrings. Use `--exact` when one visible name contains another (`Ava` and `Remove Ava`).
+- `--name` matches substrings. Use `--exact` when one visible name contains another (`Abigail` and `Remove Abigail`).
 - Read saved state with `eval "JSON.parse(localStorage.getItem('tivan.state'))" | jq …`. The selected class is `.doc.classes[] | select(.id == $doc.selected)`. The seed selects class id `0`.
 - Feature files assume the seed's first class unless they say otherwise.
 
@@ -57,6 +57,6 @@ Status as of 2026-10-15, rev `5f58097`:
 - **Centers**: written from the code, after a smoke pass over the handles on one run (rev `8c89a04+dirty`, with the UI changes uncommitted): `Use centers`, `Rotate` in Build and on the whiteboard (cards animated), a center rename with Enter, `Make groups` keeping the renamed center and appending `Center 4`..`Center 12`, `Remove centers`, and the `.centers` saved shape after a reload. The recipe has not been run step by step with captures, so the first agent to run it fixes any step that does not match the app and updates this list.
 - **Whiteboard and oracle**: run end to end on agent-browser 0.39.1 and Chrome for Testing 155, run `20261015-233815-30238` (rev `7e918da+dirty`, with the group oracle uncommitted). Every step of `whiteboard.md` passed, including the student oracle steps, the `oracle-group-*` steps with reload proof, the empty wall, and a drained student round on `Period 3 Science`. Evidence: `target/verify/20261015-233815-30238/`.
 - **Classes, Roster, Timer**: written from the code and from one exploratory pass over their handles. They have not been run step by step. The first agent to run one fixes any step that does not match the app and updates this list.
-  - Exception: `classes-rename` passed with reload proof, on the seed's `Room 12 Morning` rather than the recipe's new class. It passed with Enter in `target/verify/20261015-171929-68457/` and by clicking away in `target/verify/20261015-163949-66174/`.
+  - Exception: `classes-rename` passed with reload proof, on the then-current first seed class rather than the recipe's new class. It passed with Enter in `target/verify/20261015-171929-68457/` and by clicking away in `target/verify/20261015-163949-66174/`.
 
 Not mapped yet: the storage notices (unreadable saved data, a newer version's data, blocked storage, failed save). They are reachable only by corrupting or blocking `localStorage`, which breaks the no-setup-writes rule above. They are covered by `cargo test` in `src/store.rs`. Google Classroom sync is not built.
