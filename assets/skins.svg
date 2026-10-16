@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <clipPath id="sk-witch-cone"><path d="M36 22C39 18 42.5 12.5 45.5 8.5C48 5 54 3 60.5 4.5C58.5 6.5 57.5 9 57.5 12C57.5 16.5 60.5 19 64 22Q50 27 36 22Z"/></clipPath>
+  </defs>
+
+  <symbol id="skin-halloween" viewBox="0 0 100 100">
+    <g transform="translate(50 18) scale(.86) rotate(-5) translate(-50 -21)" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+      <ellipse cx="50" cy="21" rx="34" ry="5.2" fill="#3d2766"/>
+      <path d="M36 22C39 18 42.5 12.5 45.5 8.5C48 5 54 3 60.5 4.5C58.5 6.5 57.5 9 57.5 12C57.5 16.5 60.5 19 64 22Q50 27 36 22Z" fill="#6b43b0"/>
+      <rect x="20" y="16.5" width="60" height="9" fill="#ff8c1a" stroke="none" clip-path="url(#sk-witch-cone)"/>
+      <path d="M36 22C39 18 42.5 12.5 45.5 8.5C48 5 54 3 60.5 4.5C58.5 6.5 57.5 9 57.5 12C57.5 16.5 60.5 19 64 22Q50 27 36 22Z" fill="none"/>
+      <rect x="45.5" y="17.5" width="9" height="7.5" rx="1.5" fill="#ffd166" stroke-width="2"/>
+    </g>
+  </symbol>
+
+  <symbol id="skin-christmas" viewBox="0 0 100 100">
+    <g transform="translate(50 18) scale(.86) rotate(-4) translate(-50 -22)" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+      <path d="M27 22C27 10 37 3.5 52 3.5C64 3.5 73 8 77.5 16C76 19 75 21 75 22Z" fill="#e63946"/>
+      <rect x="20" y="17" width="60" height="10" rx="5" fill="#fffdf8"/>
+      <circle cx="79" cy="16" r="5.8" fill="#fffdf8"/>
+    </g>
+  </symbol>
+</svg>
