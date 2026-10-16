@@ -10,12 +10,10 @@
  *
  * Signing in skips the consent screen and returns straight to the Worker as one fixed teacher.
  * `POST /__revoke` makes the refresh token fail with invalid_grant, which sends the Worker's
- * Classroom route down its `reauthorize` path. `POST /__restore` undoes it. `POST /__courses`
- * takes a JSON array of `{ id, name, students: [{ id, name }] }` and makes it the Classroom the
- * Worker sees from then on.
+ * Classroom route down its `reauthorize` path. `POST /__restore` undoes it.
  */
 import { createServer } from "node:http";
-import { createFakeGoogle, parseFakeCourses } from "./fake-google-core.ts";
+import { createFakeGoogle } from "./fake-google-core.ts";
 
 const port = Number(process.env["PORT"] ?? 8788);
 const google = createFakeGoogle();
@@ -36,24 +34,6 @@ const server = createServer(async (incoming, outgoing) => {
   const chunks: Buffer[] = [];
   for await (const chunk of incoming) {
     chunks.push(chunk as Buffer);
-  }
-  if (incoming.method === "POST" && url.pathname === "/__courses") {
-    let parsed: unknown = null;
-    try {
-      parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    } catch {
-      // Not JSON, so it fails the shape check below.
-    }
-    const courses = parseFakeCourses(parsed);
-    if (courses === null) {
-      outgoing
-        .writeHead(400)
-        .end("expected a JSON array of { id, name, students: [{ id, name }] }\n");
-      return;
-    }
-    google.setCourses(courses);
-    outgoing.writeHead(204).end();
-    return;
   }
   const hasBody = incoming.method !== "GET" && incoming.method !== "HEAD";
   const response = await google.fetch(

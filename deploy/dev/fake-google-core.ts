@@ -73,27 +73,8 @@ export interface FakeGoogle {
   /** Makes the refresh token fail with `invalid_grant`, as after the teacher revokes access. */
   revokeRefreshToken(): void;
   restoreRefreshToken(): void;
-  /** Replaces the rosters later calls see, as after the teacher changes a class in Classroom. */
-  setCourses(courses: readonly FakeCourse[]): void;
   /** `METHOD /path` of every request served, in order. Tests may empty it between steps. */
   readonly requests: string[];
-}
-
-/** The shape `POST /__courses` accepts, or `null` for anything else. */
-export function parseFakeCourses(value: unknown): FakeCourse[] | null {
-  const isText = (item: unknown): item is string => typeof item === "string" && item !== "";
-  if (!Array.isArray(value)) return null;
-  for (const course of value as unknown[]) {
-    if (typeof course !== "object" || course === null) return null;
-    const { id, name, students } = course as Record<string, unknown>;
-    if (!isText(id) || typeof name !== "string" || !Array.isArray(students)) return null;
-    for (const student of students as unknown[]) {
-      if (typeof student !== "object" || student === null) return null;
-      const fields = student as Record<string, unknown>;
-      if (!isText(fields["id"]) || typeof fields["name"] !== "string") return null;
-    }
-  }
-  return value as FakeCourse[];
 }
 
 function base64UrlJson(value: unknown): string {
@@ -129,7 +110,7 @@ function oauthError(error: string): Response {
 }
 
 export function createFakeGoogle(options: FakeGoogleOptions = {}): FakeGoogle {
-  let courses = options.courses ?? FAKE_COURSES;
+  const courses = options.courses ?? FAKE_COURSES;
   const now = options.now ?? Date.now;
   const pageSize = options.pageSize ?? 2;
   const requests: string[] = [];
@@ -243,9 +224,6 @@ export function createFakeGoogle(options: FakeGoogleOptions = {}): FakeGoogle {
     },
     restoreRefreshToken: () => {
       revoked = false;
-    },
-    setCourses: (next) => {
-      courses = next;
     },
     async fetch(request) {
       const url = new URL(request.url);

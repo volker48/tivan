@@ -284,15 +284,6 @@ describe("when Google rejects the teacher", () => {
     expect((await courses(app)).status).toBe(502);
   });
 
-  it("shows the rosters set later with setCourses", async () => {
-    const app = await signedIn();
-    app.google.setCourses([{ id: "only", name: "Only", students: [{ id: "u1", name: "Una" }] }]);
-    const response = await courses(app);
-    expect(await response.json()).toEqual({
-      courses: [{ id: "only", name: "Only", students: [{ id: "u1", name: "Una" }] }],
-    });
-  });
-
   it("recovers after the teacher signs in again", async () => {
     const app = await signedIn();
     app.google.revokeRefreshToken();
