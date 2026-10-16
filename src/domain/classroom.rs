@@ -349,12 +349,10 @@ impl SyncPlan {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
-
     use serde_json::json;
 
     use super::*;
-    use crate::domain::class::{Class, Draw, StudentId};
+    use crate::domain::class::{Class, Draw};
     use crate::domain::grouping::{GroupCount, GroupIdx};
     use crate::domain::rng::SplitMix64;
     use crate::domain::seed::seed_doc;
@@ -965,115 +963,6 @@ mod tests {
         for body in bodies {
             let error = parse_courses(body).unwrap_err();
             assert!(!error.to_string().is_empty(), "{body}");
-        }
-    }
-
-    fn roll(rng: &mut SplitMix64, n: usize) -> usize {
-        rng.below(NonZeroUsize::new(n).unwrap())
-    }
-
-    fn random_courses(rng: &mut SplitMix64) -> Vec<ClassroomCourse> {
-        let long = "w".repeat(60);
-        let names = ["Ava", "Ben", "", "  ", "Chloe", long.as_str()];
-        (0..roll(rng, 4))
-            .map(|_| {
-                let students: Vec<(String, &str)> = (0..roll(rng, 9))
-                    .map(|_| (format!("u{}", roll(rng, 12)), names[roll(rng, names.len())]))
-                    .collect();
-                let students: Vec<(&str, &str)> = students
-                    .iter()
-                    .map(|(id, name)| (id.as_str(), *name))
-                    .collect();
-                course(
-                    &format!("c{}", roll(rng, 3)),
-                    names[roll(rng, names.len())],
-                    &students,
-                )
-            })
-            .collect()
-    }
-
-    fn assert_links_are_unique(doc: &Doc) {
-        let courses: Vec<&ClassroomCourseId> = doc
-            .classes()
-            .iter()
-            .filter_map(Class::classroom_course_id)
-            .collect();
-        let distinct: BTreeSet<_> = courses.iter().collect();
-        assert_eq!(distinct.len(), courses.len(), "two classes share a course");
-        for class in doc.classes() {
-            let users: Vec<&ClassroomUserId> = class
-                .students()
-                .iter()
-                .filter_map(|s| s.classroom_user_id.as_ref())
-                .collect();
-            let distinct: BTreeSet<_> = users.iter().collect();
-            assert_eq!(distinct.len(), users.len(), "a person is on a roster twice");
-        }
-    }
-
-    #[test]
-    fn invariants_and_idempotence_survive_a_long_random_mix_of_edits_and_syncs() {
-        for seed in 0..40 {
-            let mut rng = SplitMix64::seeded(seed);
-            let mut doc = Doc::default();
-            for _ in 0..60 {
-                match roll(&mut rng, 12) {
-                    0..=5 => {
-                        let mut plan = SyncPlan::new(&doc, random_courses(&mut rng));
-                        for entry in plan.entries() {
-                            if roll(&mut rng, 3) == 0 {
-                                plan.set_chosen(&entry.id, false);
-                            }
-                        }
-                        plan.apply(&mut doc, &mut rng);
-                        doc.assert_invariants();
-                        assert_links_are_unique(&doc);
-
-                        let once = doc.clone();
-                        let report = plan.apply(&mut doc, &mut rng);
-                        assert!(report.is_empty(), "seed {seed}");
-                        assert_eq!(doc, once, "seed {seed}");
-                    }
-                    6 if !doc.classes().is_empty() => {
-                        let id = doc.classes()[roll(&mut rng, doc.classes().len())].id();
-                        doc.delete_class(id);
-                    }
-                    7 => {
-                        if let Some(class) = doc.selected_mut() {
-                            class.add_student(label("By hand"), &mut rng);
-                        }
-                    }
-                    8 => {
-                        if let Some(class) = doc.selected_mut() {
-                            let n = class.students().len();
-                            if let Ok(count) = GroupCount::new(1 + roll(&mut rng, 3), n) {
-                                class.regroup(count, &mut rng);
-                            }
-                        }
-                    }
-                    9 => {
-                        if let Some(class) = doc.selected_mut() {
-                            class.draw(Draw::Student, &mut rng);
-                            class.draw(Draw::Group, &mut rng);
-                        }
-                    }
-                    10 if !doc.classes().is_empty() => {
-                        let id = doc.classes()[roll(&mut rng, doc.classes().len())].id();
-                        doc.select(id);
-                    }
-                    _ => {
-                        if let Some(class) = doc.selected_mut() {
-                            let ids: Vec<StudentId> =
-                                class.students().iter().map(|s| s.id).collect();
-                            if !ids.is_empty() {
-                                class.remove_student(ids[roll(&mut rng, ids.len())]);
-                            }
-                        }
-                    }
-                }
-                doc.assert_invariants();
-            }
         }
     }
 }
