@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::avatar::{self, Avatar};
+use super::centers::CenterIdx;
 use super::grouping::{GroupCount, GroupIdx, Grouping, MoveError};
 use super::label::{Label, LabelError};
 use super::oracle::Oracle;
@@ -47,6 +48,14 @@ pub struct GroupView<'a> {
     pub idx: GroupIdx,
     pub name: &'a Label,
     pub members: Vec<&'a Student>,
+}
+
+/// One center with the group standing there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CenterView<'a> {
+    pub idx: CenterIdx,
+    pub name: &'a Label,
+    pub group: GroupView<'a>,
 }
 
 /// Owns the roster, the grouping, and the oracle round for one class. Roster edits go through this
@@ -120,15 +129,24 @@ impl Class {
     }
 
     /// Fresh random split with fresh names, replacing any existing grouping. A `count` made for
-    /// an earlier, larger roster is clamped to the current one.
+    /// an earlier, larger roster is clamped to the current one. Centers carry over with their
+    /// names, fitted to the new group count, and start again at round 1.
     pub fn regroup(&mut self, count: GroupCount, rng: &mut impl Rng) {
+        let mut centers = self.grouping.as_mut().and_then(Grouping::take_centers);
+        if let Some(centers) = &mut centers {
+            centers.restart();
+        }
         self.grouping = GroupCount::nearest(count.get(), self.students.len())
             .ok()
-            .map(|count| Grouping::split(&self.students, count, rng));
+            .map(|count| {
+                let mut grouping = Grouping::split(&self.students, count, rng);
+                grouping.set_centers(centers);
+                grouping
+            });
     }
 
-    /// Re-deals the students across the existing groups, keeping the group names. Does nothing
-    /// when there is no grouping yet.
+    /// Re-deals the students across the existing groups, keeping the group names and the
+    /// centers. Does nothing when there is no grouping yet.
     pub fn reshuffle(&mut self, rng: &mut impl Rng) {
         if let Some(grouping) = &mut self.grouping {
             grouping.reshuffle(&self.students, rng);
@@ -149,6 +167,34 @@ impl Class {
         rng: &mut impl Rng,
     ) -> Result<(), MoveError> {
         self.grouping_mut()?.reroll_name(idx, rng)
+    }
+
+    /// Gives each group a center. Does nothing without groups, or when centers are in use already.
+    pub fn add_centers(&mut self) {
+        if let Some(grouping) = &mut self.grouping {
+            grouping.add_centers();
+        }
+    }
+
+    /// Drops the centers and their names.
+    pub fn remove_centers(&mut self) {
+        if let Some(grouping) = &mut self.grouping {
+            grouping.remove_centers();
+        }
+    }
+
+    /// Moves every group to the next center, and from the last center back to the first.
+    pub fn rotate_centers(&mut self) {
+        if let Some(grouping) = &mut self.grouping {
+            grouping.rotate_centers();
+        }
+    }
+
+    pub fn rename_center(&mut self, idx: CenterIdx, name: Label) -> Result<(), MoveError> {
+        self.grouping
+            .as_mut()
+            .ok_or(MoveError::UnknownCenter)?
+            .rename_center(idx, name)
     }
 
     /// Groups with resolved members, empty when there is no grouping.
@@ -172,6 +218,27 @@ impl Class {
             }
         }
         views
+    }
+
+    /// The centers in center order, each with the group standing there. `None` when the class
+    /// has no groups or does not use centers.
+    pub fn center_views(&self) -> Option<Vec<CenterView<'_>>> {
+        let centers = self.grouping.as_ref()?.centers()?;
+        let groups = self.group_views();
+        let views = centers
+            .names()
+            .iter()
+            .enumerate()
+            .map(|(index, name)| {
+                let idx = CenterIdx(index);
+                CenterView {
+                    idx,
+                    name,
+                    group: groups[centers.group_at(idx).get()].clone(),
+                }
+            })
+            .collect();
+        Some(views)
     }
 
     /// `None` only when the class has no students.
@@ -703,6 +770,308 @@ mod tests {
         assert_eq!(class.oracle_remaining(), 0);
     }
 
+    /// Each center's name with the index of the group standing there, in center order.
+    fn standing(class: &Class) -> Vec<(String, usize)> {
+        class
+            .center_views()
+            .unwrap()
+            .iter()
+            .map(|center| (center.name.to_string(), center.group.idx.get()))
+            .collect()
+    }
+
+    fn center_names(class: &Class) -> Vec<String> {
+        standing(class).into_iter().map(|(name, _)| name).collect()
+    }
+
+    fn round(class: &Class) -> usize {
+        class.grouping().unwrap().centers().unwrap().round()
+    }
+
+    /// A grouped class with centers: `students` students in `groups` groups.
+    fn class_with_centers(students: u32, groups: usize) -> Class {
+        let mut class = class_of(students);
+        class.regroup(count(groups, &class), &mut rng(1));
+        class.add_centers();
+        class
+    }
+
+    #[test]
+    fn centers_start_one_per_group_in_group_order_at_round_one() {
+        let mut class = class_of(6);
+        class.regroup(count(3, &class), &mut rng(1));
+        assert!(class.center_views().is_none());
+
+        class.add_centers();
+
+        let expected = [("Center 1", 0), ("Center 2", 1), ("Center 3", 2)];
+        let expected: Vec<(String, usize)> = expected
+            .into_iter()
+            .map(|(name, group)| (name.to_owned(), group))
+            .collect();
+        assert_eq!(standing(&class), expected);
+        assert_eq!(round(&class), 1);
+        for center in class.center_views().unwrap() {
+            assert_eq!(center.group, class.group_views()[center.idx.get()]);
+        }
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn centers_need_groups_so_without_them_every_center_edit_does_nothing() {
+        let mut class = class_of(3);
+        let before = class.clone();
+
+        class.add_centers();
+        class.rotate_centers();
+        class.remove_centers();
+
+        assert_eq!(class, before);
+        assert!(class.center_views().is_none());
+        assert_eq!(
+            class.rename_center(CenterIdx(0), label("x")),
+            Err(MoveError::UnknownCenter)
+        );
+    }
+
+    #[test]
+    fn adding_centers_again_keeps_their_names_and_place_in_the_cycle() {
+        let mut class = class_with_centers(6, 3);
+        class
+            .rename_center(CenterIdx(1), label("Reading Nook"))
+            .unwrap();
+        class.rotate_centers();
+        let before = class.clone();
+
+        class.add_centers();
+
+        assert_eq!(class, before);
+    }
+
+    #[test]
+    fn rotating_moves_every_group_one_center_on_and_a_full_cycle_comes_home() {
+        let mut class = class_with_centers(9, 3);
+        let start = standing(&class);
+
+        class.rotate_centers();
+
+        let groups: Vec<usize> = standing(&class)
+            .into_iter()
+            .map(|(_, group)| group)
+            .collect();
+        assert_eq!(
+            groups,
+            [2, 0, 1],
+            "group g moved from center g to center g + 1"
+        );
+        assert_eq!(round(&class), 2);
+
+        class.rotate_centers();
+        class.rotate_centers();
+        assert_eq!(standing(&class), start);
+        assert_eq!(round(&class), 1);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn over_a_full_cycle_every_group_is_at_every_center_exactly_once() {
+        let groups = 5;
+        let mut class = class_with_centers(10, groups);
+        let mut seen: Vec<Vec<String>> = vec![Vec::new(); groups];
+        for _ in 0..groups {
+            for (name, group) in standing(&class) {
+                seen[group].push(name);
+            }
+            class.rotate_centers();
+        }
+        let every_center = center_names(&class);
+        for (group, mut visited) in seen.into_iter().enumerate() {
+            visited.sort();
+            assert_eq!(visited, every_center, "group {group}");
+        }
+    }
+
+    #[test]
+    fn rotating_moves_the_groups_and_not_their_students_or_names() {
+        let mut class = class_with_centers(9, 3);
+        let members = member_ids(&class);
+        let names = names_of(&class);
+
+        class.rotate_centers();
+
+        assert_eq!(member_ids(&class), members);
+        assert_eq!(names_of(&class), names);
+    }
+
+    #[test]
+    fn removing_centers_drops_their_names_and_turn() {
+        let mut class = class_with_centers(6, 3);
+        class
+            .rename_center(CenterIdx(0), label("Computers"))
+            .unwrap();
+        class.rotate_centers();
+
+        class.remove_centers();
+        assert!(class.center_views().is_none());
+        assert!(class.grouping().unwrap().centers().is_none());
+
+        class.add_centers();
+        assert_eq!(center_names(&class), ["Center 1", "Center 2", "Center 3"]);
+        assert_eq!(round(&class), 1);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn rename_center_changes_only_that_center_and_rejects_a_stale_one() {
+        let mut class = class_with_centers(6, 3);
+
+        class
+            .rename_center(CenterIdx(1), label("Art Table"))
+            .unwrap();
+        assert_eq!(center_names(&class), ["Center 1", "Art Table", "Center 3"]);
+
+        let before = class.clone();
+        assert_eq!(
+            class.rename_center(CenterIdx(3), label("x")),
+            Err(MoveError::UnknownCenter)
+        );
+        assert_eq!(class, before);
+    }
+
+    #[test]
+    fn a_center_name_stays_at_its_place_while_the_groups_move_past() {
+        let mut class = class_with_centers(6, 3);
+        class
+            .rename_center(CenterIdx(0), label("Computers"))
+            .unwrap();
+        let group_at_computers = standing(&class)[0].1;
+
+        class.rotate_centers();
+
+        let (name, group) = standing(&class).remove(0);
+        assert_eq!(name, "Computers");
+        assert_ne!(group, group_at_computers);
+    }
+
+    #[test]
+    fn reshuffle_keeps_center_names_and_the_turn() {
+        let mut class = class_with_centers(12, 4);
+        class
+            .rename_center(CenterIdx(2), label("Listening"))
+            .unwrap();
+        class.rotate_centers();
+        class.rotate_centers();
+        let standing_before = standing(&class);
+        let members_before = member_ids(&class);
+
+        class.reshuffle(&mut rng(2));
+
+        assert_eq!(standing(&class), standing_before);
+        assert_eq!(round(&class), 3);
+        assert_ne!(member_ids(&class), members_before);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn regroup_keeps_center_names_and_restarts_at_round_one_even_at_the_same_count() {
+        let mut class = class_with_centers(12, 3);
+        class
+            .rename_center(CenterIdx(1), label("Reading Nook"))
+            .unwrap();
+        class.rotate_centers();
+        class.rotate_centers();
+        assert_eq!(round(&class), 3);
+
+        class.regroup(count(3, &class), &mut rng(2));
+
+        assert_eq!(
+            center_names(&class),
+            ["Center 1", "Reading Nook", "Center 3"]
+        );
+        assert_eq!(round(&class), 1);
+        let groups: Vec<usize> = standing(&class)
+            .into_iter()
+            .map(|(_, group)| group)
+            .collect();
+        assert_eq!(groups, [0, 1, 2]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn regroup_fits_the_center_names_to_the_new_group_count() {
+        let mut class = class_with_centers(12, 3);
+        class
+            .rename_center(CenterIdx(2), label("Listening"))
+            .unwrap();
+        class.rotate_centers();
+
+        class.regroup(count(5, &class), &mut rng(2));
+        assert_eq!(
+            center_names(&class),
+            ["Center 1", "Center 2", "Listening", "Center 4", "Center 5"]
+        );
+        assert_eq!(round(&class), 1);
+        class.assert_invariants();
+
+        class.regroup(count(2, &class), &mut rng(3));
+        assert_eq!(center_names(&class), ["Center 1", "Center 2"]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn regroup_does_not_invent_centers() {
+        let mut class = class_of(6);
+        class.regroup(count(3, &class), &mut rng(1));
+        class.regroup(count(2, &class), &mut rng(2));
+        assert!(class.center_views().is_none());
+    }
+
+    #[test]
+    fn a_roster_shrinking_below_the_group_count_truncates_centers_in_step_with_groups() {
+        let mut class = class_with_centers(6, 6);
+        class
+            .rename_center(CenterIdx(1), label("Art Table"))
+            .unwrap();
+        for _ in 0..4 {
+            class.rotate_centers();
+        }
+        keep_first(&mut class, 3);
+        assert_eq!(
+            class.center_views().unwrap().len(),
+            6,
+            "removing students keeps the groups"
+        );
+        class.assert_invariants();
+
+        class.reshuffle(&mut rng(2));
+
+        assert_eq!(class.group_views().len(), 3);
+        assert_eq!(center_names(&class), ["Center 1", "Art Table", "Center 3"]);
+        let mut groups: Vec<usize> = standing(&class)
+            .into_iter()
+            .map(|(_, group)| group)
+            .collect();
+        groups.sort();
+        assert_eq!(
+            groups,
+            [0, 1, 2],
+            "each of the surviving groups still has a center"
+        );
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn removing_the_last_student_or_regrouping_an_empty_class_drops_the_centers() {
+        let mut class = class_with_centers(1, 1);
+        let stale = count(1, &class);
+        class.remove_student(class.students()[0].id);
+        assert!(class.grouping().is_none());
+        assert!(class.center_views().is_none());
+
+        class.regroup(stale, &mut rng(1));
+        assert!(class.center_views().is_none());
+    }
+
     fn roll(rng: &mut SplitMix64, n: usize) -> usize {
         rng.below(NonZeroUsize::new(n).unwrap())
     }
@@ -714,7 +1083,7 @@ mod tests {
             let mut class = class_of(8);
             for _ in 0..80 {
                 let ids: Vec<StudentId> = class.students().iter().map(|s| s.id).collect();
-                match roll(&mut rng, 7) {
+                match roll(&mut rng, 11) {
                     0 => {
                         class.add_student(label("Newcomer"), &mut rng);
                     }
@@ -734,9 +1103,16 @@ mod tests {
                     5 => {
                         class.draw(&mut rng);
                     }
-                    _ => {
+                    6 => {
                         let idx = GroupIdx(roll(&mut rng, 4));
                         class.reroll_group_name(idx, &mut rng).ok();
+                    }
+                    7 => class.add_centers(),
+                    8 => class.remove_centers(),
+                    9 => class.rotate_centers(),
+                    _ => {
+                        let idx = CenterIdx(roll(&mut rng, 6));
+                        class.rename_center(idx, label("Station")).ok();
                     }
                 }
                 class.assert_invariants();

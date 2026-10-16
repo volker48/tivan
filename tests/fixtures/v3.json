@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "doc": {
+    "classes": [
+      {
+        "id": 0,
+        "name": "Fixture Class",
+        "students": [
+          { "id": 0, "name": "Ava", "avatar": "bear" },
+          { "id": 1, "name": "Ben", "avatar": "panda" },
+          { "id": 2, "name": "Chloe", "avatar": "cat" },
+          { "id": 4, "name": "Diego", "avatar": "fox" }
+        ],
+        "next_student": 7,
+        "grouping": {
+          "names": ["Brave Bears", "Sunny Seals"],
+          "of": { "0": 0, "1": 1, "2": 0, "4": 1 },
+          "centers": { "names": ["Reading Nook", "Center 2"], "turn": 1 }
+        },
+        "oracle": { "drawn": [4, 1] }
+      },
+      {
+        "id": 2,
+        "name": "Second Class",
+        "students": [{ "id": 0, "name": "Zed", "avatar": "bunny" }],
+        "next_student": 1,
+        "grouping": null,
+        "oracle": { "drawn": [] }
+      }
+    ],
+    "selected": 2,
+    "next_class": 5
+  }
+}

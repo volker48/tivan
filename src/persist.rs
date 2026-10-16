@@ -1,10 +1,12 @@
-//! Persistence format and load policy: one versioned JSON envelope, `{"version":2,"doc":{..}}`,
+//! Persistence format and load policy: one versioned JSON envelope, `{"version":3,"doc":{..}}`,
 //! stored under [`KEY`]. This is the pure half. It owns the format and the corrupt or newer-blob
 //! policy and runs natively under `cargo test`. The domain types are the stored shape, so a schema
 //! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm for the old shape. Version 1 differs
 //! only by lacking each student's avatar, so its arm upgrades the JSON value in place and reads it
-//! as the current shape instead of keeping a frozen copy of the old structs. The fixtures under
-//! `tests/fixtures/` are the guard: they must never be edited.
+//! as the current shape instead of keeping a frozen copy of the old structs. Version 2 differs
+//! only by lacking a grouping's optional `centers`, which an absent key already reads as none, so
+//! it shares the current arm. The fixtures under `tests/fixtures/` are the guard: they must never
+//! be edited.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -14,7 +16,7 @@ use crate::domain::{Doc, Rng, avatar};
 pub const KEY: &str = "tivan.state";
 /// Where an unreadable blob is copied before the app starts over.
 pub const BACKUP_KEY: &str = "tivan.state.backup";
-pub const SCHEMA_VERSION: u64 = 2;
+pub const SCHEMA_VERSION: u64 = 3;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -50,7 +52,7 @@ pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        1 | SCHEMA_VERSION => {
+        1 | 2 | SCHEMA_VERSION => {
             let doc = envelope
                 .get_mut("doc")
                 .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
@@ -127,6 +129,7 @@ mod tests {
 
     const V1: &str = include_str!("../tests/fixtures/v1.json");
     const V2: &str = include_str!("../tests/fixtures/v2.json");
+    const V3: &str = include_str!("../tests/fixtures/v3.json");
 
     fn rng() -> SplitMix64 {
         SplitMix64::seeded(1)
@@ -141,7 +144,7 @@ mod tests {
     }
 
     /// A doc where counters have moved past the live ids, with a grouping, a manual rename,
-    /// and a partly used oracle round.
+    /// centers partway round their cycle with one renamed, and a partly used oracle round.
     fn worked_doc() -> Doc {
         let mut doc = seed_doc();
         let mut rng = SplitMix64::seeded(11);
@@ -157,12 +160,18 @@ mod tests {
         class.regroup(groups, &mut rng);
         let idx = class.group_views()[2].idx;
         class.rename_group(idx, label("Table Three")).unwrap();
+        class.add_centers();
+        class.rotate_centers();
+        class.rotate_centers();
+        let center = class.center_views().unwrap()[1].idx;
+        class.rename_center(center, label("Reading Nook")).unwrap();
         class.draw(&mut rng).unwrap();
         class.draw(&mut rng).unwrap();
         doc
     }
 
-    /// What both fixtures say apart from avatars, which version 1 never stored.
+    /// What every fixture says apart from avatars, which version 1 never stored, and centers,
+    /// which only version 3 stores.
     fn assert_fixture_classes(doc: &Doc) {
         assert_eq!(doc.classes().len(), 2);
         assert_eq!(doc.selected().unwrap().name().as_str(), "Second Class");
@@ -202,10 +211,11 @@ mod tests {
     }
 
     #[test]
-    fn groupings_oracle_rounds_and_counters_survive_a_round_trip() {
+    fn groupings_centers_oracle_rounds_and_counters_survive_a_round_trip() {
         let doc = worked_doc();
         let class = doc.selected().unwrap();
         assert!(class.grouping().is_some());
+        assert_eq!(class.grouping().unwrap().centers().unwrap().round(), 3);
         assert!(class.oracle_remaining() < class.students().len());
 
         let decoded = decode(&encode(&doc), &mut rng()).unwrap();
@@ -218,7 +228,7 @@ mod tests {
     fn encode_wraps_the_doc_in_a_versioned_envelope() {
         let doc = seed_doc();
         let value = parse(&encode(&doc));
-        assert_eq!(value["version"], 2);
+        assert_eq!(value["version"], 3);
         assert_eq!(value["doc"]["classes"].as_array().unwrap().len(), 3);
         let first = &doc.classes()[0].students()[0];
         assert_eq!(
@@ -270,11 +280,52 @@ mod tests {
     }
 
     #[test]
-    fn the_frozen_v2_fixture_re_encodes_to_itself() {
+    fn the_frozen_v2_fixture_re_encodes_as_v3_with_only_the_version_changed() {
         let doc = decode(V2, &mut rng()).unwrap();
+        let mut expected = parse(V2);
+        expected["version"] = SCHEMA_VERSION.into();
         assert_eq!(
             parse(&encode(&doc)),
-            parse(V2),
+            expected,
+            "stored shape drifted: bump SCHEMA_VERSION"
+        );
+    }
+
+    #[test]
+    fn the_frozen_v1_and_v2_fixtures_have_no_centers() {
+        for raw in [V1, V2] {
+            let doc = decode(raw, &mut rng()).unwrap();
+            assert!(doc.classes()[0].grouping().unwrap().centers().is_none());
+            assert!(doc.classes()[0].center_views().is_none());
+        }
+    }
+
+    #[test]
+    fn the_frozen_v3_fixture_decodes_with_its_centers_and_turn() {
+        let doc = decode(V3, &mut rng()).unwrap();
+
+        assert_fixture_classes(&doc);
+        let class = &doc.classes()[0];
+        assert_eq!(class.grouping().unwrap().centers().unwrap().round(), 2);
+        let standing: Vec<(&str, &str)> = class
+            .center_views()
+            .unwrap()
+            .iter()
+            .map(|center| (center.name.as_str(), center.group.name.as_str()))
+            .collect();
+        assert_eq!(
+            standing,
+            [("Reading Nook", "Sunny Seals"), ("Center 2", "Brave Bears")]
+        );
+        doc.assert_invariants();
+    }
+
+    #[test]
+    fn the_frozen_v3_fixture_re_encodes_to_itself() {
+        let doc = decode(V3, &mut rng()).unwrap();
+        assert_eq!(
+            parse(&encode(&doc)),
+            parse(V3),
             "stored shape drifted: bump SCHEMA_VERSION"
         );
     }
@@ -379,18 +430,58 @@ mod tests {
 
     #[test]
     fn a_newer_version_is_stashed_untouched_instead_of_repaired() {
-        let raw = r#"{"version":3,"somethingNew":{"classes":"different"}}"#;
+        let raw = r#"{"version":4,"somethingNew":{"classes":"different"}}"#;
         assert_eq!(
             plan_load(Some(raw), &mut rng()),
             LoadPlan::StartFresh {
                 stash: raw.to_owned(),
-                reason: DecodeError::NewerVersion(3),
+                reason: DecodeError::NewerVersion(4),
             }
         );
         assert_eq!(
             decode(r#"{"version":99}"#, &mut rng()),
             Err(DecodeError::NewerVersion(99))
         );
+    }
+
+    #[test]
+    fn centers_that_disagree_with_the_groups_are_repaired_not_rejected() {
+        let cases = [
+            (json!(["A", "B", "C", "D"]), 9, ["A", "B"]),
+            (json!(["Only"]), 1, ["Only", "Center 2"]),
+            (json!([]), 5, ["Center 1", "Center 2"]),
+        ];
+        for (names, turn, repaired) in cases {
+            let mut value = parse(V3);
+            value["doc"]["classes"][0]["grouping"]["centers"] =
+                json!({"names": names, "turn": turn});
+
+            let doc = decode(&value.to_string(), &mut rng()).unwrap();
+
+            doc.assert_invariants();
+            let centers = doc.classes()[0].grouping().unwrap().centers().unwrap();
+            let names: Vec<&str> = centers.names().iter().map(Label::as_str).collect();
+            assert_eq!(names, repaired, "{turn}");
+        }
+    }
+
+    #[test]
+    fn a_v3_blob_with_unreadable_centers_is_stashed_not_repaired() {
+        let centers = [
+            json!({"names": ["  "], "turn": 0}),
+            json!({"names": ["A", "B"], "turn": -1}),
+            json!({"names": ["A", "B"]}),
+            json!("rotate"),
+        ];
+        for centers in centers {
+            let mut value = parse(V3);
+            value["doc"]["classes"][0]["grouping"]["centers"] = centers;
+            let raw = value.to_string();
+            assert!(
+                matches!(decode(&raw, &mut rng()), Err(DecodeError::Malformed(_))),
+                "{raw}"
+            );
+        }
     }
 
     #[test]
