@@ -12,6 +12,7 @@ pub mod names;
 pub mod oracle;
 pub mod rng;
 pub mod seed;
+pub mod skin;
 pub mod spin;
 pub mod timer;
 
@@ -28,6 +29,7 @@ pub use names::MAX_GROUPS;
 pub use oracle::Oracle;
 pub use rng::{Rng, SplitMix64};
 pub use seed::seed_doc;
+pub use skin::{CalendarDay, Season, Settings, Skin, SkinChoice};
 pub use spin::{Frame, Reel};
 pub use timer::{Millis, Preset, Timer, format_mm_ss};
 

@@ -2,7 +2,7 @@
 //!
 //! - `doc` is the persisted domain, written only through [`AppState::edit`] and
 //!   [`AppState::edit_class`], and saved by the one effect in [`App`].
-//! - `mode`, `notice`, `timer` and `now` are in memory. The timer lives here, not in the
+//! - `mode`, `notice`, `timer`, `now` and `today` are in memory. The timer lives here, not in the
 //!   whiteboard, so it keeps running while the teacher is back in Build.
 
 use std::rc::Rc;
@@ -11,12 +11,13 @@ use dioxus::logger::tracing::warn;
 use dioxus::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 
-use crate::domain::{Class, Doc, Millis, Timer};
+use crate::domain::{CalendarDay, Class, Doc, Millis, Skin, Timer};
 use crate::notice::Notice;
 use crate::platform::{self, JsRng, LocalStorage};
 use crate::store;
 use crate::ui::avatar::AvatarSprite;
 use crate::ui::build::BuildMode;
+use crate::ui::settings::SettingsMode;
 use crate::ui::whiteboard::WhiteboardMode;
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -29,6 +30,7 @@ const TICK_MS: u32 = 250;
 pub enum Mode {
     Build,
     Whiteboard,
+    Settings,
 }
 
 #[derive(Clone, Copy)]
@@ -38,6 +40,8 @@ pub struct AppState {
     notice: Signal<Option<Notice>>,
     timer: Signal<Timer>,
     now: Signal<Millis>,
+    today: Signal<CalendarDay>,
+    skin: Memo<Option<Skin>>,
 }
 
 impl AppState {
@@ -63,6 +67,17 @@ impl AppState {
             .write()
             .selected_mut()
             .map(|class| f(class, &mut JsRng))
+    }
+
+    /// Reactive read of the skin to draw on every avatar. A memo, so avatars wake only when the
+    /// skin itself changes and not on every document edit.
+    pub fn active_skin(&self) -> Option<Skin> {
+        (self.skin)()
+    }
+
+    /// Reactive read. Changes at midnight, so a tab left open across a season's edge follows it.
+    pub fn today(&self) -> CalendarDay {
+        *self.today.read()
     }
 
     pub fn mode(&self) -> Mode {
@@ -131,6 +146,10 @@ impl AppState {
         if next != timer {
             self.timer.set(next);
         }
+        let today = platform::today();
+        if today != *self.today.peek() {
+            self.today.set(today);
+        }
     }
 }
 
@@ -156,12 +175,16 @@ pub fn App() -> Element {
     let initial = use_hook(|| Rc::new(store::load(&LocalStorage, &mut JsRng)));
     let doc = use_signal(|| initial.doc.clone());
     let mut notice = use_signal(|| initial.notice.clone());
+    let today = use_signal(platform::today);
+    let skin = use_memo(move || doc.read().settings().active_skin(*today.read()));
     let state = use_context_provider(|| AppState {
         doc,
         mode: Signal::new(Mode::Build),
         notice,
         timer: Signal::new(Timer::default()),
         now: Signal::new(platform::now()),
+        today,
+        skin,
     });
 
     let can_save = initial.can_save;
@@ -194,6 +217,7 @@ pub fn App() -> Element {
             match state.mode() {
                 Mode::Build => rsx! { BuildMode {} },
                 Mode::Whiteboard => rsx! { WhiteboardMode {} },
+                Mode::Settings => rsx! { SettingsMode {} },
             }
         }
     }

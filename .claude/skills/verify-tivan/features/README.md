@@ -43,6 +43,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 - [Centers](./centers.md): turn learning centers on for a grouped class, rotate the groups through them, rename them.
 - [Whiteboard and oracle](./whiteboard.md): the projected group wall and the random student and group pickers.
 - [Timer](./timer.md): preset countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.
+- [Settings](./settings.md): the gear page, and choosing a seasonal avatar skin.
 
 ## Proof status
 
@@ -55,6 +56,8 @@ Verification on 2026-10-16, app rev `b3307e7`, using dx 0.7.10, agent-browser 0.
 - **Roster**: add, remove, paste two valid names and skip a 41-character line, dismiss the notice, collapse/expand, and restore the 18-name roster passed. Add/remove/paste survived reload. Evidence: `roster-*` captures in `target/verify/20261016-091813-5122/`.
 - **Classes**: switch, create with a roster, rename with Enter, cancel and confirm deletion, and delete all classes to reach the welcome form without `Cancel` passed, with reload proof. Evidence: `classes-*` captures in `target/verify/20261016-091813-5122/`.
 - **Timer**: start, pause with unchanged digits across 3 seconds, resume, open via the Build chip, reach Time's up, dismiss with Escape, cancel, and clear on reload passed. Saved class data stayed unchanged. Evidence: `timer-*` captures in `target/verify/20261016-091813-5122/`.
+
+- **Settings**: the gear opens Settings, the four skin radios save to `doc.settings.skin` (`auto`, `plain`, `{"fixed":"christmas"}`), the whiteboard shows `#skin-halloween` or `#skin-christmas` on all 18 avatars or none, the choice survives reload, and Escape returns to Build. Run `20261016-100817-17074` (rev `ed53995+dirty`, before commit); evidence in `target/verify/20261016-100817-17074/` and `target/verify/20261016-100508-15439/` (phone width 375, no horizontal scroll).
 
 Each run records browser commands in `commands.log`; every capture includes a screenshot, accessibility tree and saved JSON. Doctor passed before and after both runs, and both sessions and servers were cleaned up. The first launch, `20261016-090628-99697`, lost its server when its command runner exited; it was cleaned up and excluded from proof. The roster placeholder selector and the centers recipe's stored-version expectation were corrected to match the observed app.
 

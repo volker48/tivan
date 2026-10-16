@@ -174,7 +174,8 @@ textarea {
   border-bottom: 2px solid var(--line);
 }
 
-.brand {
+.brand,
+.page-title {
   margin: 0;
   margin-right: auto;
   font-size: 1.9rem;
@@ -727,6 +728,81 @@ textarea {
 
 .round {
   font-weight: 800;
+}
+
+/* ---- Settings ---- */
+
+.settings {
+  max-width: 40rem;
+}
+
+.skin-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.skin-options legend {
+  margin-bottom: 0.6rem;
+  padding: 0;
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.skin-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  min-height: 44px;
+  padding: 0.6rem 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+}
+
+.skin-option:has(input:checked) {
+  background: var(--hero);
+  box-shadow: var(--sticker);
+}
+
+.skin-option input {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.skin-text {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+}
+
+.skin-name {
+  font-weight: 800;
+}
+
+.skin-text .hint {
+  margin-top: 0.15rem;
+  font-size: 0.95rem;
+}
+
+.skin-preview {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.skin-preview .avatar {
+  width: 2.6rem;
+  height: 2.6rem;
+  margin: 0;
 }
 
 @keyframes nudge {
