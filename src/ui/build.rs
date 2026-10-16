@@ -7,6 +7,7 @@ use crate::domain::{
 };
 use crate::notice::{Notice, count};
 use crate::platform;
+use crate::ui::account::{AccountBar, SyncPanel, SyncState};
 use crate::ui::avatar::AvatarIcon;
 use crate::ui::{
     CenterSlot, GroupCard, NameInput, NoticeBanner, RotateControls, Selection, center_slots,
@@ -21,9 +22,11 @@ pub fn BuildMode() -> Element {
     let mut state = use_app();
     let selected = state.with_class(|class| class.id());
     let mut creating = use_signal(|| false);
+    let sync = use_signal(|| SyncState::Closed);
     rsx! {
         header { class: "topbar",
             h1 { class: "brand", "Tivan" }
+            AccountBar { sync }
             TimerChip {}
             button {
                 class: "btn btn-hero",
@@ -35,6 +38,7 @@ pub fn BuildMode() -> Element {
         }
         NoticeBanner {}
         main { class: "build",
+            SyncPanel { sync }
             match selected {
                 None => rsx! {
                     section { class: "welcome",
