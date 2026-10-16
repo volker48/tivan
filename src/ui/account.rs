@@ -6,7 +6,7 @@ use dioxus::prelude::*;
 
 use crate::account::Session;
 use crate::api::ApiError;
-use crate::app::{AppState, SharedOutbox, save_remotely_now, use_app};
+use crate::app::{AppState, SharedOutbox, flush_before_leaving, use_app};
 use crate::domain::{CourseStatus, SyncPlan, SyncReport};
 use crate::notice::{Notice, count, sync_summary};
 use crate::platform;
@@ -61,11 +61,7 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
                         signing_out.set(true);
                         let outbox = outbox.clone();
                         spawn(async move {
-                            save_remotely_now(state, outbox.clone()).await;
-                            // A refused flush or a session that ended during it already told the
-                            // teacher what happened, and reloading now could drop the edit.
-                            let still_signed_in = state.session().is_signed_in();
-                            if outbox.borrow().has_unsent() || !still_signed_in {
+                            if !flush_before_leaving(state, &outbox).await {
                                 signing_out.set(false);
                                 return;
                             }
@@ -95,22 +91,19 @@ fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>, outbox: Sha
             }
             Err(ApiError::Unauthorized) => {
                 sync.set(SyncState::Closed);
-                outbox.borrow_mut().halt();
-                state.session_ended();
+                state.session_ended(&outbox);
             }
             Err(ApiError::Reauthorize) => {
-                // Leaving the page cancels a save still waiting or on the wire.
-                save_remotely_now(state, outbox.clone()).await;
-                if !state.session().is_signed_in() {
-                    sync.set(SyncState::Closed);
-                } else if outbox.borrow().has_unsent() {
+                if flush_before_leaving(state, &outbox).await {
+                    platform::go_to_login();
+                } else if state.session().is_signed_in() {
                     sync.set(SyncState::Failed(
                         "Your latest changes are not saved yet, so Tivan did not leave for Google. \
                          Try again in a moment."
                             .to_owned(),
                     ));
                 } else {
-                    platform::go_to_login();
+                    sync.set(SyncState::Closed);
                 }
             }
             Err(ApiError::Failed(cause)) => sync.set(SyncState::Failed(format!(

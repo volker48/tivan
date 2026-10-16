@@ -130,9 +130,10 @@ impl AppState {
         self.session.read().clone()
     }
 
-    /// The server no longer knows this session. The page keeps its doc and saves it in this
-    /// browser from now on, and says so.
-    pub fn session_ended(&mut self) {
+    /// The server no longer knows this session, so nothing more is sent to it. The page keeps its
+    /// doc and saves it in this browser from now on, and says so.
+    pub fn session_ended(&mut self, outbox: &SharedOutbox) {
+        outbox.borrow_mut().halt();
         // About the account's doc, which this page no longer uses. It stays when nothing is
         // saved in this browser either, because then it is the only warning that edits are lost.
         if self.local_can_save
@@ -146,8 +147,12 @@ impl AppState {
         self.set_notice(Notice::SessionEnded);
     }
 
-    fn save_target(&self, local_can_save: bool) -> SaveTarget {
-        account::save_target(&self.session.read(), *self.remote.read(), local_can_save)
+    fn save_target(&self) -> SaveTarget {
+        account::save_target(
+            &self.session.read(),
+            *self.remote.read(),
+            self.local_can_save,
+        )
     }
 
     /// Takes what the startup check found. The doc comes first, so no save can run between the
@@ -244,13 +249,16 @@ async fn save_remotely(state: AppState, outbox: SharedOutbox, edit: Edit) {
 }
 
 /// Sends the newest doc now and returns once no request is on the wire, for a teacher who is
-/// about to sign out. Whether it all arrived is for [`Outbox::has_unsent`] to say.
-pub async fn save_remotely_now(state: AppState, outbox: SharedOutbox) {
+/// about to leave the page, which would cancel a save still waiting or on the wire. Says whether
+/// leaving is safe: still signed in, with nothing unsent. When it is not, a refused flush or a
+/// session that ended during it already told the teacher what happened.
+pub async fn flush_before_leaving(state: AppState, outbox: &SharedOutbox) -> bool {
     let first = outbox.borrow_mut().settle_now();
-    send_all(state, &outbox, first).await;
+    send_all(state, outbox, first).await;
     while outbox.borrow().in_flight() {
         TimeoutFuture::new(IN_FLIGHT_POLL_MS).await;
     }
+    state.session().is_signed_in() && !outbox.borrow().has_unsent()
 }
 
 /// Sends `next`, then whatever edits settled while each request flew, one request at a time.
@@ -262,8 +270,7 @@ async fn send_all(mut state: AppState, outbox: &SharedOutbox, mut next: Option<S
                 outbox.borrow_mut().finished(true)
             }
             Err(ApiError::Unauthorized) => {
-                outbox.borrow_mut().halt();
-                state.session_ended();
+                state.session_ended(outbox);
                 None
             }
             Err(error) => {
@@ -314,11 +321,10 @@ pub fn App() -> Element {
     });
 
     let outbox = use_context_provider(|| Rc::new(RefCell::new(Outbox::default())));
-    let local_can_save = initial.can_save;
     let saver = outbox.clone();
     use_effect(move || {
         let mut state = state;
-        match state.save_target(local_can_save) {
+        match state.save_target() {
             SaveTarget::Nowhere => {}
             SaveTarget::Local => match store::save(&LocalStorage, &doc.read()) {
                 Ok(()) => state.save_succeeded(),
