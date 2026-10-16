@@ -1,27 +1,38 @@
 use serde::{Deserialize, Serialize};
 
-use super::class::{Student, StudentId};
 use super::rng::{Rng, choose};
 
-/// Remembers who has been chosen this round, in draw order, so a reload mid-lesson does not
-/// re-pick children who already went. Who is left is derived as roster minus drawn, so a roster
-/// edit needs no sync step beyond [`Oracle::retain_roster`].
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Oracle {
-    drawn: Vec<StudentId>,
+/// Remembers which of a pool of ids have been chosen this round, in draw order, so a reload
+/// mid-lesson does not re-pick children or groups who already went. Who is left is derived as pool
+/// minus drawn, so a pool edit needs no sync step beyond [`Oracle::retain`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Oracle<I> {
+    drawn: Vec<I>,
 }
 
-impl Oracle {
-    /// Uniform over roster students not yet drawn. When everyone has gone, a new round starts and
-    /// its first pick excludes the previous pick (when the roster has more than one student), so
-    /// nobody is chosen twice in a row across the refill. `None` only for an empty roster.
-    pub fn draw(&mut self, roster: &[Student], rng: &mut impl Rng) -> Option<StudentId> {
-        let mut eligible: Vec<StudentId> = self.waiting(roster).collect();
-        if eligible.is_empty() && !roster.is_empty() {
-            let previous = self.drawn.last().copied().filter(|_| roster.len() > 1);
+impl<I> Default for Oracle<I> {
+    fn default() -> Self {
+        Oracle { drawn: Vec::new() }
+    }
+}
+
+impl<I> Oracle<I> {
+    pub fn is_empty(&self) -> bool {
+        self.drawn.is_empty()
+    }
+}
+
+impl<I: Copy + Eq> Oracle<I> {
+    /// Uniform over pool ids not yet drawn. When all have gone, a new round starts and its first
+    /// pick excludes the previous pick (when the pool has more than one id), so nothing is chosen
+    /// twice in a row across the refill. `None` only for an empty pool.
+    pub fn draw(&mut self, pool: &[I], rng: &mut impl Rng) -> Option<I> {
+        let mut eligible: Vec<I> = self.waiting(pool).collect();
+        if eligible.is_empty() && !pool.is_empty() {
+            let previous = self.drawn.last().copied().filter(|_| pool.len() > 1);
             self.drawn.clear();
             eligible = self
-                .waiting(roster)
+                .waiting(pool)
                 .filter(|&id| Some(id) != previous)
                 .collect();
         }
@@ -30,30 +41,24 @@ impl Oracle {
         Some(pick)
     }
 
-    /// Roster students still waiting this round, for "12 left in the bag".
-    pub fn remaining(&self, roster: &[Student]) -> usize {
-        self.waiting(roster).count()
+    /// Pool ids still waiting this round, for "12 left in the bag".
+    pub fn remaining(&self, pool: &[I]) -> usize {
+        self.waiting(pool).count()
     }
 
-    fn waiting<'a>(&'a self, roster: &'a [Student]) -> impl Iterator<Item = StudentId> + 'a {
-        roster
-            .iter()
-            .map(|s| s.id)
-            .filter(|id| !self.drawn.contains(id))
+    fn waiting<'a>(&'a self, pool: &'a [I]) -> impl Iterator<Item = I> + 'a {
+        pool.iter().copied().filter(|id| !self.drawn.contains(id))
     }
 
-    /// Forgets drawn ids that are no longer on the roster.
-    pub(super) fn retain_roster(&mut self, roster: &[Student]) {
-        self.drawn.retain(|id| roster.iter().any(|s| s.id == *id));
+    /// Forgets drawn ids that are no longer in the pool.
+    pub(super) fn retain(&mut self, pool: &[I]) {
+        self.drawn.retain(|id| pool.contains(id));
     }
 
     #[cfg(test)]
-    pub(super) fn assert_invariants(&self, roster: &[Student]) {
+    pub(super) fn assert_invariants(&self, pool: &[I]) {
         for (i, id) in self.drawn.iter().enumerate() {
-            assert!(
-                roster.iter().any(|s| s.id == *id),
-                "drawn id is not on the roster"
-            );
+            assert!(pool.contains(id), "drawn id is not in the pool");
             assert!(
                 !self.drawn[..i].contains(id),
                 "drawn id repeated within a round"
@@ -67,37 +72,47 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
+    use crate::domain::StudentId;
     use crate::domain::rng::SplitMix64;
     use crate::domain::testing::roster;
 
-    fn draw_all(oracle: &mut Oracle, students: &[Student], rng: &mut SplitMix64) -> Vec<StudentId> {
-        (0..students.len())
-            .map(|_| oracle.draw(students, rng).unwrap())
+    /// The pool of a class of `n`, the way `Class` would build it from its roster.
+    fn ids(n: u32) -> Vec<StudentId> {
+        roster(n).iter().map(|s| s.id).collect()
+    }
+
+    fn draw_all(
+        oracle: &mut Oracle<StudentId>,
+        pool: &[StudentId],
+        rng: &mut SplitMix64,
+    ) -> Vec<StudentId> {
+        (0..pool.len())
+            .map(|_| oracle.draw(pool, rng).unwrap())
             .collect()
     }
 
     #[test]
-    fn a_round_picks_every_student_exactly_once() {
+    fn a_round_picks_every_id_exactly_once() {
         for n in [1, 2, 5, 24] {
             for seed in 0..30 {
-                let students = roster(n);
+                let pool = ids(n);
                 let mut oracle = Oracle::default();
-                let picks = draw_all(&mut oracle, &students, &mut SplitMix64::seeded(seed));
+                let picks = draw_all(&mut oracle, &pool, &mut SplitMix64::seeded(seed));
                 let unique: HashSet<_> = picks.iter().collect();
                 assert_eq!(unique.len(), n as usize, "n={n} seed={seed}");
-                assert_eq!(oracle.remaining(&students), 0);
+                assert_eq!(oracle.remaining(&pool), 0);
             }
         }
     }
 
     #[test]
     fn remaining_counts_down_one_per_draw() {
-        let students = roster(6);
+        let pool = ids(6);
         let mut oracle = Oracle::default();
         let mut rng = SplitMix64::seeded(4);
         for expected in (0..6).rev() {
-            oracle.draw(&students, &mut rng).unwrap();
-            assert_eq!(oracle.remaining(&students), expected);
+            oracle.draw(&pool, &mut rng).unwrap();
+            assert_eq!(oracle.remaining(&pool), expected);
         }
     }
 
@@ -105,12 +120,12 @@ mod tests {
     fn the_next_round_refills_without_repeating_the_last_pick() {
         for n in [2, 3, 10] {
             for seed in 0..100 {
-                let students = roster(n);
+                let pool = ids(n);
                 let mut oracle = Oracle::default();
                 let mut rng = SplitMix64::seeded(seed);
                 let mut previous = None;
                 for _ in 0..4 {
-                    for pick in draw_all(&mut oracle, &students, &mut rng) {
+                    for pick in draw_all(&mut oracle, &pool, &mut rng) {
                         assert_ne!(Some(pick), previous, "n={n} seed={seed}");
                         previous = Some(pick);
                     }
@@ -120,40 +135,40 @@ mod tests {
     }
 
     #[test]
-    fn a_refill_leaves_the_rest_of_the_class_waiting() {
-        let students = roster(5);
+    fn a_refill_leaves_the_rest_of_the_pool_waiting() {
+        let pool = ids(5);
         let mut oracle = Oracle::default();
         let mut rng = SplitMix64::seeded(2);
-        draw_all(&mut oracle, &students, &mut rng);
-        assert_eq!(oracle.remaining(&students), 0);
-        oracle.draw(&students, &mut rng).unwrap();
-        assert_eq!(oracle.remaining(&students), 4);
+        draw_all(&mut oracle, &pool, &mut rng);
+        assert_eq!(oracle.remaining(&pool), 0);
+        oracle.draw(&pool, &mut rng).unwrap();
+        assert_eq!(oracle.remaining(&pool), 4);
     }
 
     #[test]
-    fn a_class_of_one_picks_that_student_every_time() {
-        let students = roster(1);
+    fn a_pool_of_one_picks_that_id_every_time() {
+        let pool = ids(1);
         let mut oracle = Oracle::default();
         let mut rng = SplitMix64::seeded(0);
         for _ in 0..3 {
-            assert_eq!(oracle.draw(&students, &mut rng), Some(students[0].id));
+            assert_eq!(oracle.draw(&pool, &mut rng), Some(pool[0]));
         }
     }
 
     #[test]
-    fn an_empty_roster_yields_nothing() {
-        let mut oracle = Oracle::default();
+    fn an_empty_pool_yields_nothing() {
+        let mut oracle = Oracle::<StudentId>::default();
         assert_eq!(oracle.draw(&[], &mut SplitMix64::seeded(0)), None);
         assert_eq!(oracle.remaining(&[]), 0);
     }
 
     #[test]
     fn the_first_pick_of_a_round_varies_with_the_seed() {
-        let students = roster(10);
+        let pool = ids(10);
         let firsts: HashSet<_> = (0..40)
             .map(|seed| {
                 Oracle::default()
-                    .draw(&students, &mut SplitMix64::seeded(seed))
+                    .draw(&pool, &mut SplitMix64::seeded(seed))
                     .unwrap()
             })
             .collect();
@@ -161,13 +176,13 @@ mod tests {
     }
 
     #[test]
-    fn students_removed_from_the_roster_are_never_drawn() {
-        let students = roster(6);
+    fn ids_removed_from_the_pool_are_never_drawn() {
+        let pool = ids(6);
         let mut oracle = Oracle::default();
         let mut rng = SplitMix64::seeded(8);
-        let first = oracle.draw(&students, &mut rng).unwrap();
-        let smaller: Vec<Student> = students.iter().filter(|s| s.id != first).cloned().collect();
-        oracle.retain_roster(&smaller);
+        let first = oracle.draw(&pool, &mut rng).unwrap();
+        let smaller: Vec<StudentId> = pool.iter().copied().filter(|&id| id != first).collect();
+        oracle.retain(&smaller);
         oracle.assert_invariants(&smaller);
 
         assert_eq!(oracle.remaining(&smaller), 5);
@@ -177,38 +192,38 @@ mod tests {
     }
 
     #[test]
-    fn a_student_added_mid_round_can_be_drawn_in_that_round() {
-        let mut students = roster(3);
+    fn an_id_added_mid_round_can_be_drawn_in_that_round() {
+        let mut pool = ids(3);
         let mut oracle = Oracle::default();
         let mut rng = SplitMix64::seeded(1);
-        oracle.draw(&students, &mut rng).unwrap();
-        let newcomer = roster(4).pop().unwrap();
-        students.push(newcomer.clone());
-        assert_eq!(oracle.remaining(&students), 3);
+        oracle.draw(&pool, &mut rng).unwrap();
+        let newcomer = ids(4).pop().unwrap();
+        pool.push(newcomer);
+        assert_eq!(oracle.remaining(&pool), 3);
 
         let rest: Vec<_> = (0..3)
-            .map(|_| oracle.draw(&students, &mut rng).unwrap())
+            .map(|_| oracle.draw(&pool, &mut rng).unwrap())
             .collect();
-        assert!(rest.contains(&newcomer.id));
-        assert_eq!(oracle.remaining(&students), 0);
+        assert!(rest.contains(&newcomer));
+        assert_eq!(oracle.remaining(&pool), 0);
     }
 
     #[test]
     fn stale_ids_do_not_count_as_waiting_or_gone() {
-        let students = roster(3);
+        let pool = ids(3);
         let oracle = Oracle {
-            drawn: vec![StudentId(99), students[0].id],
+            drawn: vec![StudentId(99), pool[0]],
         };
-        assert_eq!(oracle.remaining(&students), 2);
+        assert_eq!(oracle.remaining(&pool), 2);
     }
 
     #[test]
-    fn retaining_the_roster_keeps_draw_order() {
-        let students = roster(4);
+    fn retaining_the_pool_keeps_draw_order() {
+        let pool = ids(4);
         let mut oracle = Oracle {
-            drawn: vec![students[2].id, StudentId(99), students[0].id],
+            drawn: vec![pool[2], StudentId(99), pool[0]],
         };
-        oracle.retain_roster(&students);
-        assert_eq!(oracle.drawn, [students[2].id, students[0].id]);
+        oracle.retain(&pool);
+        assert_eq!(oracle.drawn, [pool[2], pool[0]]);
     }
 }

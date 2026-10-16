@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
-use crate::domain::{Millis, Pick, Preset, Timer, format_mm_ss};
+use crate::domain::{Draw, Grouping, Millis, Pick, Preset, Timer, format_mm_ss};
 use crate::ui::avatar::AvatarIcon;
 use crate::ui::{GroupCard, RotateControls, center_slots, group_cards, hue};
 
@@ -45,6 +45,7 @@ pub fn WhiteboardMode() -> Element {
                 }
                 span { class: "wb-class", "{class_name}" }
                 OracleButton { reveal }
+                GroupOracleButton { reveal }
                 RotateControls {}
                 TimerControls {}
             }
@@ -56,8 +57,11 @@ pub fn WhiteboardMode() -> Element {
     }
 }
 
-fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>) {
-    if let Some(pick) = state.edit_class(|class, rng| class.draw(rng)).flatten() {
+fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>, kind: Draw) {
+    if let Some(pick) = state
+        .edit_class(|class, rng| class.draw(kind, rng))
+        .flatten()
+    {
         let seq = reveal.peek().as_ref().map_or(0, |current| current.seq + 1);
         reveal.set(Some(Reveal { seq, pick }));
     }
@@ -67,14 +71,19 @@ fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>) {
 fn OracleButton(reveal: Signal<Option<Reveal>>) -> Element {
     let state = use_app();
     let (students, left) = state
-        .with_class(|class| (class.students().len(), class.oracle_remaining()))
+        .with_class(|class| {
+            (
+                class.students().len(),
+                class.oracle_remaining(Draw::Student),
+            )
+        })
         .unwrap_or_default();
     rsx! {
         button {
             class: "btn btn-hero btn-oracle",
             r#type: "button",
             disabled: students == 0,
-            onclick: move |_| draw(state, reveal),
+            onclick: move |_| draw(state, reveal, Draw::Student),
             span { "Ask the oracle" }
             if students > 0 {
                 span { class: "sub", "{left} left" }
@@ -83,12 +92,51 @@ fn OracleButton(reveal: Signal<Option<Reveal>>) -> Element {
     }
 }
 
+/// The quieter way to ask the oracle: pick one of the groups instead of a student. Only for a
+/// class that has groups.
+#[component]
+fn GroupOracleButton(reveal: Signal<Option<Reveal>>) -> Element {
+    let state = use_app();
+    let Some(left) = state
+        .with_class(|class| class.grouping().map(Grouping::remaining))
+        .flatten()
+    else {
+        return rsx! {};
+    };
+    rsx! {
+        button {
+            class: "btn btn-oracle btn-oracle-group",
+            r#type: "button",
+            onclick: move |_| draw(state, reveal, Draw::Group),
+            span { "Pick a group" }
+            span { class: "sub", "{left} left" }
+        }
+    }
+}
+
+/// The count line under a pick, and once the round is spent, what the next pick does.
+fn left_line(kind: Draw, left: usize) -> String {
+    let (count, all) = match kind {
+        Draw::Student => (format!("{left} left"), "everyone"),
+        Draw::Group if left == 1 => ("1 group left".to_owned(), "every group"),
+        Draw::Group => (format!("{left} groups left"), "every group"),
+    };
+    if left == 0 {
+        format!("{count}. That is {all}, so the next pick starts a new round.")
+    } else {
+        count
+    }
+}
+
+fn reveal_class(pick: &Pick) -> String {
+    match pick {
+        Pick::Student(_) => "reveal-card".to_owned(),
+        Pick::Group { idx, .. } => format!("reveal-card reveal-group hue-{}", hue(*idx)),
+    }
+}
+
 #[component]
 fn OracleReveal(reveal: Signal<Option<Reveal>>) -> Element {
-    let state = use_app();
-    let left = state
-        .with_class(|class| class.oracle_remaining())
-        .unwrap_or_default();
     // `key` only takes effect on the root of a block, so the overlay is the root of this `if`.
     rsx! {
         if let Some(Reveal { seq, pick }) = reveal() {
@@ -96,38 +144,62 @@ fn OracleReveal(reveal: Signal<Option<Reveal>>) -> Element {
                 key: "{seq}",
                 class: "overlay",
                 onclick: move |_| reveal.set(None),
-                div {
-                    class: "reveal-card",
-                    role: "dialog",
-                    aria_label: "The oracle has chosen",
-                    onclick: move |event| event.stop_propagation(),
-                    p { class: "reveal-line",
-                        "The oracle has chosen "
+                RevealCard { reveal, pick }
+            }
+        }
+    }
+}
+
+#[component]
+fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
+    let state = use_app();
+    let kind = pick.kind();
+    let left = state
+        .with_class(|class| class.oracle_remaining(kind))
+        .unwrap_or_default();
+    rsx! {
+        div {
+            class: reveal_class(&pick),
+            role: "dialog",
+            aria_label: "The oracle has chosen",
+            onclick: move |event| event.stop_propagation(),
+            p { class: "reveal-line",
+                "The oracle has chosen "
+                match &pick {
+                    Pick::Student(student) => rsx! {
                         strong { class: "reveal-name",
-                            AvatarIcon { avatar: pick.avatar }
-                            "{pick.name}!"
+                            AvatarIcon { avatar: student.avatar }
+                            "{student.name}!"
+                        }
+                    },
+                    Pick::Group { name, .. } => rsx! {
+                        strong { class: "reveal-name", "{name}!" }
+                    },
+                }
+            }
+            if let Pick::Group { members, .. } = &pick {
+                ul { class: "wall-members reveal-members",
+                    for student in members {
+                        li { key: "{student.id.get()}",
+                            AvatarIcon { avatar: student.avatar }
+                            "{student.name}"
                         }
                     }
-                    p { class: "reveal-left",
-                        "{left} left"
-                        if left == 0 {
-                            ". That is everyone, so the next pick starts a new round."
-                        }
-                    }
-                    div { class: "form-actions",
-                        button {
-                            class: "btn btn-primary",
-                            r#type: "button",
-                            onclick: move |_| draw(state, reveal),
-                            "Pick again"
-                        }
-                        button {
-                            class: "btn",
-                            r#type: "button",
-                            onclick: move |_| reveal.set(None),
-                            "Done"
-                        }
-                    }
+                }
+            }
+            p { class: "reveal-left", "{left_line(kind, left)}" }
+            div { class: "form-actions",
+                button {
+                    class: "btn btn-primary",
+                    r#type: "button",
+                    onclick: move |_| draw(state, reveal, kind),
+                    "Pick again"
+                }
+                button {
+                    class: "btn",
+                    r#type: "button",
+                    onclick: move |_| reveal.set(None),
+                    "Done"
                 }
             }
         }
@@ -336,6 +408,22 @@ fn WallCard(card: GroupCard) -> Element {
 mod tests {
     use super::*;
     use crate::domain::MAX_GROUPS;
+
+    #[test]
+    fn the_count_line_names_the_unit_and_says_what_a_spent_round_does_next() {
+        assert_eq!(left_line(Draw::Student, 23), "23 left");
+        assert_eq!(left_line(Draw::Student, 1), "1 left");
+        assert_eq!(
+            left_line(Draw::Student, 0),
+            "0 left. That is everyone, so the next pick starts a new round."
+        );
+        assert_eq!(left_line(Draw::Group, 3), "3 groups left");
+        assert_eq!(left_line(Draw::Group, 1), "1 group left");
+        assert_eq!(
+            left_line(Draw::Group, 0),
+            "0 groups left. That is every group, so the next pick starts a new round."
+        );
+    }
 
     #[test]
     fn small_group_counts_never_leave_a_row_with_one_orphan() {

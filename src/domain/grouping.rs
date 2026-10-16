@@ -11,6 +11,7 @@ use super::centers::{CenterIdx, Centers};
 use super::class::{Student, StudentId};
 use super::label::Label;
 use super::names::{MAX_GROUPS, draw_name, draw_names};
+use super::oracle::Oracle;
 use super::rng::{Rng, shuffle};
 
 /// A requested number of groups, `1..=min(student_count, MAX_GROUPS)`. The UI stepper is bounded
@@ -74,13 +75,17 @@ pub enum MoveError {
 /// Balance is a property of [`Grouping::split`], not of this type, because manual moves break it.
 /// Group names are distinct when generated; a teacher may rename two groups to the same text.
 /// When `centers` is present it has one center per group, which is why every edit that changes
-/// `names` also refits it.
+/// `names` also refits it. The same goes for `oracle`, the round of groups picked so far: it
+/// lives here because a group round cannot outlive its groups, so a fresh split starts a fresh
+/// round.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Grouping {
     names: Vec<Label>,
     of: BTreeMap<StudentId, GroupIdx>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     centers: Option<Centers>,
+    #[serde(default, skip_serializing_if = "Oracle::is_empty")]
+    oracle: Oracle<GroupIdx>,
 }
 
 /// Sizes of `m` groups over `n` students: the first `n % m` groups get one extra member.
@@ -118,20 +123,22 @@ impl Grouping {
             names,
             of,
             centers: None,
+            oracle: Oracle::default(),
         }
     }
 
     /// Re-deals `students` evenly across the existing groups and keeps every name, hand-made
     /// ones included. When the roster has shrunk below the group count, the first groups survive
-    /// with their names and the rest are dropped, and the centers shrink with them. Otherwise the
-    /// centers and their turn are untouched: only members change, groups stay where they stand.
-    /// Does nothing for an empty roster.
+    /// with their names and the rest are dropped, and the centers and the group round shrink with
+    /// them. Otherwise the centers, their turn and the round are untouched: only members change,
+    /// groups stay where they stand. Does nothing for an empty roster.
     pub fn reshuffle(&mut self, students: &[Student], rng: &mut impl Rng) {
         let Ok(count) = GroupCount::nearest(self.names.len(), students.len()) else {
             return;
         };
         self.names.truncate(count.get());
         self.fit_centers();
+        self.retain_oracle();
         self.of = deal(students, count, rng);
     }
 
@@ -149,6 +156,19 @@ impl Grouping {
 
     pub fn group_of(&self, id: StudentId) -> Option<GroupIdx> {
         self.of.get(&id).copied()
+    }
+
+    /// Uniform over groups not yet drawn this round, empty ones included. When every group has
+    /// gone a new round starts, and its first pick is not the last group of the old one. `None`
+    /// only when there are no groups.
+    pub fn draw(&mut self, rng: &mut impl Rng) -> Option<GroupIdx> {
+        let pool = self.pool();
+        self.oracle.draw(&pool, rng)
+    }
+
+    /// Groups not yet drawn this round.
+    pub fn remaining(&self) -> usize {
+        self.oracle.remaining(&self.pool())
     }
 
     /// Moving a student into the group they are already in changes nothing.
@@ -221,6 +241,15 @@ impl Grouping {
         }
     }
 
+    fn retain_oracle(&mut self) {
+        let pool = self.pool();
+        self.oracle.retain(&pool);
+    }
+
+    fn pool(&self) -> Vec<GroupIdx> {
+        (0..self.names.len()).map(GroupIdx).collect()
+    }
+
     fn check(&self, idx: GroupIdx) -> Result<(), MoveError> {
         if idx.0 < self.names.len() {
             Ok(())
@@ -236,6 +265,7 @@ impl Grouping {
         // Only a hand-edited blob can exceed the cap, but name generation relies on it.
         self.names.truncate(MAX_GROUPS);
         self.fit_centers();
+        self.retain_oracle();
         let group_count = self.names.len();
         let on_roster: BTreeSet<StudentId> = roster.iter().map(|s| s.id).collect();
         self.of
@@ -271,6 +301,7 @@ impl Grouping {
         if let Some(centers) = &self.centers {
             centers.assert_invariants(self.names.len());
         }
+        self.oracle.assert_invariants(&self.pool());
     }
 }
 
@@ -568,6 +599,7 @@ mod tests {
                 .map(|&(id, g)| (StudentId(id), GroupIdx(g)))
                 .collect(),
             centers: None,
+            oracle: Oracle::default(),
         }
     }
 
@@ -719,6 +751,50 @@ mod tests {
             with["centers"],
             serde_json::json!({"names": ["Center 1", "Center 2"], "turn": 1})
         );
+        assert_eq!(serde_json::from_value::<Grouping>(with).unwrap(), grouping);
+    }
+
+    #[test]
+    fn a_fresh_split_has_every_group_waiting_and_a_pick_uses_one_up() {
+        let students = roster(9);
+        let mut grouping = Grouping::split(&students, count(3, 9), &mut SplitMix64::seeded(1));
+        assert_eq!(grouping.remaining(), 3);
+
+        let picked = grouping.draw(&mut SplitMix64::seeded(2)).unwrap();
+
+        assert!(picked.get() < 3);
+        assert_eq!(grouping.remaining(), 2);
+    }
+
+    #[test]
+    fn reconcile_forgets_drawn_groups_it_truncates() {
+        let students = roster(5);
+        let mut grouping = doctored(MAX_GROUPS + 10, &[]);
+        let mut rng = SplitMix64::seeded(4);
+        let picks: Vec<GroupIdx> = (0..MAX_GROUPS + 5)
+            .map(|_| grouping.draw(&mut rng).unwrap())
+            .collect();
+
+        grouping.reconcile(&students);
+
+        grouping.assert_invariants(&students);
+        let survivors = picks.iter().filter(|idx| idx.get() < MAX_GROUPS).count();
+        assert_eq!(grouping.remaining(), MAX_GROUPS - survivors);
+    }
+
+    #[test]
+    fn json_omits_the_group_round_until_a_group_is_drawn_and_reads_a_blob_that_has_none() {
+        let (_, mut grouping) = two_groups();
+        let without = serde_json::to_value(&grouping).unwrap();
+        assert!(without.get("oracle").is_none());
+        assert_eq!(
+            serde_json::from_value::<Grouping>(without).unwrap(),
+            grouping
+        );
+
+        let drawn = grouping.draw(&mut SplitMix64::seeded(1)).unwrap();
+        let with = serde_json::to_value(&grouping).unwrap();
+        assert_eq!(with["oracle"], serde_json::json!({"drawn": [drawn.get()]}));
         assert_eq!(serde_json::from_value::<Grouping>(with).unwrap(), grouping);
     }
 

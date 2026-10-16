@@ -1,12 +1,15 @@
-//! Persistence format and load policy: one versioned JSON envelope, `{"version":3,"doc":{..}}`,
+//! Persistence format and load policy: one versioned JSON envelope, `{"version":4,"doc":{..}}`,
 //! stored under [`KEY`]. This is the pure half. It owns the format and the corrupt or newer-blob
 //! policy and runs natively under `cargo test`. The domain types are the stored shape, so a schema
 //! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm for the old shape. Version 1 differs
 //! only by lacking each student's avatar, so its arm upgrades the JSON value in place and reads it
 //! as the current shape instead of keeping a frozen copy of the old structs. Version 2 differs
 //! only by lacking a grouping's optional `centers`, which an absent key already reads as none, so
-//! it shares the current arm. The fixtures under `tests/fixtures/` are the guard: they must never
-//! be edited.
+//! it shares the current arm. Version 3 differs only by lacking a grouping's optional group round
+//! (`oracle`), which an absent key already reads as empty, so it shares the arm too. The version
+//! still moves with each additive field, so an older build refuses a newer blob instead of
+//! dropping the field on its next save. The fixtures under `tests/fixtures/` are the guard: they
+//! must never be edited.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -16,7 +19,7 @@ use crate::domain::{Doc, Rng, avatar};
 pub const KEY: &str = "tivan.state";
 /// Where an unreadable blob is copied before the app starts over.
 pub const BACKUP_KEY: &str = "tivan.state.backup";
-pub const SCHEMA_VERSION: u64 = 3;
+pub const SCHEMA_VERSION: u64 = 4;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -52,7 +55,7 @@ pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        1 | 2 | SCHEMA_VERSION => {
+        1 | 2 | 3 | SCHEMA_VERSION => {
             let doc = envelope
                 .get_mut("doc")
                 .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
@@ -125,11 +128,12 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::domain::{Avatar, GroupCount, Label, SplitMix64, seed_doc};
+    use crate::domain::{Avatar, Draw, GroupCount, Label, Pick, SplitMix64, seed_doc};
 
     const V1: &str = include_str!("../tests/fixtures/v1.json");
     const V2: &str = include_str!("../tests/fixtures/v2.json");
     const V3: &str = include_str!("../tests/fixtures/v3.json");
+    const V4: &str = include_str!("../tests/fixtures/v4.json");
 
     fn rng() -> SplitMix64 {
         SplitMix64::seeded(1)
@@ -144,7 +148,8 @@ mod tests {
     }
 
     /// A doc where counters have moved past the live ids, with a grouping, a manual rename,
-    /// centers partway round their cycle with one renamed, and a partly used oracle round.
+    /// centers partway round their cycle with one renamed, and partly used student and group
+    /// oracle rounds.
     fn worked_doc() -> Doc {
         let mut doc = seed_doc();
         let mut rng = SplitMix64::seeded(11);
@@ -165,13 +170,14 @@ mod tests {
         class.rotate_centers();
         let center = class.center_views().unwrap()[1].idx;
         class.rename_center(center, label("Reading Nook")).unwrap();
-        class.draw(&mut rng).unwrap();
-        class.draw(&mut rng).unwrap();
+        class.draw(Draw::Student, &mut rng).unwrap();
+        class.draw(Draw::Student, &mut rng).unwrap();
+        class.draw(Draw::Group, &mut rng).unwrap();
         doc
     }
 
-    /// What every fixture says apart from avatars, which version 1 never stored, and centers,
-    /// which only version 3 stores.
+    /// What every fixture says apart from avatars, which version 1 never stored, centers, which
+    /// version 3 and later store, and the group round, which only version 4 stores.
     fn assert_fixture_classes(doc: &Doc) {
         assert_eq!(doc.classes().len(), 2);
         assert_eq!(doc.selected().unwrap().name().as_str(), "Second Class");
@@ -193,7 +199,7 @@ mod tests {
                 ("Sunny Seals", vec!["Ben", "Diego"]),
             ]
         );
-        assert_eq!(class.oracle_remaining(), 2);
+        assert_eq!(class.oracle_remaining(Draw::Student), 2);
         assert!(doc.classes()[1].grouping().is_none());
     }
 
@@ -216,7 +222,8 @@ mod tests {
         let class = doc.selected().unwrap();
         assert!(class.grouping().is_some());
         assert_eq!(class.grouping().unwrap().centers().unwrap().round(), 3);
-        assert!(class.oracle_remaining() < class.students().len());
+        assert!(class.oracle_remaining(Draw::Student) < class.students().len());
+        assert!(class.oracle_remaining(Draw::Group) < class.grouping().unwrap().len());
 
         let decoded = decode(&encode(&doc), &mut rng()).unwrap();
 
@@ -228,7 +235,7 @@ mod tests {
     fn encode_wraps_the_doc_in_a_versioned_envelope() {
         let doc = seed_doc();
         let value = parse(&encode(&doc));
-        assert_eq!(value["version"], 3);
+        assert_eq!(value["version"], 4);
         assert_eq!(value["doc"]["classes"].as_array().unwrap().len(), 3);
         let first = &doc.classes()[0].students()[0];
         assert_eq!(
@@ -280,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn the_frozen_v2_fixture_re_encodes_as_v3_with_only_the_version_changed() {
+    fn the_frozen_v2_fixture_re_encodes_as_v4_with_only_the_version_changed() {
         let doc = decode(V2, &mut rng()).unwrap();
         let mut expected = parse(V2);
         expected["version"] = SCHEMA_VERSION.into();
@@ -322,11 +329,49 @@ mod tests {
     }
 
     #[test]
-    fn the_frozen_v3_fixture_re_encodes_to_itself() {
+    fn the_frozen_v3_fixture_re_encodes_as_v4_with_only_the_version_changed() {
         let doc = decode(V3, &mut rng()).unwrap();
+        let mut expected = parse(V3);
+        expected["version"] = SCHEMA_VERSION.into();
         assert_eq!(
             parse(&encode(&doc)),
-            parse(V3),
+            expected,
+            "stored shape drifted: bump SCHEMA_VERSION"
+        );
+    }
+
+    #[test]
+    fn the_frozen_v1_to_v3_fixtures_start_with_every_group_waiting() {
+        for raw in [V1, V2, V3] {
+            let doc = decode(raw, &mut rng()).unwrap();
+            assert_eq!(doc.classes()[0].oracle_remaining(Draw::Group), 2);
+        }
+    }
+
+    #[test]
+    fn the_frozen_v4_fixture_decodes_with_its_group_round() {
+        let mut doc = decode(V4, &mut rng()).unwrap();
+
+        assert_fixture_classes(&doc);
+        doc.assert_invariants();
+        assert_eq!(doc.classes()[0].oracle_remaining(Draw::Group), 1);
+        let first = doc.classes()[0].id();
+        doc.select(first);
+        let pick = doc.selected_mut().unwrap().draw(Draw::Group, &mut rng());
+        let Some(Pick::Group { name, members, .. }) = pick else {
+            panic!("a grouped class picks a group");
+        };
+        assert_eq!(name.as_str(), "Brave Bears", "group 1 had already gone");
+        let members: Vec<&str> = members.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(members, ["Ava", "Chloe"]);
+    }
+
+    #[test]
+    fn the_frozen_v4_fixture_re_encodes_to_itself() {
+        let doc = decode(V4, &mut rng()).unwrap();
+        assert_eq!(
+            parse(&encode(&doc)),
+            parse(V4),
             "stored shape drifted: bump SCHEMA_VERSION"
         );
     }
@@ -431,12 +476,12 @@ mod tests {
 
     #[test]
     fn a_newer_version_is_stashed_untouched_instead_of_repaired() {
-        let raw = r#"{"version":4,"somethingNew":{"classes":"different"}}"#;
+        let raw = r#"{"version":5,"somethingNew":{"classes":"different"}}"#;
         assert_eq!(
             plan_load(Some(raw), &mut rng()),
             LoadPlan::StartFresh {
                 stash: raw.to_owned(),
-                reason: DecodeError::NewerVersion(4),
+                reason: DecodeError::NewerVersion(5),
             }
         );
         assert_eq!(
@@ -509,7 +554,11 @@ mod tests {
                 .iter()
                 .all(|s| grouping.group_of(s.id).is_some())
         );
-        assert_eq!(class.oracle_remaining(), 3, "only student 1 had gone");
+        assert_eq!(
+            class.oracle_remaining(Draw::Student),
+            3,
+            "only student 1 had gone"
+        );
 
         let fresh_student = doc
             .selected_mut()
@@ -519,6 +568,23 @@ mod tests {
         assert_eq!(
             doc.create_class(label("Later"), vec![], &mut rng()).get(),
             3
+        );
+    }
+
+    #[test]
+    fn a_stale_group_in_a_stored_round_is_dropped_on_load() {
+        let mut value = parse(V4);
+        value["doc"]["classes"][0]["grouping"]["oracle"]["drawn"] = json!([9, 1]);
+
+        let LoadPlan::Use(doc) = plan_load(Some(&value.to_string()), &mut rng()) else {
+            panic!("a repairable blob must load");
+        };
+
+        doc.assert_invariants();
+        assert_eq!(doc.classes()[0].oracle_remaining(Draw::Group), 1);
+        assert_eq!(
+            parse(&encode(&doc))["doc"]["classes"][0]["grouping"]["oracle"],
+            json!({"drawn": [1]})
         );
     }
 

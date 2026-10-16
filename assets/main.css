@@ -804,6 +804,16 @@ textarea {
   font-size: 0.6em;
 }
 
+/* Picking a group is the quieter sibling of the hero, a plain button sized like the timer presets. */
+.btn-oracle-group {
+  padding: 0.3rem 1rem;
+  font-size: clamp(1rem, 1.4vw, 1.5rem);
+}
+
+.btn-oracle-group .sub {
+  font-size: 0.75em;
+}
+
 .wb-bar .rotate {
   font-size: clamp(1rem, 1.4vw, 1.5rem);
 }
@@ -1025,6 +1035,25 @@ textarea {
   font-weight: 900;
   line-height: 1.05;
   overflow-wrap: anywhere;
+}
+
+/* A chosen group wears its wall color, and its name is smaller than a student's to leave room for
+   the members. */
+.reveal-group {
+  background: var(--card);
+}
+
+.reveal-group .reveal-name {
+  font-size: clamp(2.5rem, 9vw, 9rem);
+}
+
+.reveal-members {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem 1.4rem;
+  margin: 1rem 0 0;
+  font-size: clamp(1.1rem, 2.4vw, 2.4rem);
 }
 
 .reveal-left {
