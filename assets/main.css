@@ -702,6 +702,8 @@ textarea {
 
 .center-name {
   align-self: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   min-height: 44px;
   padding: 0.2rem 1rem;
   border: 2px solid var(--line);
