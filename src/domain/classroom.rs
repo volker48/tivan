@@ -174,8 +174,8 @@ struct WireCourses {
 struct WireCourse {
     id: ClassroomCourseId,
     name: String,
-    /// Google omits the roster of a course nobody has joined.
-    #[serde(default)]
+    /// The Worker always sends the roster, empty for a course nobody has joined. A missing one is
+    /// a broken payload, and reading it as empty would make the sync remove every linked student.
     students: Vec<WireStudent>,
 }
 
@@ -936,7 +936,7 @@ mod tests {
                 {"id": "u1", "name": "Again"},
             ]},
             {"id": "c2", "name": " ", "students": []},
-            {"id": "c3", "name": "Seminar"},
+            {"id": "c3", "name": "Seminar", "students": []},
         ]})
         .to_string();
 
@@ -960,6 +960,7 @@ mod tests {
             r#"{"courses":[{"id":"c1","name":"Math","students":[{"id":"","name":"Ava"}]}]}"#,
             r#"{"courses":[{"id":"c1","name":"Math","students":[{"name":"Ava"}]}]}"#,
             r#"{"courses":[{"id":7,"name":"Math","students":[]}]}"#,
+            r#"{"courses":[{"id":"c1","name":"Math"}]}"#,
         ];
         for body in bodies {
             let error = parse_courses(body).unwrap_err();

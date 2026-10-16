@@ -72,9 +72,9 @@ impl Outbox {
     /// become a loop.
     pub fn finished(&mut self, saved: bool) -> Option<String> {
         let sent = self.sending.take();
-        if saved {
-            self.synced = sent;
-        }
+        // A request that failed or timed out may still have been committed, so the server's
+        // copy is unknown and the next settled edit must be sent even if it equals the old one.
+        self.synced = if saved { sent } else { None };
         self.start()
     }
 
@@ -222,6 +222,20 @@ mod tests {
             settle(&mut outbox, "a"),
             Some(text("a")),
             "the server never got it, so the next edit sends it again"
+        );
+    }
+
+    #[test]
+    fn after_a_failed_request_an_edit_back_to_the_old_synced_doc_is_still_sent() {
+        let mut outbox = Outbox::default();
+        outbox.mark_synced(Some(text("old")));
+        assert_eq!(settle(&mut outbox, "new"), Some(text("new")));
+        assert_eq!(outbox.finished(false), None, "it may have committed anyway");
+
+        assert_eq!(
+            settle(&mut outbox, "old"),
+            Some(text("old")),
+            "the server may hold `new`, so `old` has to be sent to settle it"
         );
     }
 

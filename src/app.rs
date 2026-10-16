@@ -116,6 +116,10 @@ impl AppState {
     /// The server no longer knows this session. The page keeps its doc and saves it in this
     /// browser from now on, and says so.
     pub fn session_ended(&mut self) {
+        // About the account's doc, which this page no longer uses.
+        if matches!(*self.notice.peek(), Some(Notice::AccountDocUnreadable(_))) {
+            self.notice.set(None);
+        }
         self.session.set(Session::SignedOut);
         self.remote.set(RemoteDoc::Unread);
         self.save_succeeded();

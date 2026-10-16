@@ -46,7 +46,7 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
                 button {
                     class: "btn btn-small",
                     r#type: "button",
-                    disabled: matches!(sync(), SyncState::Loading),
+                    disabled: matches!(sync(), SyncState::Loading | SyncState::Picking(_)),
                     onclick: {
                         let outbox = outbox.clone();
                         move |_| look_up_courses(state, sync, outbox.clone())
@@ -96,6 +96,7 @@ fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>, outbox: Sha
             }
             Err(ApiError::Unauthorized) => {
                 sync.set(SyncState::Closed);
+                outbox.borrow_mut().halt();
                 state.session_ended();
             }
             Err(ApiError::Reauthorize) => {
