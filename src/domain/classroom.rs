@@ -183,44 +183,14 @@ pub fn parse_courses(body: &str) -> Result<Vec<ClassroomCourse>, serde_json::Err
     Ok(courses)
 }
 
-/// What a sync does to one class's roster.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(super) struct RosterChange {
-    pub(super) added: usize,
-    pub(super) removed: usize,
-}
-
-/// What a sync did, for the line the teacher reads afterwards.
+/// What a sync did, for the line the teacher reads afterwards. The default is a sync that changed
+/// nothing, which is what a sync right after a sync reports.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SyncReport {
-    classes_added: usize,
-    students_added: usize,
-    students_removed: usize,
-}
-
-impl SyncReport {
-    pub fn classes_added(&self) -> usize {
-        self.classes_added
-    }
-
+    pub classes_added: usize,
     /// Counts students added to classes that already existed as well as to new ones.
-    pub fn students_added(&self) -> usize {
-        self.students_added
-    }
-
-    pub fn students_removed(&self) -> usize {
-        self.students_removed
-    }
-
-    /// Nothing changed, which is what a sync right after a sync reports.
-    pub fn is_empty(&self) -> bool {
-        *self == SyncReport::default()
-    }
-
-    fn absorb(&mut self, change: RosterChange) {
-        self.students_added += change.added;
-        self.students_removed += change.removed;
-    }
+    pub students_added: usize,
+    pub students_removed: usize,
 }
 
 /// Where a course stands against the doc a plan was made from.
@@ -300,7 +270,7 @@ impl SyncPlan {
         let mut report = SyncReport::default();
         for course in &self.courses {
             if let Some(class) = doc.class_linked_to_mut(&course.id) {
-                report.absorb(class.sync_roster(&course.students, rng));
+                class.sync_roster(&course.students, &mut report, rng);
                 continue;
             }
             if self.status_of(&course.id) != (CourseStatus::New { chosen: true }) {
@@ -308,7 +278,7 @@ impl SyncPlan {
             }
             let class = doc.add_class_linked_to(course.name.clone(), course.id.clone(), rng);
             report.classes_added += 1;
-            report.absorb(class.sync_roster(&course.students, rng));
+            class.sync_roster(&course.students, &mut report, rng);
         }
         report
     }
@@ -392,9 +362,9 @@ mod tests {
 
     fn counts(report: SyncReport) -> (usize, usize, usize) {
         (
-            report.classes_added(),
-            report.students_added(),
-            report.students_removed(),
+            report.classes_added,
+            report.students_added,
+            report.students_removed,
         )
     }
 
@@ -468,7 +438,7 @@ mod tests {
             vec![math(), course("c2", "Art", &[("u1", "Ava")])],
         );
 
-        assert!(report.is_empty());
+        assert_eq!(report, SyncReport::default());
         assert_eq!(doc, once);
     }
 
@@ -481,7 +451,7 @@ mod tests {
 
         let report = plan.apply(&mut doc, &mut rng());
 
-        assert!(report.is_empty());
+        assert_eq!(report, SyncReport::default());
         assert_eq!(doc, once);
     }
 
@@ -517,7 +487,7 @@ mod tests {
         let before = doc.clone();
 
         let report = sync(&mut doc, vec![math()]);
-        assert!(report.is_empty());
+        assert_eq!(report, SyncReport::default());
         assert_eq!(doc, before);
 
         let changed = course(
@@ -667,7 +637,7 @@ mod tests {
             )],
         );
 
-        assert!(report.is_empty());
+        assert_eq!(report, SyncReport::default());
         let class = class_for(&doc, "c1");
         assert_eq!(roster(class), ["Ava", "Ben", "Chloe", "Diego"]);
         assert_eq!(
@@ -732,7 +702,7 @@ mod tests {
             plan.entries()[0].status,
             CourseStatus::New { chosen: false }
         );
-        assert!(plan.apply(&mut doc, &mut rng()).is_empty());
+        assert_eq!(plan.apply(&mut doc, &mut rng()), SyncReport::default());
         assert!(doc.classes().is_empty());
 
         plan.set_chosen(&course_id("c1"), true);
@@ -752,7 +722,7 @@ mod tests {
 
         let report = plan.apply(&mut doc, &mut rng());
 
-        assert!(report.is_empty());
+        assert_eq!(report, SyncReport::default());
         assert!(doc.classes().is_empty());
     }
 
@@ -801,7 +771,7 @@ mod tests {
         let once = doc.clone();
         let report = sync(&mut doc, courses());
 
-        assert!(report.is_empty());
+        assert_eq!(report, SyncReport::default());
         assert_eq!(doc, once);
         assert_eq!(roster(class_for(&doc, "c1")), ["Ava"]);
         assert_eq!(roster(class_for(&doc, "c2")), ["Ben"]);

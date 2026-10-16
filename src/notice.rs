@@ -137,18 +137,14 @@ fn plural(n: usize, one: &str, many: &str) -> String {
 /// removed 3 students."
 pub fn sync_summary(report: &SyncReport) -> String {
     let mut added = Vec::new();
-    if report.classes_added() > 0 {
-        added.push(plural(report.classes_added(), "class", "classes"));
+    if report.classes_added > 0 {
+        added.push(plural(report.classes_added, "class", "classes"));
     }
-    if report.students_added() > 0 {
-        added.push(plural(
-            report.students_added(),
-            "new student",
-            "new students",
-        ));
+    if report.students_added > 0 {
+        added.push(plural(report.students_added, "new student", "new students"));
     }
-    let removed = (report.students_removed() > 0)
-        .then(|| plural(report.students_removed(), "student", "students"));
+    let removed = (report.students_removed > 0)
+        .then(|| plural(report.students_removed, "student", "students"));
     match (added.is_empty(), removed) {
         (true, None) => "No changes made.".to_owned(),
         (false, None) => format!("Added {}.", added.join(", ")),

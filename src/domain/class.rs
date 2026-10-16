@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::avatar::{self, Avatar};
 use super::centers::CenterIdx;
-use super::classroom::{ClassroomCourseId, ClassroomStudent, ClassroomUserId, RosterChange};
+use super::classroom::{ClassroomCourseId, ClassroomStudent, ClassroomUserId, SyncReport};
 use super::grouping::{GroupCount, GroupIdx, Grouping, MoveError};
 use super::label::{Label, LabelError};
 use super::oracle::Oracle;
@@ -175,12 +175,13 @@ impl Class {
     /// removed, and a Classroom student with no counterpart is added after everyone else, in the
     /// order given, and joins the smallest group like any student added later. Students added by
     /// hand are left alone, and so is the name of a student already linked. Uses no randomness
-    /// when nothing changes.
+    /// when nothing changes. Adds the students it added and removed to `report`.
     pub(super) fn sync_roster(
         &mut self,
         incoming: &[ClassroomStudent],
+        report: &mut SyncReport,
         rng: &mut impl Rng,
-    ) -> RosterChange {
+    ) {
         let wanted: BTreeSet<&ClassroomUserId> =
             incoming.iter().map(ClassroomStudent::id).collect();
         let before = self.students.len();
@@ -189,20 +190,18 @@ impl Class {
                 .as_ref()
                 .is_none_or(|id| wanted.contains(id))
         });
-        let removed = before - self.students.len();
+        report.students_removed += before - self.students.len();
 
         let known: BTreeSet<ClassroomUserId> = self
             .students
             .iter()
             .filter_map(|s| s.classroom_user_id.clone())
             .collect();
-        let mut added = 0;
         for student in incoming.iter().filter(|s| !known.contains(s.id())) {
             self.enroll(student.name().clone(), Some(student.id().clone()), rng);
-            added += 1;
+            report.students_added += 1;
         }
         self.reconcile();
-        RosterChange { added, removed }
     }
 
     /// Idempotent. Removes the student from the roster, the grouping, and the oracle round.
