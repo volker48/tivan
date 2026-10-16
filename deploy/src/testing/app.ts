@@ -13,7 +13,6 @@ export const TEST_ORIGIN = "https://tivan.test";
 const GOOGLE_ORIGIN = "https://google.test";
 
 export const TEST_CLIENT_ID = "test-client-id";
-/** The smallest body `PUT /api/doc` accepts. */
 export const ENVELOPE = '{"version":6,"doc":{}}';
 export const TEST_KEY = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, i) => i + 1)));
 
