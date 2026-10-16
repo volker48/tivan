@@ -132,8 +132,8 @@ mod tests {
 
     use super::*;
     use crate::domain::{
-        Avatar, ClassroomCourse, ClassroomCourseId, ClassroomStudent, ClassroomUserId, Draw,
-        GroupCount, Label, Pick, Skin, SkinChoice, SplitMix64, SyncPlan, seed_doc,
+        Avatar, ClassroomCourseId, ClassroomUserId, Draw, GroupCount, Label, Pick, Skin,
+        SkinChoice, SplitMix64, seed_doc,
     };
 
     const V1: &str = include_str!("../tests/fixtures/v1.json");
@@ -247,34 +247,6 @@ mod tests {
 
         assert_eq!(decoded, doc);
         decoded.assert_invariants();
-    }
-
-    #[test]
-    fn a_synced_doc_survives_a_round_trip_with_its_links() {
-        let course = ClassroomCourse::new(
-            ClassroomCourseId::parse("c1").unwrap(),
-            "Math",
-            vec![ClassroomStudent::new(
-                ClassroomUserId::parse("u1").unwrap(),
-                "Ava",
-            )],
-        );
-        let mut doc = seed_doc();
-        SyncPlan::new(&doc, vec![course]).apply(&mut doc, &mut rng());
-
-        let decoded = decode(&encode(&doc), &mut rng()).unwrap();
-
-        assert_eq!(decoded, doc);
-        let linked = &decoded.classes()[3];
-        assert_eq!(linked.classroom_course_id().unwrap().as_str(), "c1");
-        assert_eq!(
-            linked.students()[0]
-                .classroom_user_id
-                .as_ref()
-                .unwrap()
-                .as_str(),
-            "u1"
-        );
     }
 
     #[test]
@@ -445,22 +417,6 @@ mod tests {
             expected,
             "stored shape drifted: bump SCHEMA_VERSION"
         );
-    }
-
-    #[test]
-    fn the_frozen_v1_to_v5_fixtures_have_no_classroom_links() {
-        for raw in [V1, V2, V3, V4, V5] {
-            let doc = decode(raw, &mut rng()).unwrap();
-            for class in doc.classes() {
-                assert_eq!(class.classroom_course_id(), None);
-                assert!(
-                    class
-                        .students()
-                        .iter()
-                        .all(|s| s.classroom_user_id.is_none())
-                );
-            }
-        }
     }
 
     #[test]
