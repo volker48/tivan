@@ -15,6 +15,7 @@ This directory is the maintained source for verifying what a teacher can do in T
 - `--name` matches substrings. Use `--exact` when one visible name contains another (`Ava` and `Remove Ava`).
 - Read saved state with `eval "JSON.parse(localStorage.getItem('tivan.state'))" | jq …`. The selected class is `.doc.classes[] | select(.id == $doc.selected)`. The seed selects class id `0`.
 - Feature files assume the seed's first class unless they say otherwise.
+- `tivan-up` serves only the static build, so a page there is always signed out. The account feature needs the local Worker and has its own preconditions.
 
 ## Proof and skip reporting
 
@@ -43,6 +44,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 - [Centers](./centers.md): turn learning centers on for a grouped class, rotate the groups through them, rename them.
 - [Whiteboard and oracle](./whiteboard.md): the projected group wall and the random student and group pickers.
 - [Timer](./timer.md): preset countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.
+- [Account and Classroom sync](./account.md): sign in with Google, keep classes on the server, and pull classes and rosters from Google Classroom.
 
 ## Proof status
 
@@ -59,4 +61,6 @@ Status as of 2026-10-15, rev `5f58097`:
 - **Classes, Roster, Timer**: written from the code and from one exploratory pass over their handles. They have not been run step by step. The first agent to run one fixes any step that does not match the app and updates this list.
   - Exception: `classes-rename` passed with reload proof, on the seed's `Room 12 Morning` rather than the recipe's new class. It passed with Enter in `target/verify/20261015-171929-68457/` and by clicking away in `target/verify/20261015-163949-66174/`.
 
-Not mapped yet: the storage notices (unreadable saved data, a newer version's data, blocked storage, failed save). They are reachable only by corrupting or blocking `localStorage`, which breaks the no-setup-writes rule above. They are covered by `cargo test` in `src/store.rs`. Google Classroom sync is not built.
+- **Account and Classroom sync**: written from the code, on 2026-10-16. Every step except the cookie steps and the real Worker was driven on agent-browser 0.39.1 against a throwaway in-memory stand-in for the Worker, run `20261016-083519-80719` (rev `b045e44` plus the uncommitted UI). The stand-in lives outside the repo and answered `/api/*` and `/auth/*` while proxying the rest to the `tivan-up` server. It covered signing in (and the browser's saved doc staying byte for byte the same), the picker, Apply, resync as a no-op, one `PUT` for a burst of edits, a fresh session getting the doc back, Sign out sending a waiting change first, a refused session falling back to the browser, a `403 reauthorize` leaving for `/auth/login`, `?auth_error=`, an unreachable account service, an unreadable and a newer server doc (no `PUT` after either), a refused save, and the 375 px layout. Not run: the real Worker, `cookies get` and `cookies clear`, real Google consent, and the `Secure` cookie flag. The first agent to run it against the Worker fixes any step that does not match and updates this list.
+
+Not mapped yet: the storage notices (unreadable saved data, a newer version's data, blocked storage, failed save). They are reachable only by corrupting or blocking `localStorage`, which breaks the no-setup-writes rule above. They are covered by `cargo test` in `src/store.rs`.
