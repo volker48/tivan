@@ -36,6 +36,9 @@ const TICK_MS: u32 = 250;
 /// How long the doc must sit unchanged before it is sent to the server.
 const REMOTE_SAVE_DEBOUNCE_MS: u32 = 800;
 
+/// How often a teacher leaving the page checks whether the last request has returned.
+const IN_FLIGHT_POLL_MS: u32 = 50;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
     Build,
@@ -201,11 +204,29 @@ pub fn use_app() -> AppState {
     use_context::<AppState>()
 }
 
-/// Sends the newest doc to the server once `edit` has settled, then whatever edits arrived while
-/// the request flew, one request at a time.
-async fn save_remotely(mut state: AppState, outbox: Rc<RefCell<Outbox>>, edit: Edit) {
+/// The write queue for the teacher's account, shared by the save effect and whatever leaves the
+/// page.
+pub type SharedOutbox = Rc<RefCell<Outbox>>;
+
+/// Sends the newest doc to the server once `edit` has settled.
+async fn save_remotely(state: AppState, outbox: SharedOutbox, edit: Edit) {
     TimeoutFuture::new(REMOTE_SAVE_DEBOUNCE_MS).await;
-    let mut next = outbox.borrow_mut().settled(edit);
+    let first = outbox.borrow_mut().settled(edit);
+    send_all(state, &outbox, first).await;
+}
+
+/// Sends the newest doc now and returns once no request is on the wire, for a teacher who is
+/// about to sign out. Whether it all arrived is for [`Outbox::has_unsent`] to say.
+pub async fn save_remotely_now(state: AppState, outbox: SharedOutbox) {
+    let first = outbox.borrow_mut().settle_now();
+    send_all(state, &outbox, first).await;
+    while outbox.borrow().in_flight() {
+        TimeoutFuture::new(IN_FLIGHT_POLL_MS).await;
+    }
+}
+
+/// Sends `next`, then whatever edits settled while each request flew, one request at a time.
+async fn send_all(mut state: AppState, outbox: &SharedOutbox, mut next: Option<String>) {
     while let Some(envelope) = next {
         next = match platform::api().put_doc(&envelope).await {
             Ok(()) => {
@@ -259,7 +280,7 @@ pub fn App() -> Element {
         }
     });
 
-    let outbox = use_hook(|| Rc::new(RefCell::new(Outbox::default())));
+    let outbox = use_context_provider(|| Rc::new(RefCell::new(Outbox::default())));
     let local_can_save = initial.can_save;
     let saver = outbox.clone();
     use_effect(move || {

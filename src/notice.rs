@@ -1,7 +1,7 @@
 //! Messages the teacher must be able to see. The load policy and the save effect produce them;
 //! the banner renders them. Text lives here so it is checked without a browser.
 
-use crate::domain::MAX_LABEL_CHARS;
+use crate::domain::{MAX_LABEL_CHARS, SyncReport};
 
 /// Something the banner should say. At most one is shown at a time.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -110,8 +110,8 @@ impl Notice {
                 "Your classes could not be loaded from your account ({cause}), \
                 so changes will not be saved. Reload the page to try again."
             ),
-            Notice::SessionEnded => "You were signed out, so your classes are saved in this \
-                browser only. Sign in with Google again to keep them in your account."
+            Notice::SessionEnded => "You were signed out. Changes from now on are saved in this \
+                browser only, and signing in again loads the classes saved in your account."
                 .to_owned(),
             Notice::SignInFailed(code) => {
                 format!("Google sign-in did not finish ({code}). Please try again.")
@@ -125,10 +125,35 @@ impl Notice {
 
 /// "1 name", "3 names".
 pub fn count(n: usize, noun: &str) -> String {
-    if n == 1 {
-        format!("1 {noun}")
-    } else {
-        format!("{n} {noun}s")
+    plural(n, noun, &format!("{noun}s"))
+}
+
+/// "1 class", "2 classes".
+fn plural(n: usize, one: &str, many: &str) -> String {
+    format!("{n} {}", if n == 1 { one } else { many })
+}
+
+/// The line the teacher reads after a Classroom sync, such as "Added 2 classes, 31 new students,
+/// removed 3 students."
+pub fn sync_summary(report: &SyncReport) -> String {
+    let mut added = Vec::new();
+    if report.classes_added() > 0 {
+        added.push(plural(report.classes_added(), "class", "classes"));
+    }
+    if report.students_added() > 0 {
+        added.push(plural(
+            report.students_added(),
+            "new student",
+            "new students",
+        ));
+    }
+    let removed = (report.students_removed() > 0)
+        .then(|| plural(report.students_removed(), "student", "students"));
+    match (added.is_empty(), removed) {
+        (true, None) => "Already up to date.".to_owned(),
+        (false, None) => format!("Added {}.", added.join(", ")),
+        (true, Some(removed)) => format!("Removed {removed}."),
+        (false, Some(removed)) => format!("Added {}, removed {removed}.", added.join(", ")),
     }
 }
 
@@ -147,6 +172,60 @@ mod tests {
                 .message()
                 .starts_with("12 names added, 3 lines too long.")
         );
+    }
+
+    /// Syncs `first` into an empty doc, then `later` into the result, and reports the second sync.
+    /// A course is `(id, student names)`, and each student's id is their name.
+    fn report_of(first: &[(&str, &[&str])], later: &[(&str, &[&str])]) -> SyncReport {
+        use crate::domain::{
+            ClassroomCourse, ClassroomCourseId, ClassroomStudent, ClassroomUserId, Doc, SplitMix64,
+            SyncPlan,
+        };
+        let build = |courses: &[(&str, &[&str])]| -> Vec<ClassroomCourse> {
+            courses
+                .iter()
+                .map(|(id, students)| {
+                    let students = students
+                        .iter()
+                        .map(|name| {
+                            ClassroomStudent::new(ClassroomUserId::parse(name).unwrap(), name)
+                        })
+                        .collect();
+                    ClassroomCourse::new(ClassroomCourseId::parse(id).unwrap(), id, students)
+                })
+                .collect()
+        };
+        let mut doc = Doc::default();
+        let mut rng = SplitMix64::seeded(1);
+        SyncPlan::new(&doc, build(first)).apply(&mut doc, &mut rng);
+        SyncPlan::new(&doc, build(later)).apply(&mut doc, &mut rng)
+    }
+
+    #[test]
+    fn a_sync_summary_says_what_was_added_and_what_was_removed() {
+        let first = report_of(&[], &[("A", &["x", "y"]), ("B", &["z"])]);
+        assert_eq!(sync_summary(&first), "Added 2 classes, 3 new students.");
+
+        let one = report_of(&[], &[("A", &["x"])]);
+        assert_eq!(sync_summary(&one), "Added 1 class, 1 new student.");
+
+        let changed = report_of(&[("A", &["x", "y", "z"])], &[("A", &["x", "w"])]);
+        assert_eq!(
+            sync_summary(&changed),
+            "Added 1 new student, removed 2 students."
+        );
+
+        let only_removed = report_of(&[("A", &["x", "y"])], &[("A", &["x"])]);
+        assert_eq!(sync_summary(&only_removed), "Removed 1 student.");
+
+        let empty_class = report_of(&[], &[("A", &[])]);
+        assert_eq!(sync_summary(&empty_class), "Added 1 class.");
+    }
+
+    #[test]
+    fn a_sync_that_changes_nothing_says_it_is_up_to_date() {
+        let same = report_of(&[("A", &["x"])], &[("A", &["x"])]);
+        assert_eq!(sync_summary(&same), "Already up to date.");
     }
 
     #[test]

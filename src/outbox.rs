@@ -49,6 +49,24 @@ impl Outbox {
         self.start()
     }
 
+    /// Treats the newest edit as settled without waiting out its debounce, for when the page is
+    /// about to be left. Returns the envelope to send, under the same rules as
+    /// [`Outbox::settled`]. A request already in flight picks the edit up when it finishes.
+    pub fn settle_now(&mut self) -> Option<String> {
+        self.due = true;
+        self.start()
+    }
+
+    /// A request is on the wire.
+    pub fn in_flight(&self) -> bool {
+        self.sending.is_some()
+    }
+
+    /// The newest doc is not on the server, whether it is waiting, in flight, or was refused.
+    pub fn has_unsent(&self) -> bool {
+        self.latest.is_some() && self.latest != self.synced
+    }
+
     /// The request returned. Returns the next envelope to send if edits settled while it flew.
     /// A failed request is not tried again until a newer edit settles, so an outage does not
     /// become a loop.
@@ -214,6 +232,46 @@ mod tests {
         assert_eq!(settle(&mut outbox, "b"), None);
 
         assert_eq!(outbox.finished(false), Some(text("b")));
+    }
+
+    #[test]
+    fn leaving_the_page_sends_the_edit_without_waiting_for_its_debounce() {
+        let mut outbox = Outbox::default();
+        let edit = outbox.edited(text("a"));
+
+        assert!(outbox.has_unsent());
+        assert_eq!(outbox.settle_now(), Some(text("a")));
+        assert!(outbox.in_flight());
+        assert_eq!(outbox.finished(true), None);
+        assert!(!outbox.in_flight());
+        assert!(!outbox.has_unsent());
+        assert_eq!(outbox.settled(edit), None, "its timer finds nothing left");
+    }
+
+    #[test]
+    fn leaving_during_a_request_has_the_request_send_what_is_newer_when_it_returns() {
+        let mut outbox = Outbox::default();
+        assert_eq!(settle(&mut outbox, "a"), Some(text("a")));
+        outbox.edited(text("b"));
+
+        assert_eq!(outbox.settle_now(), None);
+        assert!(outbox.in_flight());
+        assert_eq!(outbox.finished(true), Some(text("b")));
+        assert_eq!(outbox.finished(true), None);
+        assert!(!outbox.has_unsent());
+    }
+
+    #[test]
+    fn a_refused_doc_stays_unsent_so_leaving_can_be_stopped() {
+        let mut outbox = Outbox::default();
+        outbox.mark_synced(Some(text("old")));
+        assert!(!outbox.has_unsent());
+
+        assert_eq!(settle(&mut outbox, "new"), Some(text("new")));
+        assert_eq!(outbox.finished(false), None);
+
+        assert!(outbox.has_unsent());
+        assert!(!outbox.in_flight());
     }
 
     #[test]
