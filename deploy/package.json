@@ -7,7 +7,10 @@
     "typecheck": "cf workers types && tsc --noEmit",
     "lint": "oxlint",
     "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format:check": "oxfmt --check",
+    "dev": "cf dev --mode local",
+    "fake-google": "node dev/fake-google.ts",
+    "db:migrate:local": "cf d1 migrations apply 6d1c2a0e-5b3f-4c8a-9e7d-1a2b3c4d5e6f --local --persist-to .wrangler/state"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
