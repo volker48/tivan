@@ -18,7 +18,7 @@ In group creation mode the primary task is to create the classes and groups. The
 
 ## Whiteboard mode
 
-During whitboard mode most of the UI should drop away and the focus is on the defined groups. There should be some additional options available while in whiteboard mode. There should be an Oracle button that randomly selects a student to answer a question. Once the student is chosen the UI should show "The oracle has chosen Tommy!" for example. There should also be a button in this UI to create a timer that will be displayed on screen.
+During whiteboard mode most of the UI should drop away and the focus is on the defined groups. There should be some additional options available while in whiteboard mode. There should be an Oracle button that randomly selects a student to answer a question. Once the student is chosen the UI should show "The oracle has chosen Tommy!" for example. A smaller button next to it picks one of the groups instead, showing the group's name and its members. There should also be a button in this UI to create a timer that will be displayed on screen.
 
 ## Development
 

@@ -17,7 +17,8 @@ pub mod timer;
 pub use avatar::Avatar;
 pub use centers::{CenterIdx, Centers};
 pub use class::{
-    CenterView, Class, ClassId, GroupView, ParsedRoster, Pick, Student, StudentId, parse_roster,
+    CenterView, Class, ClassId, Draw, GroupView, ParsedRoster, Pick, Student, StudentId,
+    parse_roster,
 };
 pub use doc::Doc;
 pub use grouping::{GroupCount, GroupCountError, GroupIdx, Grouping, MoveError, group_sizes};

@@ -34,12 +34,32 @@ pub struct Student {
     pub avatar: Avatar,
 }
 
-/// The oracle's answer, resolved to a name and avatar so the UI never looks it up after the fact.
+/// What the oracle picks from: a student of the roster or a group of the grouping.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Draw {
+    Student,
+    Group,
+}
+
+/// The oracle's answer, resolved to names and avatars so the UI never looks it up after the
+/// fact. A group's members are in roster order, as in [`GroupView`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Pick {
-    pub id: StudentId,
-    pub name: Label,
-    pub avatar: Avatar,
+pub enum Pick {
+    Student(Student),
+    Group {
+        idx: GroupIdx,
+        name: Label,
+        members: Vec<Student>,
+    },
+}
+
+impl Pick {
+    pub fn kind(&self) -> Draw {
+        match self {
+            Pick::Student(_) => Draw::Student,
+            Pick::Group { .. } => Draw::Group,
+        }
+    }
 }
 
 /// One group with its members resolved, in roster order.
@@ -58,8 +78,9 @@ pub struct CenterView<'a> {
     pub group: GroupIdx,
 }
 
-/// Owns the roster, the grouping, and the oracle round for one class. Roster edits go through this
-/// type so the three stay consistent within a single call.
+/// Owns the roster, the grouping, and the student oracle round for one class. Roster edits go
+/// through this type so the three stay consistent within a single call. The group round lives in
+/// the grouping.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Class {
     id: ClassId,
@@ -67,7 +88,7 @@ pub struct Class {
     students: Vec<Student>,
     next_student: u32,
     grouping: Option<Grouping>,
-    oracle: Oracle,
+    oracle: Oracle<StudentId>,
 }
 
 impl Class {
@@ -240,20 +261,39 @@ impl Class {
         Some(views)
     }
 
-    /// `None` only when the class has no students.
-    pub fn draw(&mut self, rng: &mut impl Rng) -> Option<Pick> {
-        let id = self.oracle.draw(&self.students, rng)?;
-        let student = self.student(id).expect("the oracle draws from the roster");
-        Some(Pick {
-            id,
-            name: student.name.clone(),
-            avatar: student.avatar,
-        })
+    /// `None` when the class has no students, or when `kind` is [`Draw::Group`] and it has no
+    /// grouping.
+    pub fn draw(&mut self, kind: Draw, rng: &mut impl Rng) -> Option<Pick> {
+        match kind {
+            Draw::Student => {
+                let id = self.oracle.draw(&self.roster_ids(), rng)?;
+                let student = self.student(id).expect("the oracle draws from the roster");
+                Some(Pick::Student(student.clone()))
+            }
+            Draw::Group => {
+                let idx = self.grouping.as_mut()?.draw(rng)?;
+                let views = self.group_views();
+                let view = &views[idx.get()];
+                Some(Pick::Group {
+                    idx,
+                    name: view.name.clone(),
+                    members: view.members.iter().map(|&s| s.clone()).collect(),
+                })
+            }
+        }
     }
 
-    /// Students the oracle has not chosen yet this round.
-    pub fn oracle_remaining(&self) -> usize {
-        self.oracle.remaining(&self.students)
+    /// Students or groups the oracle has not chosen yet this round. Zero for groups when the
+    /// class has no grouping.
+    pub fn oracle_remaining(&self, kind: Draw) -> usize {
+        match kind {
+            Draw::Student => self.oracle.remaining(&self.roster_ids()),
+            Draw::Group => self.grouping.as_ref().map_or(0, Grouping::remaining),
+        }
+    }
+
+    fn roster_ids(&self) -> Vec<StudentId> {
+        self.students.iter().map(|s| s.id).collect()
     }
 
     /// The avatar is per student, not per name, so two children called Emma get different faces.
@@ -285,7 +325,7 @@ impl Class {
                 self.next_student += 1;
             }
         }
-        self.oracle.retain_roster(&self.students);
+        self.oracle.retain(&self.roster_ids());
         if let Some(grouping) = &mut self.grouping {
             grouping.reconcile(&self.students);
         }
@@ -308,7 +348,7 @@ impl Class {
             assert!(!self.students.is_empty());
             grouping.assert_invariants(&self.students);
         }
-        self.oracle.assert_invariants(&self.students);
+        self.oracle.assert_invariants(&self.roster_ids());
     }
 }
 
@@ -336,7 +376,7 @@ pub fn parse_roster(text: &str) -> ParsedRoster {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{BTreeSet, HashMap, HashSet};
     use std::num::NonZeroUsize;
 
     use super::*;
@@ -379,6 +419,20 @@ mod tests {
 
     fn names_of(class: &Class) -> Vec<Label> {
         class.grouping().unwrap().names().to_vec()
+    }
+
+    fn draw_student(class: &mut Class, rng: &mut SplitMix64) -> Student {
+        match class.draw(Draw::Student, rng) {
+            Some(Pick::Student(student)) => student,
+            other => panic!("expected a student, got {other:?}"),
+        }
+    }
+
+    fn draw_group(class: &mut Class, rng: &mut SplitMix64) -> GroupIdx {
+        match class.draw(Draw::Group, rng) {
+            Some(Pick::Group { idx, .. }) => idx,
+            other => panic!("expected a group, got {other:?}"),
+        }
     }
 
     #[test]
@@ -491,7 +545,7 @@ mod tests {
         class
             .move_student(mover, GroupIdx((home.get() + 1) % 3))
             .unwrap();
-        class.draw(&mut rng).unwrap();
+        class.draw(Draw::Student, &mut rng).unwrap();
         class.add_student(label("Late"), &mut rng);
         let gone = class.students()[5].id;
         class.remove_student(gone);
@@ -614,8 +668,8 @@ mod tests {
     fn removing_a_student_clears_them_from_roster_grouping_and_oracle() {
         let mut class = class_of(6);
         class.regroup(count(2, &class), &mut rng(1));
-        let drawn = class.draw(&mut rng(3)).unwrap();
-        assert_eq!(class.oracle_remaining(), 5);
+        let drawn = draw_student(&mut class, &mut rng(3));
+        assert_eq!(class.oracle_remaining(Draw::Student), 5);
 
         class.remove_student(drawn.id);
 
@@ -627,7 +681,7 @@ mod tests {
                 .iter()
                 .all(|g| g.members.iter().all(|s| s.id != drawn.id))
         );
-        assert_eq!(class.oracle_remaining(), 5);
+        assert_eq!(class.oracle_remaining(Draw::Student), 5);
         class.assert_invariants();
     }
 
@@ -751,22 +805,186 @@ mod tests {
         let mut rng = rng(4);
         let mut chosen = HashSet::new();
         for left in (0..5).rev() {
-            let pick = class.draw(&mut rng).unwrap();
-            let student = class.student(pick.id).unwrap();
-            assert_eq!((&student.name, student.avatar), (&pick.name, pick.avatar));
+            let pick = draw_student(&mut class, &mut rng);
+            assert_eq!(class.student(pick.id), Some(&pick));
             assert!(chosen.insert(pick.id));
-            assert_eq!(class.oracle_remaining(), left);
+            assert_eq!(class.oracle_remaining(Draw::Student), left);
         }
-        let next = class.draw(&mut rng).unwrap();
-        assert_eq!(class.oracle_remaining(), 4);
+        let next = draw_student(&mut class, &mut rng);
+        assert_eq!(class.oracle_remaining(Draw::Student), 4);
         assert!(class.student(next.id).is_some());
     }
 
     #[test]
     fn the_oracle_has_no_answer_for_an_empty_class() {
         let mut class = class_of(0);
-        assert_eq!(class.draw(&mut rng(1)), None);
-        assert_eq!(class.oracle_remaining(), 0);
+        for kind in [Draw::Student, Draw::Group] {
+            assert_eq!(class.draw(kind, &mut rng(1)), None);
+            assert_eq!(class.oracle_remaining(kind), 0);
+        }
+    }
+
+    #[test]
+    fn picking_a_group_needs_groups_but_picking_a_student_does_not() {
+        let mut class = class_of(3);
+        let before = class.clone();
+
+        assert_eq!(class.draw(Draw::Group, &mut rng(1)), None);
+        assert_eq!(class.oracle_remaining(Draw::Group), 0);
+        assert_eq!(class, before);
+
+        let pick = draw_student(&mut class, &mut rng(1));
+        assert!(class.student(pick.id).is_some());
+        assert_eq!(class.oracle_remaining(Draw::Student), 2);
+    }
+
+    #[test]
+    fn a_group_pick_resolves_the_name_and_members_the_wall_shows() {
+        let mut class = class_of(10);
+        class.regroup(count(3, &class), &mut rng(1));
+        class
+            .rename_group(GroupIdx(1), label("Table Four"))
+            .unwrap();
+        let mut rng = rng(5);
+        let mut picked_names = Vec::new();
+        for _ in 0..3 {
+            let pick = class.draw(Draw::Group, &mut rng).unwrap();
+            assert_eq!(pick.kind(), Draw::Group);
+            let Pick::Group { idx, name, members } = pick else {
+                panic!("expected a group");
+            };
+            let views = class.group_views();
+            assert_eq!(name, *views[idx.get()].name);
+            let shown: Vec<&Student> = members.iter().collect();
+            assert_eq!(shown, views[idx.get()].members);
+            picked_names.push(name);
+        }
+        assert!(picked_names.contains(&label("Table Four")));
+    }
+
+    #[test]
+    fn the_oracle_names_each_group_once_per_round_and_counts_down() {
+        for groups in [2, 3, 6] {
+            for seed in 0..30 {
+                let mut class = class_of(12);
+                class.regroup(count(groups, &class), &mut rng(1));
+                let mut rng = rng(seed);
+                let mut previous = None;
+                for _ in 0..3 {
+                    let mut chosen = BTreeSet::new();
+                    for left in (0..groups).rev() {
+                        let idx = draw_group(&mut class, &mut rng);
+                        assert!(chosen.insert(idx), "groups={groups} seed={seed}");
+                        assert_ne!(Some(idx), previous, "groups={groups} seed={seed}");
+                        previous = Some(idx);
+                        assert_eq!(class.oracle_remaining(Draw::Group), left);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_group_and_student_rounds_are_separate() {
+        let mut class = class_of(6);
+        class.regroup(count(3, &class), &mut rng(1));
+        let mut rng = rng(2);
+
+        draw_group(&mut class, &mut rng);
+        assert_eq!(class.oracle_remaining(Draw::Student), 6);
+        draw_student(&mut class, &mut rng);
+        draw_student(&mut class, &mut rng);
+
+        assert_eq!(class.oracle_remaining(Draw::Group), 2);
+        assert_eq!(class.oracle_remaining(Draw::Student), 4);
+    }
+
+    #[test]
+    fn regrouping_starts_a_fresh_group_round_and_leaves_the_student_round_alone() {
+        let mut class = class_of(8);
+        class.regroup(count(4, &class), &mut rng(1));
+        let mut rng = rng(2);
+        draw_group(&mut class, &mut rng);
+        draw_group(&mut class, &mut rng);
+        draw_student(&mut class, &mut rng);
+
+        class.regroup(count(4, &class), &mut rng);
+        assert_eq!(class.oracle_remaining(Draw::Group), 4);
+        assert_eq!(class.oracle_remaining(Draw::Student), 7);
+
+        draw_group(&mut class, &mut rng);
+        class.regroup(count(2, &class), &mut rng);
+        assert_eq!(class.oracle_remaining(Draw::Group), 2);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn reshuffling_keeps_the_group_round_going() {
+        for seed in 0..30 {
+            let mut class = class_of(12);
+            class.regroup(count(4, &class), &mut rng(1));
+            let mut rng = rng(seed);
+            let first = [
+                draw_group(&mut class, &mut rng),
+                draw_group(&mut class, &mut rng),
+            ];
+
+            class.reshuffle(&mut rng);
+
+            assert_eq!(class.oracle_remaining(Draw::Group), 2, "seed {seed}");
+            let rest = [
+                draw_group(&mut class, &mut rng),
+                draw_group(&mut class, &mut rng),
+            ];
+            let everyone: BTreeSet<GroupIdx> = first.into_iter().chain(rest).collect();
+            assert_eq!(everyone.len(), 4, "seed {seed}");
+            class.assert_invariants();
+        }
+    }
+
+    #[test]
+    fn a_group_round_shrinks_with_the_groups_and_never_yields_a_dropped_one() {
+        for seed in 0..30 {
+            let mut class = class_of(6);
+            class.regroup(count(6, &class), &mut rng(1));
+            let mut rng = rng(seed);
+            let gone_before_shrinking = [
+                draw_group(&mut class, &mut rng),
+                draw_group(&mut class, &mut rng),
+                draw_group(&mut class, &mut rng),
+            ];
+            keep_first(&mut class, 3);
+            assert_eq!(class.oracle_remaining(Draw::Group), 3);
+
+            class.reshuffle(&mut rng);
+
+            class.assert_invariants();
+            let survivors_gone = gone_before_shrinking
+                .iter()
+                .filter(|idx| idx.get() < 3)
+                .count();
+            assert_eq!(
+                class.oracle_remaining(Draw::Group),
+                3 - survivors_gone,
+                "seed {seed}"
+            );
+            for _ in 0..9 {
+                assert!(draw_group(&mut class, &mut rng).get() < 3, "seed {seed}");
+            }
+        }
+    }
+
+    #[test]
+    fn removing_the_last_student_takes_the_group_round_with_the_grouping() {
+        let mut class = class_of(1);
+        class.regroup(count(1, &class), &mut rng(1));
+        draw_group(&mut class, &mut rng(2));
+
+        class.remove_student(class.students()[0].id);
+
+        assert_eq!(class.draw(Draw::Group, &mut rng(3)), None);
+        assert_eq!(class.oracle_remaining(Draw::Group), 0);
+        class.assert_invariants();
     }
 
     /// Each center's name with the index of the group standing there, in center order.
@@ -1079,7 +1297,7 @@ mod tests {
             let mut class = class_of(8);
             for _ in 0..80 {
                 let ids: Vec<StudentId> = class.students().iter().map(|s| s.id).collect();
-                match roll(&mut rng, 11) {
+                match roll(&mut rng, 12) {
                     0 => {
                         class.add_student(label("Newcomer"), &mut rng);
                     }
@@ -1097,7 +1315,7 @@ mod tests {
                         class.move_student(student, to).ok();
                     }
                     5 => {
-                        class.draw(&mut rng);
+                        class.draw(Draw::Student, &mut rng);
                     }
                     6 => {
                         let idx = GroupIdx(roll(&mut rng, 4));
@@ -1106,6 +1324,9 @@ mod tests {
                     7 => class.add_centers(),
                     8 => class.remove_centers(),
                     9 => class.rotate_centers(),
+                    10 => {
+                        class.draw(Draw::Group, &mut rng);
+                    }
                     _ => {
                         let idx = CenterIdx(roll(&mut rng, 6));
                         class.rename_center(idx, label("Station")).ok();
