@@ -1016,7 +1016,9 @@ textarea {
   color: var(--ink);
   box-shadow: 0 0.6rem 0 var(--line);
   text-align: center;
-  animation: pop-in 520ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  animation:
+    pop-in 520ms cubic-bezier(0.2, 1.4, 0.4, 1) both,
+    landing-ring 800ms ease-out both;
 }
 
 /* Inline with the name rather than above it, so the card is no taller than before on a short screen. */
@@ -1074,6 +1076,22 @@ textarea {
   margin-top: 1.2rem;
 }
 
+/* The spin before the answer: the name alone in the card, which glows while it runs. The card's
+   pop-in is saved for the landing. */
+.reveal-spinning {
+  animation: spin-glow 600ms ease-in-out infinite;
+}
+
+/* The name is remounted on every flash, so this restarts each time. */
+.reveal-spinning .reveal-name {
+  animation: spin-flash 140ms ease-out both;
+}
+
+/* The avatar's delayed pop-in would hide it for most of a flash. */
+.reveal-spinning .reveal-name .avatar {
+  animation: none;
+}
+
 /* Loud even with motion off: the animation only adds a glow. */
 .times-up {
   background: rgba(176, 38, 24, 0.97);
@@ -1098,6 +1116,21 @@ textarea {
   0% { opacity: 0; transform: scale(0.4) rotate(-6deg); }
   55% { opacity: 1; transform: scale(1.1) rotate(2deg); }
   100% { opacity: 1; transform: none; }
+}
+
+@keyframes landing-ring {
+  from { box-shadow: 0 0.6rem 0 var(--line), 0 0 0 0 rgba(255, 209, 102, 0.9); }
+  to { box-shadow: 0 0.6rem 0 var(--line), 0 0 0 4rem rgba(255, 209, 102, 0); }
+}
+
+@keyframes spin-glow {
+  0%, 100% { box-shadow: 0 0.6rem 0 var(--line), 0 0 1rem 0 rgba(255, 209, 102, 0.35); }
+  50% { box-shadow: 0 0.6rem 0 var(--line), 0 0 3rem 0.6rem rgba(255, 209, 102, 0.75); }
+}
+
+@keyframes spin-flash {
+  from { opacity: 0.5; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes pulse {
