@@ -1,4 +1,5 @@
 import { parseEncryptionKey } from "./crypto.ts";
+import { LOOPBACK_HOSTS } from "./http.ts";
 import type { EncryptionKey } from "./types.ts";
 
 export interface Config {
@@ -27,8 +28,6 @@ export type ConfigResult =
 function textOf(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
-
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /** The client secret and refresh tokens travel to these URLs, so plain HTTP is for loopback only. */
 function endpointUrl(value: string): URL | null {

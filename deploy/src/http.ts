@@ -39,7 +39,7 @@ function withCookies(response: Response, cookies: readonly string[]): Response {
   return response;
 }
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+export const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export interface CookieOptions {
   readonly path: string;
@@ -60,7 +60,7 @@ export function serializeCookie(
     "HttpOnly",
     "SameSite=Lax",
   ];
-  if (!LOCAL_HOSTS.has(url.hostname)) {
+  if (!LOOPBACK_HOSTS.has(url.hostname)) {
     parts.push("Secure");
   }
   return parts.join("; ");
