@@ -25,6 +25,24 @@ pub fn now() -> Millis {
     Millis(Date::now() as u64)
 }
 
+/// Whether the system asks for less motion. The stylesheet shortens CSS animations under the same
+/// query, but it cannot stop a timer-driven change of what is on screen.
+pub fn prefers_reduced_motion() -> bool {
+    let Some(window) = web_sys::window() else {
+        return false;
+    };
+    match window.match_media("(prefers-reduced-motion: reduce)") {
+        Ok(query) => query.is_some_and(|query| query.matches()),
+        Err(cause) => {
+            warn!(
+                "could not read the reduced-motion preference: {}",
+                describe(&cause)
+            );
+            false
+        }
+    }
+}
+
 /// The date on the teacher's wall clock, which is what a season means to them.
 pub fn today() -> CalendarDay {
     let now = Date::new_0();
