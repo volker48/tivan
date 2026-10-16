@@ -363,6 +363,13 @@ textarea {
   font-weight: 700;
 }
 
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .name-edit {
   min-width: 0;
   flex: 1 1 14rem;

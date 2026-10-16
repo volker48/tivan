@@ -436,6 +436,7 @@ fn GroupControls() -> Element {
         })
         .unwrap_or_default();
     let mut wanted = use_signal(|| current.unwrap_or(DEFAULT_GROUPS));
+    let mut confirming_removal = use_signal(|| false);
     // The roster can shrink after the teacher set the stepper, so the count is re-derived each render.
     let groups = GroupCount::nearest(wanted(), students).ok();
     let shown = groups.map_or(0, GroupCount::get);
@@ -493,19 +494,40 @@ fn GroupControls() -> Element {
                     },
                     "Shuffle again"
                 }
-                button {
-                    class: "btn",
-                    r#type: "button",
-                    onclick: move |_| {
-                        state
-                            .edit_class(|class, _| {
-                                if centers { class.remove_centers() } else { class.add_centers() }
-                            });
-                    },
-                    if centers {
-                        "Remove centers"
-                    } else {
+                if !centers {
+                    button {
+                        class: "btn",
+                        r#type: "button",
+                        onclick: move |_| {
+                            state.edit_class(|class, _| class.add_centers());
+                        },
                         "Use centers"
+                    }
+                } else if confirming_removal() {
+                    div { class: "confirm",
+                        span { class: "confirm-text", "Remove the centers and their names?" }
+                        button {
+                            class: "btn btn-danger btn-small",
+                            r#type: "button",
+                            onclick: move |_| {
+                                state.edit_class(|class, _| class.remove_centers());
+                                confirming_removal.set(false);
+                            },
+                            "Yes, remove"
+                        }
+                        button {
+                            class: "btn btn-small",
+                            r#type: "button",
+                            onclick: move |_| confirming_removal.set(false),
+                            "Keep them"
+                        }
+                    }
+                } else {
+                    button {
+                        class: "btn",
+                        r#type: "button",
+                        onclick: move |_| confirming_removal.set(true),
+                        "Remove centers"
                     }
                 }
                 RotateControls {}
