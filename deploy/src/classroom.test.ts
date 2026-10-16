@@ -34,6 +34,16 @@ async function signedIn(options: SignedInOptions = {}): Promise<TestApp> {
   return app;
 }
 
+function failing(
+  match: (pathname: string) => boolean,
+  respond: () => Promise<Response>,
+): SignedInOptions {
+  return {
+    wrap: (inner) => (input, init) =>
+      match(new URL(new Request(input, init).url).pathname) ? respond() : inner(input, init),
+  };
+}
+
 const courses = (app: TestApp) => app.request("/api/classroom/courses");
 
 describe("GET /api/classroom/courses", () => {
@@ -192,58 +202,54 @@ describe("when Google rejects the teacher", () => {
   });
 
   it("answers 403 reauthorize when Classroom returns 401 for the course list", async () => {
-    const app = await signedIn({
-      wrap: (inner) => (input, init) =>
-        new URL(new Request(input, init).url).pathname === "/v1/courses"
-          ? Promise.resolve(
-              Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401 }),
-            )
-          : inner(input, init),
-    });
+    const app = await signedIn(
+      failing(
+        (p) => p === "/v1/courses",
+        async () => Response.json({ error: { status: "UNAUTHENTICATED" } }, { status: 401 }),
+      ),
+    );
     const response = await courses(app);
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "reauthorize" });
   });
 
   it("answers 403 reauthorize when scopes are missing and a roster call returns 403", async () => {
-    const app = await signedIn({
-      wrap: (inner) => (input, init) =>
-        new URL(new Request(input, init).url).pathname.endsWith("/course-2/students")
-          ? Promise.resolve(
-              Response.json(
-                {
-                  error: {
-                    status: "PERMISSION_DENIED",
-                    details: [{ reason: "ACCESS_TOKEN_SCOPE_INSUFFICIENT" }],
-                  },
-                },
-                { status: 403 },
-              ),
-            )
-          : inner(input, init),
-    });
+    const app = await signedIn(
+      failing(
+        (p) => p.endsWith("/course-2/students"),
+        async () =>
+          Response.json(
+            {
+              error: {
+                status: "PERMISSION_DENIED",
+                details: [{ reason: "ACCESS_TOKEN_SCOPE_INSUFFICIENT" }],
+              },
+            },
+            { status: 403 },
+          ),
+      ),
+    );
     const response = await courses(app);
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "reauthorize" });
   });
 
   it("answers 502, not reauthorize, when Classroom is switched off for the account", async () => {
-    const app = await signedIn({
-      wrap: (inner) => (input, init) =>
-        new URL(new Request(input, init).url).pathname === "/v1/courses"
-          ? Promise.resolve(
-              Response.json(
-                {
-                  error: {
-                    status: "PERMISSION_DENIED",
-                    details: [{ reason: "ClassroomApiDisabled" }],
-                  },
-                },
-                { status: 403 },
-              ),
-            )
-          : inner(input, init),
-    });
+    const app = await signedIn(
+      failing(
+        (p) => p === "/v1/courses",
+        async () =>
+          Response.json(
+            {
+              error: {
+                status: "PERMISSION_DENIED",
+                details: [{ reason: "ClassroomApiDisabled" }],
+              },
+            },
+            { status: 403 },
+          ),
+      ),
+    );
     const response = await courses(app);
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: "classroom_unavailable" });
@@ -275,12 +281,12 @@ describe("when Google rejects the teacher", () => {
   });
 
   it("answers 502 when a course entry has no id", async () => {
-    const app = await signedIn({
-      wrap: (inner) => async (input, init) =>
-        new URL(new Request(input, init).url).pathname === "/v1/courses"
-          ? Response.json({ courses: [{ name: "no id" }] })
-          : inner(input, init),
-    });
+    const app = await signedIn(
+      failing(
+        (p) => p === "/v1/courses",
+        async () => Response.json({ courses: [{ name: "no id" }] }),
+      ),
+    );
     expect((await courses(app)).status).toBe(502);
   });
 
@@ -297,16 +303,6 @@ describe("when Google rejects the teacher", () => {
 });
 
 describe("when Google is unavailable", () => {
-  function failing(
-    match: (pathname: string) => boolean,
-    respond: () => Promise<Response>,
-  ): SignedInOptions {
-    return {
-      wrap: (inner) => (input, init) =>
-        match(new URL(new Request(input, init).url).pathname) ? respond() : inner(input, init),
-    };
-  }
-
   it.each([
     [
       "a 500 from the course list",
