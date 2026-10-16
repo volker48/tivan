@@ -55,7 +55,7 @@ pub struct GroupView<'a> {
 pub struct CenterView<'a> {
     pub idx: CenterIdx,
     pub name: &'a Label,
-    pub group: GroupView<'a>,
+    pub group: GroupIdx,
 }
 
 /// Owns the roster, the grouping, and the oracle round for one class. Roster edits go through this
@@ -224,7 +224,6 @@ impl Class {
     /// has no groups or does not use centers.
     pub fn center_views(&self) -> Option<Vec<CenterView<'_>>> {
         let centers = self.grouping.as_ref()?.centers()?;
-        let groups = self.group_views();
         let views = centers
             .names()
             .iter()
@@ -234,7 +233,7 @@ impl Class {
                 CenterView {
                     idx,
                     name,
-                    group: groups[centers.group_at(idx).get()].clone(),
+                    group: centers.group_at(idx),
                 }
             })
             .collect();
@@ -776,7 +775,7 @@ mod tests {
             .center_views()
             .unwrap()
             .iter()
-            .map(|center| (center.name.to_string(), center.group.idx.get()))
+            .map(|center| (center.name.to_string(), center.group.get()))
             .collect()
     }
 
@@ -811,9 +810,6 @@ mod tests {
             .collect();
         assert_eq!(standing(&class), expected);
         assert_eq!(round(&class), 1);
-        for center in class.center_views().unwrap() {
-            assert_eq!(center.group, class.group_views()[center.idx.get()]);
-        }
         class.assert_invariants();
     }
 

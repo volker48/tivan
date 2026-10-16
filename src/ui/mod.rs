@@ -5,8 +5,7 @@ use dioxus::prelude::*;
 
 use crate::app::use_app;
 use crate::domain::{
-    CenterIdx, Class, GroupIdx, GroupView, Label, LabelError, MAX_LABEL_CHARS, MoveError, Student,
-    StudentId,
+    CenterIdx, Class, GroupIdx, Label, LabelError, MAX_LABEL_CHARS, MoveError, Student, StudentId,
 };
 use crate::platform;
 
@@ -29,38 +28,39 @@ pub struct GroupCard {
     pub members: Vec<Student>,
 }
 
-fn group_card(view: GroupView<'_>) -> GroupCard {
-    GroupCard {
-        idx: view.idx,
-        name: view.name.clone(),
-        members: view.members.into_iter().cloned().collect(),
-    }
-}
-
 pub fn group_cards(class: &Class) -> Vec<GroupCard> {
-    class.group_views().into_iter().map(group_card).collect()
+    class
+        .group_views()
+        .into_iter()
+        .map(|view| GroupCard {
+            idx: view.idx,
+            name: view.name.clone(),
+            members: view.members.into_iter().cloned().collect(),
+        })
+        .collect()
 }
 
-/// One center with the group card standing in it.
+/// One center and the group standing in it, owned like [`GroupCard`]. `group` indexes the
+/// [`group_cards`] of the same class.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CenterCard {
+pub struct CenterSlot {
     pub idx: CenterIdx,
     pub name: Label,
-    pub card: GroupCard,
+    pub group: GroupIdx,
 }
 
 /// The centers in center order. `None` when the class does not use centers.
-pub fn center_cards(class: &Class) -> Option<Vec<CenterCard>> {
+pub fn center_slots(class: &Class) -> Option<Vec<CenterSlot>> {
     let views = class.center_views()?;
-    let cards = views
+    let slots = views
         .into_iter()
-        .map(|view| CenterCard {
+        .map(|view| CenterSlot {
             idx: view.idx,
             name: view.name.clone(),
-            card: group_card(view.group),
+            group: view.group,
         })
         .collect();
-    Some(cards)
+    Some(slots)
 }
 
 pub fn label_error_text(error: LabelError) -> String {

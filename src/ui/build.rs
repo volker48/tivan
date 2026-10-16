@@ -9,7 +9,7 @@ use crate::notice::{Notice, count};
 use crate::platform;
 use crate::ui::avatar::AvatarIcon;
 use crate::ui::{
-    CenterCard, GroupCard, NameInput, NoticeBanner, RotateControls, Selection, center_cards,
+    CenterSlot, GroupCard, NameInput, NoticeBanner, RotateControls, Selection, center_slots,
     focus_on_mount, group_cards, hue, label_error_text, log_failed, selection,
 };
 
@@ -493,26 +493,22 @@ fn GroupControls() -> Element {
                     },
                     "Shuffle again"
                 }
-                if centers {
-                    button {
-                        class: "btn",
-                        r#type: "button",
-                        onclick: move |_| {
-                            state.edit_class(|class, _| class.remove_centers());
-                        },
+                button {
+                    class: "btn",
+                    r#type: "button",
+                    onclick: move |_| {
+                        state
+                            .edit_class(|class, _| {
+                                if centers { class.remove_centers() } else { class.add_centers() }
+                            });
+                    },
+                    if centers {
                         "Remove centers"
-                    }
-                    RotateControls {}
-                } else {
-                    button {
-                        class: "btn",
-                        r#type: "button",
-                        onclick: move |_| {
-                            state.edit_class(|class, _| class.add_centers());
-                        },
+                    } else {
                         "Use centers"
                     }
                 }
+                RotateControls {}
             }
         }
     }
@@ -534,7 +530,7 @@ fn size_hint(students: usize, groups: GroupCount) -> Option<String> {
 fn GroupBoard() -> Element {
     let state = use_app();
     let cards = use_memo(move || state.with_class(group_cards).unwrap_or_default());
-    let centers = use_memo(move || state.with_class(center_cards).flatten());
+    let centers = use_memo(move || state.with_class(center_slots).flatten());
     let mut moving = use_signal(|| None::<StudentId>);
     use_escape(move || {
         if moving.peek().is_some() {
@@ -543,12 +539,6 @@ fn GroupBoard() -> Element {
     });
     // A selected student can be removed from the roster, which leaves `moving` pointing at no one.
     let selected = moving().and_then(|id| state.with_class(|class| selection(class, id)).flatten());
-    let centers = centers();
-    let board = if centers.is_some() {
-        "cards cards-centered"
-    } else {
-        "cards"
-    };
     rsx! {
         section { class: "board",
             if let Some(selected) = &selected {
@@ -567,14 +557,13 @@ fn GroupBoard() -> Element {
                     }
                 }
             }
-            div { class: board,
-                if let Some(centers) = centers {
-                    for center in centers {
-                        // Keyed by the group too, so a rotation remounts the frame: the card's own
-                        // state stays with its group, and the flight always sees a mutation.
+            div { class: if centers().is_some() { "cards cards-centered" } else { "cards" },
+                if let Some(centers) = centers() {
+                    for (center , card) in centers.into_iter().map(|center| { let card = cards.read()[center.group.get()].clone(); (center, card) }) {
                         CenterFrame {
-                            key: "{center.idx.get()}-{center.card.idx.get()}",
+                            key: "{center.idx.get()}",
                             center,
+                            card,
                             selected: selected.clone(),
                             moving,
                         }
@@ -597,13 +586,14 @@ fn GroupBoard() -> Element {
 /// A center: the square frame a group card stands in, with the center's name above the card.
 #[component]
 fn CenterFrame(
-    center: CenterCard,
+    center: CenterSlot,
+    card: GroupCard,
     selected: Option<Selection>,
     moving: Signal<Option<StudentId>>,
 ) -> Element {
     let mut state = use_app();
     let mut renaming = use_signal(|| false);
-    let CenterCard { idx, name, card } = center;
+    let CenterSlot { idx, name, .. } = center;
     rsx! {
         div { class: "center",
             if renaming() {

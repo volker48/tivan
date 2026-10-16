@@ -307,11 +307,12 @@ mod tests {
         assert_fixture_classes(&doc);
         let class = &doc.classes()[0];
         assert_eq!(class.grouping().unwrap().centers().unwrap().round(), 2);
+        let names = class.grouping().unwrap().names();
         let standing: Vec<(&str, &str)> = class
             .center_views()
             .unwrap()
             .iter()
-            .map(|center| (center.name.as_str(), center.group.name.as_str()))
+            .map(|center| (center.name.as_str(), names[center.group.get()].as_str()))
             .collect();
         assert_eq!(
             standing,

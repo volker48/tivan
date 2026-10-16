@@ -1,7 +1,7 @@
-// Chips change parent when a student switches group, and a group card is remounted when it
-// rotates to another center, so Dioxus unmounts and remounts them and no DOM node survives the
-// change. Chips are matched by their data-student id and cards by their data-group id instead
-// (FLIP).
+// Chips change parent when a student switches group, so Dioxus remounts them, and a center keeps
+// its DOM node while a different group card is patched into it. Either way the node on screen is
+// not the one that moved, so chips are matched by their data-student id and cards by their
+// data-group id instead (FLIP).
 
 const FLIGHT_MS = 650;
 const MAX_STAGGER_MS = 180;
@@ -19,8 +19,8 @@ function stopWaiting() {
   pending = null;
 }
 
-function flyChip({ el: chip, dx, dy }) {
-  const background = getComputedStyle(chip).backgroundColor;
+function flyChip({ el: chip, dx, dy, style }) {
+  const background = style.backgroundColor;
   const distance = Math.hypot(dx, dy);
   const lift = Math.min(140, 30 + distance * 0.18);
   const spin = (Math.random() < 0.5 ? -1 : 1) * (8 + Math.random() * 14);
@@ -49,8 +49,8 @@ function flyChip({ el: chip, dx, dy }) {
 }
 
 // A card is already opaque, so it keeps its own background and shadow at both ends of the flight.
-function flyCard({ el: card, dx, dy }) {
-  const shadow = getComputedStyle(card).boxShadow;
+function flyCard({ el: card, dx, dy, style }) {
+  const shadow = style.boxShadow;
   const distance = Math.hypot(dx, dy);
   const lift = Math.min(80, 24 + distance * 0.1);
   const spin = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 2);
@@ -105,7 +105,11 @@ function flyMoved(root, kind, before) {
     const to = el.getBoundingClientRect();
     const dx = from.left - to.left;
     const dy = from.top - to.top;
-    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) moves.push({ el, dx, dy });
+    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
+      // Read every style before the first animate() call so the writes do not force a restyle each.
+      const { backgroundColor, boxShadow } = getComputedStyle(el);
+      moves.push({ el, dx, dy, style: { backgroundColor, boxShadow } });
+    }
   }
   for (const move of moves) kind.fly(move);
 }
@@ -125,7 +129,7 @@ function animateMoves(kind) {
     flyMoved(root, kind, before);
   });
   pending = { observer, timer: setTimeout(stopWaiting, GIVE_UP_MS) };
-  // The attribute filter covers a card that Dioxus reuses in place and only relabels.
+  // A rotation only relabels each center's card in place, which the attribute filter catches.
   observer.observe(root, {
     childList: true,
     subtree: true,

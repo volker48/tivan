@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::app::{AppState, Mode, use_app, use_escape};
 use crate::domain::{Millis, Pick, Preset, Timer, format_mm_ss};
 use crate::ui::avatar::AvatarIcon;
-use crate::ui::{GroupCard, RotateControls, center_cards, group_cards, hue};
+use crate::ui::{GroupCard, RotateControls, center_slots, group_cards, hue};
 
 /// The oracle's latest answer. `seq` keys the overlay so each pick replays the entrance
 /// animation, which a reused DOM node would otherwise play once and never again.
@@ -269,7 +269,7 @@ fn GroupWall() -> Element {
     let Some((cards, centers, students)) = state.with_class(|class| {
         (
             group_cards(class),
-            center_cards(class),
+            center_slots(class),
             class.students().len(),
         )
     }) else {
@@ -301,7 +301,7 @@ fn GroupWall() -> Element {
                 for center in centers {
                     div { key: "{center.idx.get()}", class: "wall-center",
                         p { class: "wall-center-name", "{center.name}" }
-                        WallCard { card: center.card }
+                        WallCard { card: cards[center.group.get()].clone() }
                     }
                 }
             } else {
