@@ -46,7 +46,7 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
                 button {
                     class: "btn btn-small",
                     r#type: "button",
-                    disabled: matches!(sync(), SyncState::Loading | SyncState::Picking(_)),
+                    disabled: matches!(*sync.read(), SyncState::Loading | SyncState::Picking(_)),
                     onclick: {
                         let outbox = outbox.clone();
                         move |_| look_up_courses(state, sync, outbox.clone())
@@ -122,7 +122,7 @@ pub fn SyncPanel(sync: Signal<SyncState>) -> Element {
         return rsx! {};
     }
     let close = move |_| sync.set(SyncState::Closed);
-    match sync() {
+    match &*sync.read() {
         SyncState::Closed => rsx! {},
         SyncState::Loading => rsx! {
             section { class: "panel sync-panel", role: "status",
@@ -139,7 +139,7 @@ pub fn SyncPanel(sync: Signal<SyncState>) -> Element {
         },
         SyncState::Done(report) => rsx! {
             section { class: "panel sync-panel",
-                p { class: "sync-result", role: "status", "{sync_summary(&report)}" }
+                p { class: "sync-result", role: "status", "{sync_summary(report)}" }
                 div { class: "form-actions",
                     button { class: "btn btn-primary", r#type: "button", onclick: close, "Done" }
                 }
@@ -157,7 +157,7 @@ pub fn SyncPanel(sync: Signal<SyncState>) -> Element {
                 }
                 ul { class: "sync-list",
                     for entry in entries {
-                        li { key: "{entry.id.as_str()}", class: "sync-item",
+                        li { key: "{entry.id.as_str()}",
                             match entry.status {
                                 CourseStatus::New { chosen } => rsx! {
                                     label { class: "sync-choice",
@@ -197,10 +197,13 @@ pub fn SyncPanel(sync: Signal<SyncState>) -> Element {
                         class: "btn btn-primary",
                         r#type: "button",
                         onclick: move |_| {
-                            let current = sync.peek().clone();
-                            if let SyncState::Picking(plan) = current {
-                                let report = state.edit(|doc, rng| plan.apply(doc, rng));
-                                sync.set(SyncState::Done(report));
+                            let taken = std::mem::replace(&mut *sync.write(), SyncState::Closed);
+                            match taken {
+                                SyncState::Picking(plan) => {
+                                    let report = state.edit(|doc, rng| plan.apply(doc, rng));
+                                    sync.set(SyncState::Done(report));
+                                }
+                                other => sync.set(other),
                             }
                         },
                         "Apply"
