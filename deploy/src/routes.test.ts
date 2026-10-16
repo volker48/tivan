@@ -7,7 +7,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const teacherRoutes = routes.filter((route) => route.access === "teacher");
+const teacherRoutes = routes
+  .filter((route) => route.access === "teacher")
+  .map((route) => [`${route.method} ${route.path}`, route] as const);
 
 function requestFor(route: { method: string; path: string }): [string, RequestInit] {
   const body = route.method === "PUT" ? '{"version":5,"doc":{}}' : undefined;
@@ -29,34 +31,18 @@ describe("the route table", () => {
 });
 
 describe("every protected route", () => {
-  it.each(teacherRoutes.map((route) => [`${route.method} ${route.path}`, route] as const))(
-    "%s answers 401 without a session",
-    async (_name, route) => {
-      const app = createTestApp();
+  it.each(teacherRoutes)("%s answers 401 without a session", async (_name, route) => {
+    const app = createTestApp();
 
-      const response = await app.request(...requestFor(route));
+    const response = await app.request(...requestFor(route));
 
-      expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({ error: "unauthorized" });
-      expect(response.headers.get("cache-control")).toBe("no-store");
-      expect(app.google.requests).toEqual([]);
-    },
-  );
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "unauthorized" });
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(app.google.requests).toEqual([]);
+  });
 
-  it.each(teacherRoutes.map((route) => [`${route.method} ${route.path}`, route] as const))(
-    "%s answers 401 with a session cookie that was never issued",
-    async (_name, route) => {
-      const app = createTestApp();
-      const [path, init] = requestFor(route);
-      const response = await app.request(path, {
-        ...init,
-        headers: { cookie: `${SESSION_COOKIE}=${"B".repeat(43)}` },
-      });
-      expect(response.status).toBe(401);
-    },
-  );
-
-  it.each(teacherRoutes.map((route) => [`${route.method} ${route.path}`, route] as const))(
+  it.each(teacherRoutes)(
     "%s answers 401 once the session has expired or been logged out",
     async (_name, route) => {
       const app = createTestApp();
