@@ -60,10 +60,17 @@ else
 		echo "bootstrap.sh: npm is required to install agent-browser" >&2
 		exit 1
 	fi
-	if ! agent-browser --version 2>/dev/null | grep -qx "agent-browser $agent_browser_version"; then
+	agent_browser_wanted="agent-browser $agent_browser_version"
+	if [[ $(agent-browser --version 2>/dev/null) != "$agent_browser_wanted" ]]; then
 		# The postinstall script only marks the bundled native binary executable and points the
 		# global bin at it, so it stays enabled.
 		npm install --global "agent-browser@$agent_browser_version"
+		hash -r
+		if [[ $(agent-browser --version 2>/dev/null) != "$agent_browser_wanted" ]]; then
+			echo "bootstrap.sh: agent-browser on PATH is not $agent_browser_wanted after npm install;" \
+				"put npm's global bin ahead of other agent-browser installs" >&2
+			exit 1
+		fi
 	fi
 	# Downloads Chrome for Testing, and is a no-op once it is installed.
 	if [[ $(uname -s) == Linux ]]; then
@@ -73,8 +80,10 @@ else
 			if command -v apt-get >/dev/null; then
 				apt-get update
 				apt-get install --yes sudo
-			else
+			elif command -v dnf >/dev/null; then
 				dnf install --assumeyes sudo
+			else
+				yum install --assumeyes sudo
 			fi
 		fi
 		agent-browser install --with-deps
