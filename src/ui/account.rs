@@ -47,7 +47,10 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
                     class: "btn btn-small",
                     r#type: "button",
                     disabled: matches!(sync(), SyncState::Loading),
-                    onclick: move |_| look_up_courses(state, sync),
+                    onclick: {
+                        let outbox = outbox.clone();
+                        move |_| look_up_courses(state, sync, outbox.clone())
+                    },
                     "Sync Classroom"
                 }
                 button {
@@ -79,7 +82,7 @@ pub fn AccountBar(sync: Signal<SyncState>) -> Element {
     }
 }
 
-fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>) {
+fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>, outbox: SharedOutbox) {
     sync.set(SyncState::Loading);
     spawn(async move {
         match platform::api().courses().await {
@@ -91,7 +94,19 @@ fn look_up_courses(mut state: AppState, mut sync: Signal<SyncState>) {
                 sync.set(SyncState::Closed);
                 state.session_ended();
             }
-            Err(ApiError::Reauthorize) => platform::go_to_login(),
+            Err(ApiError::Reauthorize) => {
+                // Leaving the page cancels a save still waiting or on the wire.
+                save_remotely_now(state, outbox.clone()).await;
+                if outbox.borrow().has_unsent() {
+                    sync.set(SyncState::Failed(
+                        "Your latest changes are not saved yet, so Tivan did not leave for Google. \
+                         Try again in a moment."
+                            .to_owned(),
+                    ));
+                } else {
+                    platform::go_to_login();
+                }
+            }
             Err(ApiError::Failed(cause)) => sync.set(SyncState::Failed(format!(
                 "Google Classroom could not be reached ({cause}). Try again in a moment."
             ))),
