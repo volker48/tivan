@@ -1121,6 +1121,12 @@ textarea {
   .wall-center {
     font-size: 1.2rem;
   }
+
+  /* Undo the desktop min-height: 0, which lets the auto rows split the wall's height and clip
+     each frame instead of growing it so the wall scrolls. */
+  .wall-center {
+    min-height: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -17,6 +17,7 @@ Whiteboard mode drops the editing UI and projects the current class's groups as 
 - `oracle-group-round`: after the last group, the dialog says `That is every group, so the next pick starts a new round.`
 - `oracle-group-reset`: `Make groups` starts a new group round. `Shuffle again` keeps it.
 - `oracle-group-absent`: a class with no groups has no `Pick a group` button.
+- `wb-phone`: below 45rem the wall is one column of cards that grow to fit their members, and the wall scrolls.
 
 ## How to get to it (user POV)
 
@@ -42,6 +43,7 @@ Preconditions:
 - **Make groups starts a new group round.** Press `Back to Build`, then `Make groups`, then `agent-browser --session "$SESSION" wait 1000`, then `tivan-capture <run> oracle-group-reset`. `jq '.doc.classes[0].grouping | has("oracle")' "$EVIDENCE/oracle-group-reset.state.json"` prints `false`, because an empty round is not saved. Re-enter the whiteboard. The button reads `Pick a group 4 left`, and `Ask the oracle` still reads `22 left`.
 - **Shuffle again keeps the group round.** Press `Pick a group`, then Escape, so the button reads `Pick a group 3 left`. Press `Back to Build`, then `Shuffle again`, then `agent-browser --session "$SESSION" wait 1500`, then re-enter the whiteboard. The button still reads `Pick a group 3 left` and `.grouping.oracle.drawn` is unchanged.
 - **Empty wall.** Switch to `Period 3 Science` in Build, then enter the whiteboard. The text `No groups yet.` and `Go back to Build and press Make groups.` show, and the oracle still works (it picks from the roster, not from groups) and there is no `Pick a group` button.
+- **Phone wall.** Run `agent-browser --session "$SESSION" set viewport 402 874` (iPhone 16 Pro). In Build, on `Room 12 Morning` with 3 groups, press `Make groups` and then `Use centers`, then enter the whiteboard. Every member fits inside its card and frame: `agent-browser --session "$SESSION" eval "[...document.querySelectorAll('.wall-center')].every(f=>{const c=f.querySelector('.wall-card');return c.scrollHeight<=c.clientHeight&&f.querySelector('li:last-child').getBoundingClientRect().bottom<=f.getBoundingClientRect().bottom})"` prints `true`, and `.wall`'s `scrollHeight` exceeds its `clientHeight`, so the teacher scrolls to the third group. Run `tivan-capture <run> wb-phone`.
 
 ## Gotchas
 
