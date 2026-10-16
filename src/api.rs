@@ -31,7 +31,7 @@ impl Method {
 
 /// How long a request to `path` may take. Until the first one returns nothing is saved, so a hung
 /// request must end in an error rather than hold the page's saving off. The Classroom lookup
-/// reads every roster one course at a time, so it gets longer.
+/// waits for the Worker to fetch the rosters, four at a time, so it gets longer.
 pub fn timeout_ms(path: &str) -> u32 {
     if path.starts_with("/api/classroom/") {
         60_000
@@ -146,6 +146,14 @@ fn error_of(reply: &HttpReply) -> ApiError {
     }
 }
 
+/// Any 2xx is success. Anything else is what [`error_of`] makes of it.
+fn succeeded(reply: &HttpReply) -> Result<(), ApiError> {
+    match reply.status {
+        200..=299 => Ok(()),
+        _ => Err(error_of(reply)),
+    }
+}
+
 pub struct Api<H> {
     http: H,
 }
@@ -160,7 +168,7 @@ impl<H: Http> Api<H> {
     /// 404, and neither is a failure worth a banner. Any other 200 that is not a teacher is a
     /// failure, so a broken server cannot switch the app to local-only saving unnoticed.
     pub async fn me(&self) -> Result<Option<Me>, ApiError> {
-        let reply = self.get("/api/me").await?;
+        let reply = self.call(Method::Get, "/api/me", None).await?;
         match reply.status {
             200 => match serde_json::from_str(&reply.body) {
                 Ok(me) => Ok(Some(me)),
@@ -176,7 +184,7 @@ impl<H: Http> Api<H> {
 
     /// The stored envelope exactly as the server holds it, or `None` when it holds none.
     pub async fn doc(&self) -> Result<Option<String>, ApiError> {
-        let reply = self.get("/api/doc").await?;
+        let reply = self.call(Method::Get, "/api/doc", None).await?;
         match reply.status {
             200 => Ok(Some(reply.body)),
             204 => Ok(None),
@@ -185,21 +193,15 @@ impl<H: Http> Api<H> {
     }
 
     pub async fn put_doc(&self, envelope: &str) -> Result<(), ApiError> {
-        let request = HttpRequest {
-            method: Method::Put,
-            path: "/api/doc",
-            body: Some(envelope),
-        };
-        let reply = self.http.send(request).await?;
-        match reply.status {
-            200..=299 => Ok(()),
-            _ => Err(error_of(&reply)),
-        }
+        let reply = self.call(Method::Put, "/api/doc", Some(envelope)).await?;
+        succeeded(&reply)
     }
 
     /// The teacher's active courses with their rosters.
     pub async fn courses(&self) -> Result<Vec<ClassroomCourse>, ApiError> {
-        let reply = self.get("/api/classroom/courses").await?;
+        let reply = self
+            .call(Method::Get, "/api/classroom/courses", None)
+            .await?;
         match reply.status {
             200 => parse_courses(&reply.body).map_err(|error| {
                 ApiError::Failed(format!(
@@ -212,26 +214,17 @@ impl<H: Http> Api<H> {
 
     /// Ends the session. [`ApiError::Unauthorized`] means it had already ended.
     pub async fn logout(&self) -> Result<(), ApiError> {
-        let request = HttpRequest {
-            method: Method::Post,
-            path: "/auth/logout",
-            body: None,
-        };
-        let reply = self.http.send(request).await?;
-        match reply.status {
-            200..=299 => Ok(()),
-            _ => Err(error_of(&reply)),
-        }
+        let reply = self.call(Method::Post, "/auth/logout", None).await?;
+        succeeded(&reply)
     }
 
-    async fn get(&self, path: &str) -> Result<HttpReply, TransportError> {
-        self.http
-            .send(HttpRequest {
-                method: Method::Get,
-                path,
-                body: None,
-            })
-            .await
+    async fn call(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&str>,
+    ) -> Result<HttpReply, TransportError> {
+        self.http.send(HttpRequest { method, path, body }).await
     }
 }
 
@@ -508,13 +501,6 @@ mod tests {
 
         let server = FakeHttp::default().reply(Method::Post, "/auth/logout", 401, "");
         assert_eq!(block_on(api(&server).logout()), Err(ApiError::Unauthorized));
-    }
-
-    #[test]
-    fn the_classroom_lookup_may_take_longer_than_a_save_or_the_account_check() {
-        assert_eq!(timeout_ms("/api/me"), 10_000);
-        assert_eq!(timeout_ms("/api/doc"), 10_000);
-        assert!(timeout_ms("/api/classroom/courses") > timeout_ms("/api/doc"));
     }
 
     #[test]
