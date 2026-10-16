@@ -7,7 +7,7 @@ use js_sys::{Date, Math};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-    AbortSignal, Headers, KeyboardEvent, RequestCache, RequestInit, Response, Storage, Window,
+    AbortSignal, KeyboardEvent, Location, RequestCache, RequestInit, Response, Storage, Window,
 };
 
 use crate::account;
@@ -101,6 +101,7 @@ pub struct Fetch;
 
 impl Http for Fetch {
     async fn send(&self, request: HttpRequest<'_>) -> Result<HttpReply, TransportError> {
+        let thrown = |cause: JsValue| TransportError::new(describe(&cause));
         let window = web_sys::window().ok_or_else(|| TransportError::new("there is no window"))?;
         let init = RequestInit::new();
         init.set_method(request.method.as_str());
@@ -110,25 +111,18 @@ impl Http for Fetch {
             request.path,
         ))));
         if let Some(body) = request.body {
-            let headers = Headers::new().map_err(|cause| TransportError::new(describe(&cause)))?;
-            headers
-                .set("Content-Type", "application/json")
-                .map_err(|cause| TransportError::new(describe(&cause)))?;
-            init.set_headers(&headers);
             init.set_body(&JsValue::from_str(body));
         }
         let response = JsFuture::from(window.fetch_with_str_and_init(request.path, &init))
             .await
-            .map_err(|cause| TransportError::new(describe(&cause)))?;
+            .map_err(thrown)?;
         let response: Response = response
             .dyn_into()
             .map_err(|_| TransportError::new("fetch did not return a response"))?;
-        let text = response
-            .text()
-            .map_err(|cause| TransportError::new(describe(&cause)))?;
+        let text = response.text().map_err(thrown)?;
         let body = JsFuture::from(text)
             .await
-            .map_err(|cause| TransportError::new(describe(&cause)))?
+            .map_err(thrown)?
             .as_string()
             .ok_or_else(|| TransportError::new("the reply was not text"))?;
         Ok(HttpReply {
@@ -145,20 +139,22 @@ pub fn api() -> Api<Fetch> {
 /// Sends the browser to Google through the server. The page is replaced, so nothing after this
 /// call matters.
 pub fn go_to_login() {
-    let outcome = web_sys::window()
-        .ok_or_else(|| JsValue::from_str("there is no window"))
-        .and_then(|window| window.location().set_href("/auth/login"));
-    if let Err(cause) = outcome {
-        warn!("could not go to the sign-in page: {}", describe(&cause));
-    }
+    navigate("go to the sign-in page", |location| {
+        location.set_href("/auth/login")
+    });
 }
 
 pub fn reload() {
+    navigate("reload the page", Location::reload);
+}
+
+/// Runs `action` on the window's location, and warns that the page could not `what` when it fails.
+fn navigate(what: &str, action: impl FnOnce(&Location) -> Result<(), JsValue>) {
     let outcome = web_sys::window()
         .ok_or_else(|| JsValue::from_str("there is no window"))
-        .and_then(|window| window.location().reload());
+        .and_then(|window| action(&window.location()));
     if let Err(cause) = outcome {
-        warn!("could not reload the page: {}", describe(&cause));
+        warn!("could not {what}: {}", describe(&cause));
     }
 }
 
