@@ -13,6 +13,8 @@ All helpers live in `.claude/skills/verify-tivan/bin/`. Run them from the repo r
 
 ## Prerequisites
 
+On a fresh Linux machine, `scripts/bootstrap.sh` installs all of these except the last line.
+
 - Rust with the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`).
 - `dx` 0.7.10, matching the `dioxus = "=0.7.10"` pin: `cargo install dioxus-cli --version 0.7.10 --locked`. `tivan-up` refuses any other version.
 - `agent-browser` (proven with 0.39.1) and its Chrome for Testing (proven with 155.0.8059.79): `npm i -g agent-browser && agent-browser install`. On Linux add `--with-deps`. Do not use Chrome for Testing 151, which hangs the page after Enter (see Doctor).
