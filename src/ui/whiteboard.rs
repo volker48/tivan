@@ -234,7 +234,7 @@ struct WallLayout {
     cols: usize,
     rows: usize,
     /// Text lines to fit in the fullest card: its members plus two for the group name and padding,
-    /// and one more for the center name above the card when centers are on.
+    /// and two more when centers are on: the center name above the card and the frame around it.
     lines: usize,
 }
 
@@ -259,7 +259,7 @@ fn wall_layout(groups: usize, fullest: usize, centers: bool) -> WallLayout {
     WallLayout {
         cols,
         rows: groups.div_ceil(cols).max(1),
-        lines: fullest + 2 + usize::from(centers),
+        lines: fullest + 2 + 2 * usize::from(centers),
     }
 }
 
@@ -377,10 +377,10 @@ mod tests {
     }
 
     #[test]
-    fn layout_reserves_one_more_line_for_the_center_name_when_centers_are_on() {
+    fn layout_reserves_two_more_lines_for_the_center_frame_when_centers_are_on() {
         let plain = wall_layout(4, 5, false);
         let centered = wall_layout(4, 5, true);
-        assert_eq!(centered.lines, plain.lines + 1);
+        assert_eq!(centered.lines, plain.lines + 2);
         assert_eq!((centered.cols, centered.rows), (plain.cols, plain.rows));
     }
 }

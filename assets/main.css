@@ -897,6 +897,7 @@ textarea {
 
 .wall-center-name {
   margin: 0;
+  font-size: 0.8em;
   font-weight: 800;
   text-align: center;
 }
