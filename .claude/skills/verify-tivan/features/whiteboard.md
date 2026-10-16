@@ -38,4 +38,5 @@ Preconditions:
 - `--name "Ask the oracle"` matches the full name `Ask the oracle <n> left`, which changes with every pick.
 - Escape closes only the topmost layer: reveal, then Time's up, then the whiteboard itself. One Escape too many leaves the whiteboard.
 - Draining a round for `oracle-round` takes 24 picks on `Room 12 Morning`. `Pick again` 23 times after the first pick, or use a new 3-student class from [Classes](./classes.md).
+- With centers on, the bar also shows `Round <r> of <n>` and `Rotate`, and each card sits in a frame under a plain-text center name that is not a heading, so the four level-2 headings are still the group names. See [Centers](./centers.md).
 - The wall is laid out for a 16:9 projector. Screenshots at the default viewport may crop large groups. `agent-browser --session "$SESSION" set viewport 1920 1080` gives a projector-like frame.

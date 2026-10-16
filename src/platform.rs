@@ -104,4 +104,9 @@ extern "C" {
     /// Call it immediately before the state change that re-deals them.
     #[wasm_bindgen(js_name = animateShuffle)]
     pub fn animate_shuffle();
+
+    /// Makes the group cards that move to another center when the DOM is next patched fly there.
+    /// Call it immediately before the state change that rotates the groups.
+    #[wasm_bindgen(js_name = animateRotation)]
+    pub fn animate_rotation();
 }

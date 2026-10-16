@@ -5,8 +5,9 @@ use dioxus::prelude::*;
 
 use crate::app::use_app;
 use crate::domain::{
-    Class, GroupIdx, Label, LabelError, MAX_LABEL_CHARS, MoveError, Student, StudentId,
+    CenterIdx, Class, GroupIdx, Label, LabelError, MAX_LABEL_CHARS, MoveError, Student, StudentId,
 };
+use crate::platform;
 
 pub mod avatar;
 pub mod build;
@@ -39,6 +40,29 @@ pub fn group_cards(class: &Class) -> Vec<GroupCard> {
         .collect()
 }
 
+/// One center and the group standing in it, owned like [`GroupCard`]. `group` indexes the
+/// [`group_cards`] of the same class.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CenterSlot {
+    pub idx: CenterIdx,
+    pub name: Label,
+    pub group: GroupIdx,
+}
+
+/// The centers in center order. `None` when the class does not use centers.
+pub fn center_slots(class: &Class) -> Option<Vec<CenterSlot>> {
+    let views = class.center_views()?;
+    let slots = views
+        .into_iter()
+        .map(|view| CenterSlot {
+            idx: view.idx,
+            name: view.name.clone(),
+            group: view.group,
+        })
+        .collect();
+    Some(slots)
+}
+
 pub fn label_error_text(error: LabelError) -> String {
     match error {
         LabelError::Empty => "Type a name first.".to_owned(),
@@ -61,6 +85,37 @@ pub fn focus_on_mount(mounted: MountedEvent) {
             warn!("could not focus a new field: {error:?}");
         }
     });
+}
+
+/// "Round r of n" and the Rotate button, for a class that uses centers. Nothing otherwise. With
+/// a single group there is nowhere to rotate to, so the button is off.
+#[component]
+pub fn RotateControls() -> Element {
+    let mut state = use_app();
+    let Some((round, total)) = state
+        .with_class(|class| {
+            let centers = class.grouping()?.centers()?;
+            Some((centers.round(), centers.names().len()))
+        })
+        .flatten()
+    else {
+        return rsx! {};
+    };
+    rsx! {
+        div { class: "rotate",
+            span { class: "round", "Round {round} of {total}" }
+            button {
+                class: "btn btn-primary",
+                r#type: "button",
+                disabled: total < 2,
+                onclick: move |_| {
+                    platform::animate_rotation();
+                    state.edit_class(|class, _| class.rotate_centers());
+                },
+                "Rotate"
+            }
+        }
+    }
 }
 
 #[component]

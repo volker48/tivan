@@ -3,6 +3,7 @@
 //! Fields are private, so each invariant has exactly one writer.
 
 pub mod avatar;
+pub mod centers;
 pub mod class;
 pub mod doc;
 pub mod grouping;
@@ -14,7 +15,10 @@ pub mod seed;
 pub mod timer;
 
 pub use avatar::Avatar;
-pub use class::{Class, ClassId, GroupView, ParsedRoster, Pick, Student, StudentId, parse_roster};
+pub use centers::{CenterIdx, Centers};
+pub use class::{
+    CenterView, Class, ClassId, GroupView, ParsedRoster, Pick, Student, StudentId, parse_roster,
+};
 pub use doc::Doc;
 pub use grouping::{GroupCount, GroupCountError, GroupIdx, Grouping, MoveError, group_sizes};
 pub use label::{Label, LabelError, MAX_LABEL_CHARS};

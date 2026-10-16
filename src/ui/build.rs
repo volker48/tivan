@@ -9,8 +9,8 @@ use crate::notice::{Notice, count};
 use crate::platform;
 use crate::ui::avatar::AvatarIcon;
 use crate::ui::{
-    GroupCard, NameInput, NoticeBanner, Selection, focus_on_mount, group_cards, hue,
-    label_error_text, log_failed, selection,
+    CenterSlot, GroupCard, NameInput, NoticeBanner, RotateControls, Selection, center_slots,
+    focus_on_mount, group_cards, hue, label_error_text, log_failed, selection,
 };
 
 /// Where the stepper starts for a class that has never been grouped.
@@ -425,15 +425,18 @@ fn Roster() -> Element {
 #[component]
 fn GroupControls() -> Element {
     let mut state = use_app();
-    let (students, current) = state
+    let (students, current, centers) = state
         .with_class(|class| {
+            let grouping = class.grouping();
             (
                 class.students().len(),
-                class.grouping().map(|grouping| grouping.len()),
+                grouping.map(|grouping| grouping.len()),
+                grouping.is_some_and(|grouping| grouping.centers().is_some()),
             )
         })
         .unwrap_or_default();
     let mut wanted = use_signal(|| current.unwrap_or(DEFAULT_GROUPS));
+    let mut confirming_removal = use_signal(|| false);
     // The roster can shrink after the teacher set the stepper, so the count is re-derived each render.
     let groups = GroupCount::nearest(wanted(), students).ok();
     let shown = groups.map_or(0, GroupCount::get);
@@ -491,6 +494,43 @@ fn GroupControls() -> Element {
                     },
                     "Shuffle again"
                 }
+                if !centers {
+                    button {
+                        class: "btn",
+                        r#type: "button",
+                        onclick: move |_| {
+                            state.edit_class(|class, _| class.add_centers());
+                        },
+                        "Use centers"
+                    }
+                } else if confirming_removal() {
+                    div { class: "confirm",
+                        span { class: "confirm-text", "Remove the centers and their names?" }
+                        button {
+                            class: "btn btn-danger btn-small",
+                            r#type: "button",
+                            onclick: move |_| {
+                                state.edit_class(|class, _| class.remove_centers());
+                                confirming_removal.set(false);
+                            },
+                            "Yes, remove"
+                        }
+                        button {
+                            class: "btn btn-small",
+                            r#type: "button",
+                            onclick: move |_| confirming_removal.set(false),
+                            "Keep them"
+                        }
+                    }
+                } else {
+                    button {
+                        class: "btn",
+                        r#type: "button",
+                        onclick: move |_| confirming_removal.set(true),
+                        "Remove centers"
+                    }
+                }
+                RotateControls {}
             }
         }
     }
@@ -512,6 +552,7 @@ fn size_hint(students: usize, groups: GroupCount) -> Option<String> {
 fn GroupBoard() -> Element {
     let state = use_app();
     let cards = use_memo(move || state.with_class(group_cards).unwrap_or_default());
+    let centers = use_memo(move || state.with_class(center_slots).flatten());
     let mut moving = use_signal(|| None::<StudentId>);
     use_escape(move || {
         if moving.peek().is_some() {
@@ -538,16 +579,68 @@ fn GroupBoard() -> Element {
                     }
                 }
             }
-            div { class: "cards",
-                for card in cards() {
-                    GroupCardView {
-                        key: "{card.idx.get()}",
-                        card,
-                        selected: selected.clone(),
-                        moving,
+            div { class: if centers().is_some() { "cards cards-centered" } else { "cards" },
+                if let Some(centers) = centers() {
+                    for (center , card) in centers.into_iter().map(|center| { let card = cards.read()[center.group.get()].clone(); (center, card) }) {
+                        CenterFrame {
+                            key: "{center.idx.get()}",
+                            center,
+                            card,
+                            selected: selected.clone(),
+                            moving,
+                        }
+                    }
+                } else {
+                    for card in cards() {
+                        GroupCardView {
+                            key: "{card.idx.get()}",
+                            card,
+                            selected: selected.clone(),
+                            moving,
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+/// A center: the square frame a group card stands in, with the center's name above the card.
+#[component]
+fn CenterFrame(
+    center: CenterSlot,
+    card: GroupCard,
+    selected: Option<Selection>,
+    moving: Signal<Option<StudentId>>,
+) -> Element {
+    let mut state = use_app();
+    let mut renaming = use_signal(|| false);
+    let CenterSlot { idx, name, .. } = center;
+    rsx! {
+        div { class: "center",
+            if renaming() {
+                NameInput {
+                    initial: name.to_string(),
+                    label: "Center name",
+                    on_commit: move |label| {
+                        log_failed(
+                            "rename a center",
+                            state.edit_class(|class, _| class.rename_center(idx, label)),
+                        );
+                        renaming.set(false);
+                    },
+                    on_cancel: move |_| renaming.set(false),
+                }
+            } else {
+                button {
+                    class: "center-name",
+                    r#type: "button",
+                    title: "Click to rename",
+                    onclick: move |_| renaming.set(true),
+                    "{name}"
+                }
+            }
+            GroupCardView { card, selected, moving }
         }
     }
 }
@@ -567,6 +660,7 @@ fn GroupCardView(
     rsx! {
         article {
             class: "group-card hue-{hue(idx)}",
+            "data-group": "{idx.get()}",
             "data-target": "{incoming.is_some()}",
             onclick: move |_| {
                 let Some(id) = selected_id else { return };

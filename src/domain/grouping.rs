@@ -7,6 +7,7 @@ use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};
 
+use super::centers::{CenterIdx, Centers};
 use super::class::{Student, StudentId};
 use super::label::Label;
 use super::names::{MAX_GROUPS, draw_name, draw_names};
@@ -65,16 +66,21 @@ impl GroupIdx {
 pub enum MoveError {
     UnknownStudent,
     UnknownGroup,
+    UnknownCenter,
 }
 
 /// `names` is never empty and has at most `MAX_GROUPS` entries (the owning `Class` drops an empty
 /// grouping), and `of` maps every roster student to an index below `names.len()`.
 /// Balance is a property of [`Grouping::split`], not of this type, because manual moves break it.
 /// Group names are distinct when generated; a teacher may rename two groups to the same text.
+/// When `centers` is present it has one center per group, which is why every edit that changes
+/// `names` also refits it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Grouping {
     names: Vec<Label>,
     of: BTreeMap<StudentId, GroupIdx>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    centers: Option<Centers>,
 }
 
 /// Sizes of `m` groups over `n` students: the first `n % m` groups get one extra member.
@@ -108,17 +114,24 @@ impl Grouping {
     pub fn split(students: &[Student], count: GroupCount, rng: &mut impl Rng) -> Grouping {
         let of = deal(students, count, rng);
         let names = draw_names(count.get(), rng);
-        Grouping { names, of }
+        Grouping {
+            names,
+            of,
+            centers: None,
+        }
     }
 
     /// Re-deals `students` evenly across the existing groups and keeps every name, hand-made
     /// ones included. When the roster has shrunk below the group count, the first groups survive
-    /// with their names and the rest are dropped. Does nothing for an empty roster.
+    /// with their names and the rest are dropped, and the centers shrink with them. Otherwise the
+    /// centers and their turn are untouched: only members change, groups stay where they stand.
+    /// Does nothing for an empty roster.
     pub fn reshuffle(&mut self, students: &[Student], rng: &mut impl Rng) {
         let Ok(count) = GroupCount::nearest(self.names.len(), students.len()) else {
             return;
         };
         self.names.truncate(count.get());
+        self.fit_centers();
         self.of = deal(students, count, rng);
     }
 
@@ -161,6 +174,53 @@ impl Grouping {
         Ok(())
     }
 
+    pub fn centers(&self) -> Option<&Centers> {
+        self.centers.as_ref()
+    }
+
+    /// Gives each group a center, "Center 1" onward, at round 1. Does nothing when centers are
+    /// already in use, so a repeated call keeps the teacher's names and place in the cycle.
+    pub fn add_centers(&mut self) {
+        let count = self.names.len();
+        self.centers.get_or_insert_with(|| Centers::new(count));
+    }
+
+    pub fn remove_centers(&mut self) {
+        self.centers = None;
+    }
+
+    /// Moves every group to the next center. Does nothing without centers.
+    pub fn rotate_centers(&mut self) {
+        if let Some(centers) = &mut self.centers {
+            centers.rotate();
+        }
+    }
+
+    pub fn rename_center(&mut self, idx: CenterIdx, name: Label) -> Result<(), MoveError> {
+        self.centers
+            .as_mut()
+            .ok_or(MoveError::UnknownCenter)?
+            .rename(idx, name)
+    }
+
+    /// Hands the centers to the caller so they can outlive this grouping.
+    pub(super) fn take_centers(&mut self) -> Option<Centers> {
+        self.centers.take()
+    }
+
+    /// Adopts `centers`, refitted to this grouping's group count.
+    pub(super) fn set_centers(&mut self, centers: Option<Centers>) {
+        self.centers = centers;
+        self.fit_centers();
+    }
+
+    fn fit_centers(&mut self) {
+        let count = self.names.len();
+        if let Some(centers) = &mut self.centers {
+            centers.fit(count);
+        }
+    }
+
     fn check(&self, idx: GroupIdx) -> Result<(), MoveError> {
         if idx.0 < self.names.len() {
             Ok(())
@@ -175,6 +235,7 @@ impl Grouping {
     pub(super) fn reconcile(&mut self, roster: &[Student]) {
         // Only a hand-edited blob can exceed the cap, but name generation relies on it.
         self.names.truncate(MAX_GROUPS);
+        self.fit_centers();
         let group_count = self.names.len();
         let on_roster: BTreeSet<StudentId> = roster.iter().map(|s| s.id).collect();
         self.of
@@ -207,6 +268,9 @@ impl Grouping {
             "membership must cover exactly the roster"
         );
         assert!(self.of.values().all(|g| g.0 < self.names.len()));
+        if let Some(centers) = &self.centers {
+            centers.assert_invariants(self.names.len());
+        }
     }
 }
 
@@ -503,6 +567,7 @@ mod tests {
                 .iter()
                 .map(|&(id, g)| (StudentId(id), GroupIdx(g)))
                 .collect(),
+            centers: None,
         }
     }
 
@@ -556,6 +621,105 @@ mod tests {
         grouping.reconcile(&students);
         grouping.assert_invariants(&students);
         assert_eq!(grouping.len(), MAX_GROUPS);
+    }
+
+    fn centers_json(names: &[&str], turn: usize) -> Centers {
+        serde_json::from_value(serde_json::json!({"names": names, "turn": turn})).unwrap()
+    }
+
+    #[test]
+    fn reconcile_fits_centers_to_the_groups() {
+        let students = roster(4);
+        let cases: [(&[&str], usize); 3] = [
+            (&["A", "B", "C", "D", "E"], 4),
+            (&["A"], 0),
+            (&["A", "B", "C"], 7),
+        ];
+        for (names, turn) in cases {
+            let mut grouping = doctored(3, &[(0, 0), (1, 1), (2, 2), (3, 0)]);
+            grouping.centers = Some(centers_json(names, turn));
+
+            grouping.reconcile(&students);
+
+            grouping.assert_invariants(&students);
+            let centers = grouping.centers().unwrap();
+            let kept = names.len().min(3);
+            let kept_names: Vec<&str> = centers.names()[..kept].iter().map(Label::as_str).collect();
+            assert_eq!(kept_names, names[..kept], "{names:?} turn {turn}");
+        }
+    }
+
+    #[test]
+    fn reconcile_is_idempotent_for_centers_too() {
+        let students = roster(4);
+        let mut grouping = doctored(3, &[(0, 0), (1, 1), (2, 2), (3, 0)]);
+        grouping.centers = Some(centers_json(&["A", "B", "C", "D", "E"], 9));
+        grouping.reconcile(&students);
+        let once = grouping.clone();
+        grouping.reconcile(&students);
+        assert_eq!(grouping, once);
+    }
+
+    #[test]
+    fn reconcile_leaves_consistent_centers_untouched() {
+        let (students, mut grouping) = two_groups();
+        grouping.add_centers();
+        grouping.rotate_centers();
+        let before = grouping.clone();
+        grouping.reconcile(&students);
+        assert_eq!(grouping, before);
+    }
+
+    #[test]
+    fn set_centers_refits_them_to_this_groupings_group_count() {
+        let (_, mut grouping) = two_groups();
+
+        grouping.set_centers(Some(centers_json(&["A", "B", "C", "D"], 3)));
+
+        let centers = grouping.centers().unwrap();
+        assert_eq!(centers.names(), [label("A"), label("B")]);
+        assert_eq!(centers.round(), 2);
+
+        assert_eq!(
+            grouping.take_centers().as_ref(),
+            Some(centers_json(&["A", "B"], 1)).as_ref()
+        );
+        assert!(grouping.centers().is_none());
+        grouping.set_centers(None);
+        assert!(grouping.centers().is_none());
+    }
+
+    #[test]
+    fn center_edits_without_centers_do_nothing_or_report_an_unknown_center() {
+        let (_, mut grouping) = two_groups();
+        let before = grouping.clone();
+        grouping.rotate_centers();
+        grouping.remove_centers();
+        assert_eq!(grouping, before);
+        assert_eq!(
+            grouping.rename_center(CenterIdx(0), label("x")),
+            Err(MoveError::UnknownCenter)
+        );
+    }
+
+    #[test]
+    fn json_omits_centers_until_they_exist_and_reads_a_blob_that_has_none() {
+        let (_, mut grouping) = two_groups();
+        let without = serde_json::to_value(&grouping).unwrap();
+        assert!(without.get("centers").is_none());
+        assert_eq!(
+            serde_json::from_value::<Grouping>(without).unwrap(),
+            grouping
+        );
+
+        grouping.add_centers();
+        grouping.rotate_centers();
+        let with = serde_json::to_value(&grouping).unwrap();
+        assert_eq!(
+            with["centers"],
+            serde_json::json!({"names": ["Center 1", "Center 2"], "turn": 1})
+        );
+        assert_eq!(serde_json::from_value::<Grouping>(with).unwrap(), grouping);
     }
 
     #[test]

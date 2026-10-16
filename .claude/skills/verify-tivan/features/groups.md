@@ -41,7 +41,7 @@ Preconditions:
 - `--name "Ava"` without `--exact` also matches `Remove Ava` in the open roster panel.
 - While a student is selected, every card is a drop target, including its name button. Clicking a name then moves the student instead of renaming the group.
 - The stepper's count is per screen visit. It resets to the saved group count (or 3) when you switch classes.
-- `Make groups` uses the stepper's count, re-deals everyone, and draws all-new names, so renamed groups lose their names. `Shuffle again` keeps the saved count and every group name, and only moves students.
+- `Make groups` uses the stepper's count, re-deals everyone, and draws all-new names, so renamed groups lose their names. `Shuffle again` keeps the saved count and every group name, and only moves students. When centers are on, `Shuffle again` also keeps them and the round, while `Make groups` keeps the center names and restarts at `Round 1`. See [Centers](./centers.md).
 - With Chrome for Testing 151, `press Enter` in the `Group name` box hung the page. Enter saves and removes the field, so the Enter reached the page body, and that Chrome answered with a storm of synthetic key events. The same happens on a plain HTML page, so the app is not at fault. Chrome for Testing 155 is clean. On an older Chrome, save by clicking away. See the stuck-page notes in `SKILL.md`.
 - An empty or unchanged name in the `Group name` box cancels the rename silently. A name over 40 characters shows the alert `Keep names to 40 characters or fewer.`
 - `Room 12 Morning` has 24 students, so the stepper allows up to 24 groups. A class with fewer students caps lower.
