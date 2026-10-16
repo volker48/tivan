@@ -3,7 +3,7 @@ import { FAKE_REFRESH_TOKEN, FAKE_TEACHER } from "../dev/fake-google-core.ts";
 import { SESSION_COOKIE, SESSION_TTL_MS, STATE_COOKIE } from "./auth.ts";
 import { decryptToken, parseEncryptionKey } from "./crypto.ts";
 import { parseIdToken } from "./google.ts";
-import { TEST_CLIENT_ID, TEST_KEY, TEST_ORIGIN, createTestApp } from "./testing/app.ts";
+import { ENVELOPE, TEST_CLIENT_ID, TEST_KEY, TEST_ORIGIN, createTestApp } from "./testing/app.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -300,10 +300,10 @@ describe("POST /auth/logout", () => {
   it("keeps the teacher row and doc so signing in later returns the same setup", async () => {
     const app = createTestApp();
     await app.signIn();
-    await app.request("/api/doc", { method: "PUT", body: '{"version":5,"doc":{}}' });
+    await app.request("/api/doc", { method: "PUT", body: ENVELOPE });
     await app.request("/auth/logout", { method: "POST" });
     await app.signIn();
-    expect(await (await app.request("/api/doc")).text()).toBe('{"version":5,"doc":{}}');
+    expect(await (await app.request("/api/doc")).text()).toBe(ENVELOPE);
   });
 });
 

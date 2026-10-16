@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "./auth.ts";
 import { routes } from "./routes.ts";
-import { createTestApp } from "./testing/app.ts";
+import { ENVELOPE, createTestApp } from "./testing/app.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -12,7 +12,7 @@ const teacherRoutes = routes
   .map((route) => [`${route.method} ${route.path}`, route] as const);
 
 function requestFor(route: { method: string; path: string }): [string, RequestInit] {
-  const body = route.method === "PUT" ? '{"version":5,"doc":{}}' : undefined;
+  const body = route.method === "PUT" ? ENVELOPE : undefined;
   return [route.path, { method: route.method, body }];
 }
 
@@ -65,7 +65,7 @@ describe("every protected route", () => {
 
   it("does not store a doc that an anonymous caller sends", async () => {
     const app = createTestApp();
-    await app.request("/api/doc", { method: "PUT", body: '{"version":5,"doc":{}}' });
+    await app.request("/api/doc", { method: "PUT", body: ENVELOPE });
     expect(app.db.prepare("SELECT 1 FROM teachers").all()).toEqual([]);
   });
 });

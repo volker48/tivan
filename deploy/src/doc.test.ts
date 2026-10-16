@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_DOC_BYTES } from "./doc.ts";
-import { createTestApp } from "./testing/app.ts";
+import { ENVELOPE, createTestApp } from "./testing/app.ts";
 
 async function signedInApp() {
   const app = createTestApp();
@@ -119,7 +119,7 @@ describe("PUT /api/doc", () => {
     ["a null doc", '{"version":5,"doc":null}'],
     ["an array doc", '{"version":5,"doc":[]}'],
     ["a string doc", '{"version":5,"doc":"x"}'],
-    ["a byte order mark", '﻿{"version":5,"doc":{}}'],
+    ["a byte order mark", `\uFEFF${ENVELOPE}`],
   ])("rejects %s with 400", async (_label, body) => {
     const app = await signedInApp();
     await put(app, '{"version":5,"doc":{"keep":true}}');

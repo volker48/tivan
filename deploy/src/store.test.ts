@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ENVELOPE } from "./testing/app.ts";
 import { sqliteSql } from "./testing/sqlite.ts";
 import {
   deleteSession,
@@ -26,11 +27,11 @@ describe("teachers", () => {
     const { sql } = sqliteSql();
     const ada = teacher("ada");
     await upsertTeacher(sql, ada, "sealed-1", 1);
-    await putDoc(sql, ada.sub, '{"version":5,"doc":{}}', 2);
+    await putDoc(sql, ada.sub, ENVELOPE, 2);
 
     await upsertTeacher(sql, { ...ada, email: "new@example.test" }, "sealed-2", 3);
 
-    expect(await getDoc(sql, ada.sub)).toBe('{"version":5,"doc":{}}');
+    expect(await getDoc(sql, ada.sub)).toBe(ENVELOPE);
     expect(await getRefreshTokenEnc(sql, ada.sub)).toBe("sealed-2");
     await insertSession(sql, hash("h"), ada.sub, 10, 3);
     expect((await findSession(sql, hash("h")))?.teacher.email).toBe("new@example.test");
