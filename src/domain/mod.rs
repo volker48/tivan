@@ -5,6 +5,7 @@
 pub mod avatar;
 pub mod centers;
 pub mod class;
+pub mod classroom;
 pub mod doc;
 pub mod grouping;
 pub mod label;
@@ -20,6 +21,7 @@ pub use class::{
     CenterView, Class, ClassId, Draw, GroupView, ParsedRoster, Pick, Student, StudentId,
     parse_roster,
 };
+pub use classroom::{ClassroomCourseId, ClassroomUserId};
 pub use doc::Doc;
 pub use grouping::{GroupCount, GroupCountError, GroupIdx, Grouping, MoveError, group_sizes};
 pub use label::{Label, LabelError, MAX_LABEL_CHARS};
@@ -52,7 +54,12 @@ pub(crate) mod testing {
             .map(StudentId)
             .zip(numbered(n))
             .zip(Avatar::ALL.into_iter().cycle())
-            .map(|((id, name), avatar)| Student { id, name, avatar })
+            .map(|((id, name), avatar)| Student {
+                id,
+                name,
+                avatar,
+                classroom_user_id: None,
+            })
             .collect()
     }
 }

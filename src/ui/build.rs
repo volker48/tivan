@@ -361,7 +361,7 @@ fn Roster() -> Element {
                     p { class: "field-error", role: "alert", "{message}" }
                 }
                 ul { class: "roster-list",
-                    for Student { id , name , avatar } in students {
+                    for Student { id , name , avatar , .. } in students {
                         li { key: "{id.get()}", class: "roster-item",
                             AvatarIcon { avatar }
                             span { "{name}" }

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::avatar::{self, Avatar};
 use super::centers::CenterIdx;
+use super::classroom::{ClassroomCourseId, ClassroomUserId};
 use super::grouping::{GroupCount, GroupIdx, Grouping, MoveError};
 use super::label::{Label, LabelError};
 use super::oracle::Oracle;
@@ -32,6 +33,10 @@ pub struct Student {
     pub id: StudentId,
     pub name: Label,
     pub avatar: Avatar,
+    /// Set for a student a Classroom sync added. A student added by hand has none, so no sync
+    /// ever touches them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classroom_user_id: Option<ClassroomUserId>,
 }
 
 /// What the oracle picks from: a student of the roster or a group of the grouping.
@@ -85,6 +90,8 @@ pub struct CenterView<'a> {
 pub struct Class {
     id: ClassId,
     name: Label,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    classroom_course_id: Option<ClassroomCourseId>,
     students: Vec<Student>,
     next_student: u32,
     grouping: Option<Grouping>,
@@ -96,6 +103,7 @@ impl Class {
         let mut class = Class {
             id,
             name,
+            classroom_course_id: None,
             students: Vec::with_capacity(students.len()),
             next_student: 0,
             grouping: None,
@@ -113,6 +121,11 @@ impl Class {
 
     pub fn name(&self) -> &Label {
         &self.name
+    }
+
+    /// The Classroom course this class was made from, if it was.
+    pub fn classroom_course_id(&self) -> Option<&ClassroomCourseId> {
+        self.classroom_course_id.as_ref()
     }
 
     pub fn students(&self) -> &[Student] {
@@ -301,7 +314,12 @@ impl Class {
         let id = StudentId(self.next_student);
         self.next_student += 1;
         let avatar = avatar::pick(self.students.iter().map(|s| s.avatar), rng);
-        self.students.push(Student { id, name, avatar });
+        self.students.push(Student {
+            id,
+            name,
+            avatar,
+            classroom_user_id: None,
+        });
         id
     }
 
