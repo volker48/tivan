@@ -21,7 +21,21 @@ pub enum Notice {
     /// The latest write was rejected. Cleared by the next write that succeeds.
     SaveFailed(String),
     /// A pasted roster had lines the app could not use.
-    RosterSkipped { added: usize, too_long: usize },
+    RosterSkipped {
+        added: usize,
+        too_long: usize,
+    },
+    /// The account service did not answer when the page asked who is signed in, so the page
+    /// works from this browser alone.
+    AccountUnavailable(String),
+    /// A signed-in teacher's classes could not be loaded from their account. Saving stays off
+    /// for the session so the stored copy survives.
+    AccountDocUnreadable(String),
+    /// The server stopped recognizing the session, so the page fell back to this browser.
+    SessionEnded,
+    /// Google sign-in did not finish. Holds the short code the server put in the address.
+    SignInFailed(String),
+    SignOutFailed(String),
 }
 
 impl Notice {
@@ -33,7 +47,27 @@ impl Notice {
     /// Notices about the page's ability to keep data are not dismissible, because hiding them
     /// would hide that changes are being lost.
     pub fn is_dismissible(&self) -> bool {
-        matches!(self, Notice::StartedFresh | Notice::RosterSkipped { .. })
+        matches!(
+            self,
+            Notice::StartedFresh
+                | Notice::RosterSkipped { .. }
+                | Notice::AccountUnavailable(_)
+                | Notice::SessionEnded
+                | Notice::SignInFailed(_)
+                | Notice::SignOutFailed(_)
+        )
+    }
+
+    /// About what this browser's storage holds, which stops mattering once the teacher's account
+    /// is loaded and saving there.
+    pub fn is_about_local_storage(&self) -> bool {
+        matches!(
+            self,
+            Notice::StartedFresh
+                | Notice::BackupFailed(_)
+                | Notice::OutOfDate
+                | Notice::StorageUnreadable(_)
+        )
     }
 
     /// A notice the teacher can dismiss never replaces one they cannot, so hiding a routine
@@ -68,6 +102,23 @@ impl Notice {
                 count(*too_long, "line"),
                 MAX_LABEL_CHARS,
             ),
+            Notice::AccountUnavailable(cause) => format!(
+                "Tivan could not check your account ({cause}), \
+                so your classes are saved in this browser only for now."
+            ),
+            Notice::AccountDocUnreadable(cause) => format!(
+                "Your classes could not be loaded from your account ({cause}), \
+                so changes will not be saved. Reload the page to try again."
+            ),
+            Notice::SessionEnded => "You were signed out, so your classes are saved in this \
+                browser only. Sign in with Google again to keep them in your account."
+                .to_owned(),
+            Notice::SignInFailed(code) => {
+                format!("Google sign-in did not finish ({code}). Please try again.")
+            }
+            Notice::SignOutFailed(cause) => {
+                format!("Could not sign you out ({cause}). Please try again.")
+            }
         }
     }
 }
@@ -146,6 +197,60 @@ mod tests {
         }
         assert!(skipped.may_replace(&skipped));
         assert!(Notice::OutOfDate.may_replace(&Notice::SaveFailed("full".into())));
+    }
+
+    #[test]
+    fn account_notices_that_hide_unsaved_changes_cannot_be_dismissed() {
+        assert!(!Notice::AccountDocUnreadable("db down".into()).is_dismissible());
+        for routine in [
+            Notice::AccountUnavailable("offline".into()),
+            Notice::SessionEnded,
+            Notice::SignInFailed("access_denied".into()),
+            Notice::SignOutFailed("offline".into()),
+        ] {
+            assert!(routine.is_dismissible(), "{routine:?}");
+            assert!(!routine.message().is_empty());
+        }
+        assert!(
+            !Notice::SessionEnded.may_replace(&Notice::AccountDocUnreadable("x".into())),
+            "a banner that can be dismissed must not hide one that cannot"
+        );
+    }
+
+    #[test]
+    fn account_messages_carry_the_cause_or_code() {
+        for notice in [
+            Notice::AccountUnavailable("the server answered 500".into()),
+            Notice::AccountDocUnreadable("the server answered 500".into()),
+            Notice::SignOutFailed("the server answered 500".into()),
+        ] {
+            assert!(notice.message().contains("the server answered 500"));
+        }
+        assert!(
+            Notice::SignInFailed("access_denied".into())
+                .message()
+                .contains("access_denied")
+        );
+    }
+
+    #[test]
+    fn only_notices_about_this_browsers_storage_are_cleared_when_the_account_loads() {
+        for local in [
+            Notice::StartedFresh,
+            Notice::BackupFailed("full".into()),
+            Notice::OutOfDate,
+            Notice::StorageUnreadable("blocked".into()),
+        ] {
+            assert!(local.is_about_local_storage(), "{local:?}");
+        }
+        for other in [
+            Notice::SaveFailed("full".into()),
+            Notice::SessionEnded,
+            Notice::roster_skipped(1, 1).unwrap(),
+            Notice::AccountDocUnreadable("x".into()),
+        ] {
+            assert!(!other.is_about_local_storage(), "{other:?}");
+        }
     }
 
     #[test]
