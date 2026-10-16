@@ -46,6 +46,20 @@ Keep implementation details out. Name only user paths, stable handles, required 
 
 ## Proof status
 
+Verification on 2026-10-16, app rev `b3307e7`, using dx 0.7.10, agent-browser 0.39.1 and HeadlessChrome 155:
+
+- **Seed**: `McCurdy HR` is selected with the exact 18-name roster in order; the other classes have 20 and 27 students. Screen and saved state agree after reload. Evidence: `target/verify/20261016-090731-2406/seed{,-reloaded}.{png,aria.txt,state.json}`.
+- **Groups**: the 3- and 4-group hints, making groups, shuffling, moving a student, Escape-cancel, renaming with Enter, and rerolling passed, with reload proof. Evidence: `groups-*` captures in `target/verify/20261016-090731-2406/`.
+- **Whiteboard and oracle**: wall headings and members match saved groups; student and group picks, both complete rounds and refills, regroup resetting the group round, shuffle preserving it, and the empty wall passed. At 402×874, all 18 students fit their three center cards and the wall scrolls. Evidence: `wb-*` and `oracle-*` captures in `target/verify/20261016-090731-2406/`.
+- **Centers**: enable, rotate through the full cycle, rename with Enter, shuffle retention, regroup reset, removal confirmation and cancellation, whiteboard rotation, and disabled rotation for one center passed, with reload proof. Evidence: `centers-*` captures in `target/verify/20261016-090731-2406/`.
+- **Roster**: add, remove, paste two valid names and skip a 41-character line, dismiss the notice, collapse/expand, and restore the 18-name roster passed. Add/remove/paste survived reload. Evidence: `roster-*` captures in `target/verify/20261016-091813-5122/`.
+- **Classes**: switch, create with a roster, rename with Enter, cancel and confirm deletion, and delete all classes to reach the welcome form without `Cancel` passed, with reload proof. Evidence: `classes-*` captures in `target/verify/20261016-091813-5122/`.
+- **Timer**: start, pause with unchanged digits across 3 seconds, resume, open via the Build chip, reach Time's up, dismiss with Escape, cancel, and clear on reload passed. Saved class data stayed unchanged. Evidence: `timer-*` captures in `target/verify/20261016-091813-5122/`.
+
+Each run records browser commands in `commands.log`; every capture includes a screenshot, accessibility tree and saved JSON. Doctor passed before and after both runs, and both sessions and servers were cleaned up. The first launch, `20261016-090628-99697`, lost its server when its command runner exited; it was cleaned up and excluded from proof. The roster placeholder selector and the centers recipe's stored-version expectation were corrected to match the observed app.
+
+Earlier verification:
+
 Status as of 2026-10-15, rev `5f58097`:
 
 - **Groups**: run end to end.
