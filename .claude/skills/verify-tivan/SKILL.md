@@ -1,11 +1,11 @@
 ---
 name: verify-tivan
-description: Launch the Tivan classroom-grouping web app (Rust + Dioxus 0.7, runs in the browser, saves to localStorage) on an isolated port and drive it headlessly with agent-browser to prove a change works the way a teacher would use it. Use whenever a change touches what the browser shows or saves (Build mode classes, roster, groups; Whiteboard wall, oracle, timer) and you need evidence beyond `cargo test`.
+description: Launch the Tivan classroom-grouping web app (Rust + Dioxus 0.7, runs in the browser, saves to localStorage, or to the teacher's account once signed in with Google) on an isolated port and drive it headlessly with agent-browser to prove a change works the way a teacher would use it. Use whenever a change touches what the browser shows or saves (Build mode classes, roster, groups; Whiteboard wall, oracle, timer; Google sign-in and Classroom sync) and you need evidence beyond `cargo test`.
 ---
 
 # Verify Tivan
 
-Tivan has one surface: a single-page web app. There is no server-side state. Everything a teacher does is saved by the page into `localStorage["tivan.state"]` of whichever browser profile opened it, and a profile with nothing saved starts from three seed classes. So a fresh browser profile is a fresh data dir, and the stored JSON is the side effect to check.
+Tivan has one surface: a single-page web app. Signed out there is no server-side state. Everything a teacher does is saved by the page into `localStorage["tivan.state"]` of whichever browser profile opened it, and a profile with nothing saved starts from three seed classes. So a fresh browser profile is a fresh data dir, and the stored JSON is the side effect to check. Signing in with Google moves saving to the Worker's database, and `tivan-up` serves only the static bundle, so it covers the signed-out app. The sign-in and Classroom sync recipe, [`features/account.md`](features/account.md), starts the Worker and a fake Google instead.
 
 The harness is the `agent-browser` CLI (headless Chrome over CDP, accessibility-tree selectors). It works the same on a laptop and in a cloud agent. In the Claude desktop app the built-in browser pane can open the same URL instead, but its profile persists between sessions, so it does not start from seed data. Prefer `agent-browser`.
 
@@ -109,6 +109,7 @@ The handles by screen:
 - **New class form**: heading `New class`, textbox label `Class name`, textarea label `Students (optional, you can add them later)`, `Create class`, and `Cancel` (only when other classes exist).
 - **Notices**: role `status` with `Dismiss` for dismissible ones such as skipped roster lines. Role `alert` for storage problems the teacher cannot dismiss.
 - **Whiteboard mode**: `Back to Build`, the class name, `Ask the oracle <n> left`, for a grouped class `Pick a group <n> left` right after it (absent when there are no groups), with centers on the text `Round <r> of <n>` and `Rotate`, and the group `Timer` with `Start a {1,2,3,5,10} minute timer`. While a timer runs it shows `Pause`/`Resume` and `Cancel`. The countdown is role `timer` showing `m:ss`, and the wall has one level-2 heading per group (center names are plain text above the cards, not headings). The oracle opens dialog `The oracle has chosen` with the picked name in bold, `<n> left`, `Pick again` and `Done`. `Pick a group` opens the same dialog with the group's name in bold, its members listed, and `<n> groups left`, and `Pick again` repeats whichever kind opened it. A finished timer opens alertdialog `Time's up` with `Dismiss`. Escape closes the top layer first: reveal, then Time's up, then back to Build.
+- **Account bar in Build**: a link `Sign in with Google` for a visitor, or the teacher's first name, `Sync Classroom` and `Sign out`. `Sync Classroom` opens a panel headed `Sync Classroom` with one checkbox per new course, `Apply` and `Cancel`, then a `status` with the result and `Done`. See `features/account.md` for the exact flow.
 - **Timer chip in Build**: while a timer exists, the Build top bar shows a button with the digits and `Timer`/`Paused`, or `Time's up!` + `Dismiss`.
 
 Per-feature recipes, with exact commands and expected results, are in [`features/README.md`](features/README.md). Read the index, then the feature file for what you changed.

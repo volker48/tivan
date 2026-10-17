@@ -1,4 +1,4 @@
-//! Persistence format and load policy: one versioned JSON envelope, `{"version":5,"doc":{..}}`,
+//! Persistence format and load policy: one versioned JSON envelope, `{"version":6,"doc":{..}}`,
 //! stored under [`KEY`]. This is the pure half. It owns the format and the corrupt or newer-blob
 //! policy and runs natively under `cargo test`. The domain types are the stored shape, so a schema
 //! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm for the old shape. Version 1 differs
@@ -8,9 +8,11 @@
 //! it shares the current arm. Version 3 differs only by lacking a grouping's optional group round
 //! (`oracle`), which an absent key already reads as empty, so it shares the arm too. Version 4
 //! differs only by lacking the document's `settings`, which an absent key reads as the defaults,
-//! so it shares the arm as well. The version still moves with each additive field, so an older
-//! build refuses a newer blob instead of dropping the field on its next save. The fixtures under
-//! `tests/fixtures/` are the guard: they must never be edited.
+//! so it shares the arm as well. Version 5 differs only by lacking the optional Classroom links
+//! (`classroom_course_id` on a class, `classroom_user_id` on a student), which an absent key reads
+//! as none, so it shares the arm too. The version still moves with each additive field, so an
+//! older build refuses a newer blob instead of dropping the field on its next save. The fixtures
+//! under `tests/fixtures/` are the guard: they must never be edited.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -20,7 +22,7 @@ use crate::domain::{Doc, Rng, avatar};
 pub const KEY: &str = "tivan.state";
 /// Where an unreadable blob is copied before the app starts over.
 pub const BACKUP_KEY: &str = "tivan.state.backup";
-pub const SCHEMA_VERSION: u64 = 5;
+pub const SCHEMA_VERSION: u64 = 6;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -56,7 +58,7 @@ pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        1 | 2 | 3 | 4 | SCHEMA_VERSION => {
+        1 | 2 | 3 | 4 | 5 | SCHEMA_VERSION => {
             let doc = envelope
                 .get_mut("doc")
                 .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
@@ -130,7 +132,8 @@ mod tests {
 
     use super::*;
     use crate::domain::{
-        Avatar, Draw, GroupCount, Label, Pick, Skin, SkinChoice, SplitMix64, seed_doc,
+        Avatar, ClassroomCourseId, ClassroomUserId, Draw, GroupCount, Label, Pick, Skin,
+        SkinChoice, SplitMix64, seed_doc,
     };
 
     const V1: &str = include_str!("../tests/fixtures/v1.json");
@@ -138,6 +141,7 @@ mod tests {
     const V3: &str = include_str!("../tests/fixtures/v3.json");
     const V4: &str = include_str!("../tests/fixtures/v4.json");
     const V5: &str = include_str!("../tests/fixtures/v5.json");
+    const V6: &str = include_str!("../tests/fixtures/v6.json");
 
     fn rng() -> SplitMix64 {
         SplitMix64::seeded(1)
@@ -181,7 +185,8 @@ mod tests {
     }
 
     /// What every fixture says apart from avatars, which version 1 never stored, centers, which
-    /// version 3 and later store, and the group round, which version 4 and later store.
+    /// version 3 and later store, the group round, which version 4 and later store, and the
+    /// Classroom links, which only version 6 stores.
     fn assert_fixture_classes(doc: &Doc) {
         assert_eq!(doc.classes().len(), 2);
         assert_eq!(doc.selected().unwrap().name().as_str(), "Second Class");
@@ -248,7 +253,7 @@ mod tests {
     fn encode_wraps_the_doc_in_a_versioned_envelope() {
         let doc = seed_doc();
         let value = parse(&encode(&doc));
-        assert_eq!(value["version"], 5);
+        assert_eq!(value["version"], SCHEMA_VERSION);
         assert_eq!(value["doc"]["classes"].as_array().unwrap().len(), 3);
         let first = &doc.classes()[0].students()[0];
         assert_eq!(
@@ -403,13 +408,70 @@ mod tests {
     }
 
     #[test]
-    fn the_frozen_v5_fixture_re_encodes_to_itself() {
+    fn the_frozen_v5_fixture_re_encodes_with_only_the_version_changed() {
         let doc = decode(V5, &mut rng()).unwrap();
+        let mut expected = parse(V5);
+        expected["version"] = SCHEMA_VERSION.into();
         assert_eq!(
             parse(&encode(&doc)),
-            parse(V5),
+            expected,
             "stored shape drifted: bump SCHEMA_VERSION"
         );
+    }
+
+    #[test]
+    fn the_frozen_v6_fixture_decodes_with_its_classroom_links_and_skin() {
+        let doc = decode(V6, &mut rng()).unwrap();
+
+        assert_fixture_classes(&doc);
+        doc.assert_invariants();
+        assert_eq!(doc.settings().skin(), SkinChoice::Auto);
+        let courses: Vec<Option<&str>> = doc
+            .classes()
+            .iter()
+            .map(|class| class.classroom_course_id().map(ClassroomCourseId::as_str))
+            .collect();
+        assert_eq!(courses, [Some("course-1"), None]);
+        let users: Vec<Option<&str>> = doc.classes()[0]
+            .students()
+            .iter()
+            .map(|s| s.classroom_user_id.as_ref().map(ClassroomUserId::as_str))
+            .collect();
+        assert_eq!(
+            users,
+            [Some("user-ava"), None, Some("user-chloe"), None],
+            "Ben and Diego were added by hand"
+        );
+    }
+
+    #[test]
+    fn the_frozen_v6_fixture_re_encodes_to_itself() {
+        let doc = decode(V6, &mut rng()).unwrap();
+        assert_eq!(
+            parse(&encode(&doc)),
+            parse(V6),
+            "stored shape drifted: bump SCHEMA_VERSION"
+        );
+    }
+
+    #[test]
+    fn a_classroom_id_that_is_empty_or_not_text_makes_a_blob_unreadable() {
+        let doc_with = |tweak: fn(&mut Value)| {
+            let mut value = parse(V6);
+            tweak(&mut value);
+            value.to_string()
+        };
+        let blobs = [
+            doc_with(|v| v["doc"]["classes"][0]["classroom_course_id"] = "".into()),
+            doc_with(|v| v["doc"]["classes"][0]["students"][0]["classroom_user_id"] = "".into()),
+            doc_with(|v| v["doc"]["classes"][0]["classroom_course_id"] = 7.into()),
+        ];
+        for raw in blobs {
+            assert!(
+                matches!(decode(&raw, &mut rng()), Err(DecodeError::Malformed(_))),
+                "{raw}"
+            );
+        }
     }
 
     #[test]
@@ -522,12 +584,13 @@ mod tests {
 
     #[test]
     fn a_newer_version_is_stashed_untouched_instead_of_repaired() {
-        let raw = r#"{"version":6,"somethingNew":{"classes":"different"}}"#;
+        let newer = SCHEMA_VERSION + 1;
+        let raw = format!(r#"{{"version":{newer},"somethingNew":{{"classes":"different"}}}}"#);
         assert_eq!(
-            plan_load(Some(raw), &mut rng()),
+            plan_load(Some(&raw), &mut rng()),
             LoadPlan::StartFresh {
-                stash: raw.to_owned(),
-                reason: DecodeError::NewerVersion(6),
+                stash: raw.clone(),
+                reason: DecodeError::NewerVersion(newer),
             }
         );
         assert_eq!(

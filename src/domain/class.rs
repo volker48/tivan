@@ -1,7 +1,10 @@
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 use super::avatar::{self, Avatar};
 use super::centers::CenterIdx;
+use super::classroom::{ClassroomCourseId, ClassroomStudent, ClassroomUserId, SyncReport};
 use super::grouping::{GroupCount, GroupIdx, Grouping, MoveError};
 use super::label::{Label, LabelError};
 use super::oracle::Oracle;
@@ -32,6 +35,10 @@ pub struct Student {
     pub id: StudentId,
     pub name: Label,
     pub avatar: Avatar,
+    /// Set for a student a Classroom sync added. A student added by hand has none, so no sync
+    /// ever touches them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classroom_user_id: Option<ClassroomUserId>,
 }
 
 /// What the oracle picks from: a student of the roster or a group of the grouping.
@@ -93,6 +100,8 @@ pub struct CenterView<'a> {
 pub struct Class {
     id: ClassId,
     name: Label,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    classroom_course_id: Option<ClassroomCourseId>,
     students: Vec<Student>,
     next_student: u32,
     grouping: Option<Grouping>,
@@ -104,13 +113,14 @@ impl Class {
         let mut class = Class {
             id,
             name,
+            classroom_course_id: None,
             students: Vec::with_capacity(students.len()),
             next_student: 0,
             grouping: None,
             oracle: Oracle::default(),
         };
         for student in students {
-            class.enroll(student, rng);
+            class.enroll(student, None, rng);
         }
         class
     }
@@ -121,6 +131,11 @@ impl Class {
 
     pub fn name(&self) -> &Label {
         &self.name
+    }
+
+    /// The Classroom course this class was made from, if it was.
+    pub fn classroom_course_id(&self) -> Option<&ClassroomCourseId> {
+        self.classroom_course_id.as_ref()
     }
 
     pub fn students(&self) -> &[Student] {
@@ -146,9 +161,47 @@ impl Class {
     /// A student added after grouping joins the smallest group. Their avatar is chosen here, once,
     /// and never changes afterwards.
     pub fn add_student(&mut self, name: Label, rng: &mut impl Rng) -> StudentId {
-        let id = self.enroll(name, rng);
+        let id = self.enroll(name, None, rng);
         self.reconcile();
         id
+    }
+
+    /// Only a sync that makes the class links it, so a class never moves to another course.
+    pub(super) fn link_course(&mut self, course: ClassroomCourseId) {
+        self.classroom_course_id = Some(course);
+    }
+
+    /// Makes the linked part of the roster match `incoming`. A linked student who is not in it is
+    /// removed, and a Classroom student with no counterpart is added after everyone else, in the
+    /// order given, and joins the smallest group like any student added later. Students added by
+    /// hand are left alone, and so is the name of a student already linked. Uses no randomness
+    /// when nothing changes. Adds the students it added and removed to `report`.
+    pub(super) fn sync_roster(
+        &mut self,
+        incoming: &[ClassroomStudent],
+        report: &mut SyncReport,
+        rng: &mut impl Rng,
+    ) {
+        let wanted: BTreeSet<&ClassroomUserId> =
+            incoming.iter().map(ClassroomStudent::id).collect();
+        let before = self.students.len();
+        self.students.retain(|s| {
+            s.classroom_user_id
+                .as_ref()
+                .is_none_or(|id| wanted.contains(id))
+        });
+        report.students_removed += before - self.students.len();
+
+        let known: BTreeSet<ClassroomUserId> = self
+            .students
+            .iter()
+            .filter_map(|s| s.classroom_user_id.clone())
+            .collect();
+        for student in incoming.iter().filter(|s| !known.contains(s.id())) {
+            self.enroll(student.name().clone(), Some(student.id().clone()), rng);
+            report.students_added += 1;
+        }
+        self.reconcile();
     }
 
     /// Idempotent. Removes the student from the roster, the grouping, and the oracle round.
@@ -308,11 +361,21 @@ impl Class {
     }
 
     /// The avatar is per student, not per name, so two children called Emma get different faces.
-    fn enroll(&mut self, name: Label, rng: &mut impl Rng) -> StudentId {
+    fn enroll(
+        &mut self,
+        name: Label,
+        classroom_user_id: Option<ClassroomUserId>,
+        rng: &mut impl Rng,
+    ) -> StudentId {
         let id = StudentId(self.next_student);
         self.next_student += 1;
         let avatar = avatar::pick(self.students.iter().map(|s| s.avatar), rng);
-        self.students.push(Student { id, name, avatar });
+        self.students.push(Student {
+            id,
+            name,
+            avatar,
+            classroom_user_id,
+        });
         id
     }
 

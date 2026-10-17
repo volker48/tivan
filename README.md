@@ -22,7 +22,7 @@ During whiteboard mode most of the UI should drop away and the focus is on the d
 
 ## Development
 
-Tivan is a Rust and Dioxus 0.7 web app. It runs entirely in the browser and saves classes to `localStorage`, so each browser keeps its own data. Google Classroom sync is not built yet. First run loads three sample classes.
+Tivan is a Rust and Dioxus 0.7 web app. Signed out, it runs entirely in the browser and saves classes to `localStorage`, so each browser keeps its own data, and a first run loads three sample classes. A teacher can also sign in with Google. Their classes and groups are then stored in the Worker's D1 database, so they come back on any browser, and **Sync Classroom** pulls their active Google Classroom courses and rosters into classes. Students never sign in. Sync links a class to its course and a student to their Classroom user, so syncing again refreshes rosters without touching groups, hand-added students, or names the teacher edited. Saves are last write wins, so editing from two browsers at once can overwrite earlier edits.
 
 Run the app locally with the Dioxus CLI (`cargo install dioxus-cli --version 0.7.10 --locked`):
 
@@ -36,6 +36,21 @@ Run the domain and persistence tests natively:
 cargo test
 ```
 
+### Sign-in and sync locally
+
+`dx serve` serves only the static app. Sign-in, the saved document and the Classroom calls come from the Worker in `deploy/`, so run the bundle through it. A local fake Google stands in for the real one, so no Google project is needed. Needs Node 22.18 or newer.
+
+```bash
+dx bundle --platform web --release
+pnpm --dir deploy install --frozen-lockfile
+printf 'GOOGLE_CLIENT_ID=fake-client-id\nGOOGLE_CLIENT_SECRET=fake-client-secret\nTOKEN_ENC_KEY=%s\nGOOGLE_AUTHORIZE_URL=http://localhost:8788/authorize\nGOOGLE_TOKEN_URL=http://localhost:8788/token\nCLASSROOM_API_URL=http://localhost:8788\n' "$(openssl rand -base64 32)" > deploy/.dev.vars
+pnpm --dir deploy run db:migrate:local
+pnpm --dir deploy run fake-google   # terminal 1, port 8788
+pnpm --dir deploy run dev           # terminal 2, port 8787
+```
+
+Open `http://localhost:8787`. Rebuild the bundle after Rust changes. To try real Google locally, put the real client id and secret in `deploy/.dev.vars`, drop the three URL lines, and add `http://localhost:8787/auth/callback` as an authorized redirect URI. Worker checks run from `deploy/` with `pnpm run typecheck`, `lint`, `format:check` and `test`.
+
 ## Deploy
 
 The release bundle is served as static assets by a Cloudflare Worker named `tivan`. `deploy/` holds the pinned `cf` and `wrangler` tooling with install scripts disabled. Sign in once with `cf auth login`, then:
@@ -43,3 +58,11 @@ The release bundle is served as static assets by a Cloudflare Worker named `tiva
 ```bash
 ./scripts/deploy.sh
 ```
+
+The first deploy of the account features needs one-time setup:
+
+1. In Google Cloud, enable the Classroom API and create a Web OAuth client. Add the scopes `classroom.courses.readonly` and `classroom.rosters.readonly`, and register `https://<your domain>/auth/callback` as an authorized redirect URI. While the consent screen is in Testing, only listed test users can sign in and refresh tokens expire after 7 days. Public use needs Google's app verification.
+2. Create the database and apply `deploy/migrations/`: `pnpm --dir deploy exec cf d1 create --name tivan`, then `pnpm --dir deploy exec cf d1 migrations apply <uuid>`. Run the migrations before deploying a Worker version that needs them.
+3. Deploy with the secrets `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `TOKEN_ENC_KEY` (base64 of 32 random bytes): `./scripts/deploy.sh --secrets-file /absolute/path/secrets.env`. Keep that file outside the repo and delete it afterwards. Changing `TOKEN_ENC_KEY` later makes teachers sign in again.
+
+The Worker stores student names, so check what your school or district requires before teachers other than you use it.
