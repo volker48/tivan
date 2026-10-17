@@ -3,8 +3,7 @@ set -euo pipefail
 
 # Installs everything needed to build Tivan and verify it in a headless browser on a fresh
 # Linux machine (e.g. a cloud environment setup script). The Rust version, components and wasm
-# target come from rust-toolchain.toml. Needs Node.js with npm on the machine already, for
-# agent-browser.
+# target come from rust-toolchain.toml.
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Keep in sync with the dioxus crate in Cargo.toml. Bumping it means replacing the sha256s below
@@ -13,7 +12,8 @@ dx_version="0.7.10"
 # Keep in sync with the version the verify-tivan skill was proven with.
 agent_browser_version="0.39.1"
 
-export PATH="$HOME/.cargo/bin:$PATH"
+cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+export PATH="$cargo_bin:$PATH"
 
 if ! command -v rustup >/dev/null; then
 	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
@@ -45,42 +45,51 @@ if ! dx --version 2>/dev/null | grep -q "^dioxus $dx_version "; then
 		curl --proto '=https' --tlsv1.2 -fsSL -o "$dx_tarball" \
 			"https://github.com/DioxusLabs/dioxus/releases/download/v$dx_version/dx-$dx_target.tar.gz"
 		echo "$dx_sha256  $dx_tarball" | sha256sum --check --quiet -
-		tar -xzf "$dx_tarball" -C "$HOME/.cargo/bin" dx
+		mkdir -p "$cargo_bin"
+		tar -xzf "$dx_tarball" -C "$cargo_bin" dx
 		rm "$dx_tarball"
 	else
 		cargo install dioxus-cli --version "$dx_version" --locked
 	fi
 fi
 
-if ! command -v npm >/dev/null; then
-	echo "bootstrap.sh: npm is required to install agent-browser" >&2
-	exit 1
-fi
-if ! agent-browser --version 2>/dev/null | grep -qx "agent-browser $agent_browser_version"; then
-	# The postinstall script only marks the bundled native binary executable and points the
-	# global bin at it, so it stays enabled.
-	npm install --global "agent-browser@$agent_browser_version"
-fi
-# Downloads Chrome for Testing, and is a no-op once it is installed.
-if [[ $(uname -s) == Linux ]]; then
-	# --with-deps always runs apt-get through sudo, which root-only containers often lack.
-	if [[ $EUID -eq 0 ]] && ! command -v sudo >/dev/null; then
-		# The same order agent-browser tries its package managers in.
-		if command -v apt-get >/dev/null; then
-			apt-get update
-			apt-get install --yes sudo
-		elif command -v dnf >/dev/null; then
-			dnf install --assumeyes sudo
-		elif command -v yum >/dev/null; then
-			yum install --assumeyes sudo
-		else
-			echo "bootstrap.sh: sudo is missing and none of apt-get, dnf or yum is available" >&2
+if [[ $(uname -s)-$(uname -m) == Linux-aarch64 ]]; then
+	echo "bootstrap.sh: skipping agent-browser, since Chrome for Testing has no Linux ARM64 build" >&2
+else
+	if ! command -v npm >/dev/null; then
+		echo "bootstrap.sh: npm is required to install agent-browser" >&2
+		exit 1
+	fi
+	agent_browser_wanted="agent-browser $agent_browser_version"
+	if [[ $(agent-browser --version 2>/dev/null) != "$agent_browser_wanted" ]]; then
+		# The postinstall script only marks the bundled native binary executable and points the
+		# global bin at it, so it stays enabled.
+		npm install --global "agent-browser@$agent_browser_version"
+		hash -r
+		if [[ $(agent-browser --version 2>/dev/null) != "$agent_browser_wanted" ]]; then
+			echo "bootstrap.sh: agent-browser on PATH is not $agent_browser_wanted after npm install;" \
+				"put npm's global bin ahead of other agent-browser installs" >&2
 			exit 1
 		fi
 	fi
-	agent-browser install --with-deps
-else
-	agent-browser install
+	# Downloads Chrome for Testing, and is a no-op once it is installed.
+	if [[ $(uname -s) == Linux ]]; then
+		# --with-deps always runs its package manager through sudo, which root-only containers
+		# often lack.
+		if [[ $EUID -eq 0 ]] && ! command -v sudo >/dev/null; then
+			if command -v apt-get >/dev/null; then
+				apt-get update
+				apt-get install --yes sudo
+			elif command -v dnf >/dev/null; then
+				dnf install --assumeyes sudo
+			else
+				yum install --assumeyes sudo
+			fi
+		fi
+		agent-browser install --with-deps
+	else
+		agent-browser install
+	fi
 fi
 
 cargo fetch --locked
