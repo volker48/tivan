@@ -6,7 +6,9 @@ the [mcstack](https://github.com/volker48/mcstack) plugin, so the skills load in
 cloud sessions. Cloud sessions don't load plugins from a repo's
 `.claude/settings.json`, but they do load project skills and agents.
 
-- Source: `plugins/mcstack` at volker48/mcstack commit `99805bb` (plugin version 0.0.3)
+- Source: `plugins/mcstack` at volker48/mcstack commit `99805bb` (plugin version 0.0.3),
+  plus the `bde-mode/scripts/worktree-audit.sh` fix from
+  [volker48/mcstack#2](https://github.com/volker48/mcstack/pull/2) (GNU/Linux `stat` and `date` flags)
 - Not copied: `setup-mcstack` (it only writes `~/.claude/mcstack-models.md`; without
   that file every role uses its default model), `docs/`, and the plugin README.
 - License and attribution: `LICENSE` and `THIRD_PARTY_NOTICES` in this folder.

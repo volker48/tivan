@@ -66,6 +66,16 @@ slug=$(printf '%s' "$main_wt" | sed 's/[^A-Za-z0-9]/-/g')
 transcripts="$HOME/.claude/projects/$slug"
 now=$(date +%s)
 
+# GNU and BSD userlands take different flags for file mtime and for formatting
+# an epoch. Pick once; a wrong flag fails silently and hides every chat.
+if stat -c '%Y' / >/dev/null 2>&1; then
+	mtime_and_name() { xargs stat -c '%Y %n'; }
+	epoch_to_day() { date -d "@$1" '+%Y-%m-%d'; }
+else
+	mtime_and_name() { xargs stat -f '%m %N'; }
+	epoch_to_day() { date -r "$1" '+%Y-%m-%d'; }
+fi
+
 echo "# base: $base"
 printf "SIZE\tAGE\tMERGED\tDIRTY\tREMOTE\tPR\tLAST_CHAT\tBUCKET\tWORKTREE\n"
 
@@ -105,9 +115,9 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 	last="-"; last_ts=0
 	if [ -d "$transcripts" ]; then
 		f=$(rg -l -e "${wt}/" -e "${wt}\"" "$transcripts" 2>/dev/null \
-			| xargs stat -f '%m %N' 2>/dev/null | sort -rn | head -1)
+			| mtime_and_name 2>/dev/null | sort -rn | head -1)
 		if [ -n "$f" ]; then last_ts=$(echo "$f" | awk '{print $1}')
-			last=$(date -r "$last_ts" '+%Y-%m-%d' 2>/dev/null); fi
+			last=$(epoch_to_day "$last_ts" 2>/dev/null); fi
 	fi
 	recent=$([ "$last_ts" -gt 0 ] 2>/dev/null && [ $(( (now - last_ts) / 86400 )) -le 4 ] && echo yes || echo no)
 
