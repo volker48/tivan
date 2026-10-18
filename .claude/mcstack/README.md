@@ -28,12 +28,13 @@ fix was picked up before it was released:
    README, guide pages, and `setup-mcstack` became GitHub URLs.
 4. `bde-mode/scripts/worktree-audit.sh` is the version from
    [volker48/mcstack#2](https://github.com/volker48/mcstack/pull/2), which picks the
-   GNU or BSD `stat` and `date` flags. The plugin's `99805bb` version only works on
-   macOS, so on Linux cloud sessions it misses recent chats.
+   GNU or BSD `stat` and `date` flags and keeps transcript paths with spaces intact
+   (`rg --null`, `xargs -0`). The plugin's `99805bb` version only works on macOS, and
+   only when `HOME` has no space, so elsewhere it misses recent chats.
 
 ## Updating
 
 This is a one-time copy. To pick up a newer mcstack, copy the skills and agents
 over again and repeat the three rewrites above. Then check that
-`worktree-audit.sh` still contains `mtime_and_name`. If mcstack#2 isn't in the
+`worktree-audit.sh` still contains `mtime_and_name` and `rg --null`. If mcstack#2 isn't in the
 version you copied from, reapply it, or the fix is lost without any error.
