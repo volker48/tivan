@@ -1,0 +1,8 @@
+# Files no one writes by hand. The pre-commit token limit in .githooks/pre-commit skips them.
+*.lock linguist-generated
+*-lock.json linguist-generated
+*-lock.yaml linguist-generated
+skills-lock.json linguist-generated
+
+# Skills installed from cloudflare/skills, listed in skills-lock.json.
+.agents/skills/** linguist-vendored

@@ -93,3 +93,6 @@ else
 fi
 
 cargo fetch --locked
+
+# Turns on the hooks in .githooks/, such as the pre-commit file size limit.
+git -C "$repo" config core.hooksPath .githooks

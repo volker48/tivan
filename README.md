@@ -36,6 +36,14 @@ Run the domain and persistence tests natively:
 cargo test
 ```
 
+Turn on the repo's git hooks once per clone (`scripts/bootstrap.sh` does this too):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The pre-commit hook refuses a commit that stages a file over 5,000 tokens, counted as bytes / 4, and explains how to split it. It skips binary files and anything `.gitattributes` marks `linguist-generated` or `linguist-vendored`, such as lockfiles and the installed Cloudflare skills.
+
 ### Sign-in and sync locally
 
 `dx serve` serves only the static app. Sign-in, the saved document and the Classroom calls come from the Worker in `deploy/`, so run the bundle through it. A local fake Google stands in for the real one, so no Google project is needed. Needs Node 22.18 or newer.
