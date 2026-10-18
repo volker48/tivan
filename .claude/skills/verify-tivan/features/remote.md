@@ -22,7 +22,7 @@ On the whiteboard, `Phone remote` shows a QR code that opens Tivan on the teache
 
 Preconditions:
 
-- The relay lives in the Worker, so `tivan-up` (`dx serve`) cannot drive it: the board stays on `Connecting to Tivan…`. Build the bundle and start the Worker as in the README's "Sign-in and sync locally" (no fake Google needed): `dx bundle --platform web --release`, a `deploy/.dev.vars`, `pnpm --dir deploy run db:migrate:local`, `pnpm --dir deploy run dev`. Open `http://localhost:8787/`.
+- The relay lives in the Worker, so `tivan-up` (`dx serve`) cannot drive it: the board stays on `Connecting to Tivan…`. Build the bundle and start the Worker as in the README's "Sign-in and sync locally" (no fake Google needed): `dx bundle --platform web --release`, `pnpm --dir deploy install --frozen-lockfile`, a `deploy/.dev.vars`, `pnpm --dir deploy run db:migrate:local`, `pnpm --dir deploy run dev`. Open `http://localhost:8787/`.
 - Two sessions with separate profiles: `tv-board` at 1280×800 and `tv-phone` at 390×844 (`agent-browser --session tv-phone set viewport 390 844`).
 - On the board, `McCurdy HR` with groups made (`Make groups`), then `Whiteboard`.
 

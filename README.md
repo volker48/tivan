@@ -36,7 +36,7 @@ Run the app locally with the Dioxus CLI (`cargo install dioxus-cli --version 0.7
 dx serve --platform web
 ```
 
-`dx serve` has no Worker, so the phone remote stays on "Connecting to Tivan…" there. Run the bundle through the Worker (below) to try it.
+`dx serve` has no Worker, so there the phone remote never connects: the board's panel stays on "Connecting to Tivan…" and a phone on "Connecting…". Run the bundle through the Worker (below) to try it.
 
 Run the domain and persistence tests natively:
 
