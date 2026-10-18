@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FAKE_ACCESS_TOKEN,
-  FAKE_COURSES,
   FAKE_REFRESH_TOKEN,
   type FakeCourse,
   type FakeGoogleOptions,
@@ -54,7 +53,28 @@ describe("GET /api/classroom/courses", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      courses: FAKE_COURSES.map(({ id, name, students }) => ({ id, name, students })),
+      courses: [
+        {
+          id: "course-1",
+          name: "Period 1 Science",
+          students: [
+            { id: "s-101", name: "Ada L." },
+            { id: "s-102", name: "Grace" },
+            { id: "s-103", name: "Katherine" },
+            { id: "s-104", name: "Alan" },
+            { id: "s-105", name: "Ada Y." },
+          ],
+        },
+        {
+          id: "course-2",
+          name: "Period 3 Math",
+          students: [
+            { id: "s-201", name: "Emmy" },
+            { id: "s-202", name: "Srinivasa" },
+          ],
+        },
+        { id: "course-3", name: "Homeroom", students: [] },
+      ],
     });
     expect(app.google.requests.filter((r) => r === "GET /v1/courses")).toHaveLength(2);
     expect(
@@ -107,60 +127,89 @@ describe("GET /api/classroom/courses", () => {
       name: `Course ${c}`,
       students: Array.from({ length: 11 }, (_, s) => ({
         id: `c${c}-s${s}`,
-        name: `Student ${c}.${s}`,
+        givenName: `Student ${c}.${s}`,
+        familyName: "Doe",
       })),
     }));
     const app = await signedIn({ google: { courses: many, pageSize: 3 } });
 
-    const body = (await (await courses(app)).json()) as { courses: FakeCourse[] };
+    const body = (await (await courses(app)).json()) as {
+      courses: { id: string; students: unknown[] }[];
+    };
 
     expect(body.courses.map((course) => course.id)).toEqual(many.map((course) => course.id));
     for (const [index, course] of body.courses.entries()) {
-      expect(course.students).toEqual(many[index]?.students);
+      expect(course.students).toEqual(
+        many[index]?.students.map(({ id, givenName }) => ({ id, name: givenName })),
+      );
     }
   });
 
-  it("uses userId as the student id and profile.name.fullName as the name", async () => {
-    const app = await signedIn({
+  /** Serves one course, Art, whose roster Google lists as `students`. */
+  function art(students: unknown[]): SignedInOptions {
+    return {
       wrap: (inner) => async (input, init) => {
         const { pathname } = new URL(new Request(input, init).url);
         if (pathname === "/v1/courses") {
           return Response.json({ courses: [{ id: "c1", name: "Art" }] });
         }
         if (pathname === "/v1/courses/c1/students") {
-          return Response.json({
-            students: [
-              {
-                userId: "u1",
-                profile: { id: "p1", name: { givenName: "A", fullName: "Ann Álvarez" } },
-              },
-              { userId: "u2", profile: { id: "p2" } },
-            ],
-          });
+          return Response.json({ students });
         }
         return inner(input, init);
       },
-    });
+    };
+  }
 
-    expect(await (await courses(app)).json()).toEqual({
-      courses: [
-        {
-          id: "c1",
-          name: "Art",
-          students: [
-            { id: "u1", name: "Ann Álvarez" },
-            { id: "u2", name: "" },
-          ],
-        },
-      ],
-    });
+  const named = (userId: string, name: Record<string, string>) => ({
+    userId,
+    profile: { id: `p-${userId}`, name },
+  });
+
+  async function roster(students: unknown[]): Promise<unknown> {
+    const body = (await (await courses(await signedIn(art(students)))).json()) as {
+      courses: { students: unknown }[];
+    };
+    return body.courses[0]?.students;
+  }
+
+  it("uses userId as the student id and the given name as the name", async () => {
+    expect(
+      await roster([
+        named("u1", { givenName: " Ann ", familyName: "Álvarez", fullName: "Ann Álvarez" }),
+        named("u2", { fullName: "Bo Diddley" }),
+        { userId: "u3", profile: { id: "p3" } },
+      ]),
+    ).toEqual([
+      { id: "u1", name: "Ann" },
+      { id: "u2", name: "Bo Diddley" },
+      { id: "u3", name: "" },
+    ]);
+  });
+
+  it("adds the last initial only for students who share a first name", async () => {
+    expect(
+      await roster([
+        named("u1", { givenName: "Steve", familyName: "Davis" }),
+        named("u2", { givenName: "steve", familyName: "  gómez" }),
+        named("u3", { givenName: "Marcus", familyName: "Aurelius" }),
+        named("u4", { givenName: "Elizabeth", familyName: "Bennet" }),
+        named("u5", { givenName: "Steve", familyName: "" }),
+      ]),
+    ).toEqual([
+      { id: "u1", name: "Steve D." },
+      { id: "u2", name: "steve G." },
+      { id: "u3", name: "Marcus" },
+      { id: "u4", name: "Elizabeth" },
+      { id: "u5", name: "Steve" },
+    ]);
   });
 
   it("fetches rosters with bounded concurrency", async () => {
     const many: FakeCourse[] = Array.from({ length: 12 }, (_, c) => ({
       id: `c${c}`,
       name: `Course ${c}`,
-      students: [{ id: `s${c}`, name: `Student ${c}` }],
+      students: [{ id: `s${c}`, givenName: `Student`, familyName: `${c}` }],
     }));
     let inFlight = 0;
     let peak = 0;

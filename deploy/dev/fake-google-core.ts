@@ -11,7 +11,8 @@ import { encodeBase64Url } from "../src/crypto.ts";
 
 export interface FakeStudent {
   readonly id: string;
-  readonly name: string;
+  readonly givenName: string;
+  readonly familyName: string;
 }
 
 export interface FakeCourse {
@@ -37,8 +38,8 @@ const REQUIRED_SCOPES = [
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
 ];
 
-function student(id: string, name: string): FakeStudent {
-  return { id, name };
+function student(id: string, givenName: string, familyName: string): FakeStudent {
+  return { id, givenName, familyName };
 }
 
 export const FAKE_COURSES: readonly FakeCourse[] = [
@@ -46,17 +47,17 @@ export const FAKE_COURSES: readonly FakeCourse[] = [
     id: "course-1",
     name: "Period 1 Science",
     students: [
-      student("s-101", "Ada Lovelace"),
-      student("s-102", "Grace Hopper"),
-      student("s-103", "Katherine Johnson"),
-      student("s-104", "Alan Turing"),
-      student("s-105", "Margaret Hamilton"),
+      student("s-101", "Ada", "Lovelace"),
+      student("s-102", "Grace", "Hopper"),
+      student("s-103", "Katherine", "Johnson"),
+      student("s-104", "Alan", "Turing"),
+      student("s-105", "Ada", "Yonath"),
     ],
   },
   {
     id: "course-2",
     name: "Period 3 Math",
-    students: [student("s-201", "Emmy Noether"), student("s-202", "Srinivasa Ramanujan")],
+    students: [student("s-201", "Emmy", "Noether"), student("s-202", "Srinivasa", "Ramanujan")],
   },
   { id: "course-3", name: "Homeroom", students: [] },
 ];
@@ -210,10 +211,10 @@ export function createFakeGoogle(options: FakeGoogleOptions = {}): FakeGoogle {
     if (roster === null || course === undefined) {
       return jsonResponse({ error: { code: 404, status: "NOT_FOUND" } }, 404);
     }
-    const students = course.students.map(({ id, name }) => ({
+    const students = course.students.map(({ id, givenName, familyName }) => ({
       courseId: course.id,
       userId: id,
-      profile: { id, name: { fullName: name } },
+      profile: { id, name: { givenName, familyName, fullName: `${givenName} ${familyName}` } },
     }));
     return page(students, pageToken, "students");
   }
