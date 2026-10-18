@@ -19,10 +19,21 @@ skipped() {
 }
 
 # --no-renames reports a renamed file as added, so a moved file is checked at its new path.
+staged=()
+while IFS= read -r -d '' path; do
+	staged+=("$path")
+done < <(git diff --cached --no-renames --name-only -z --diff-filter=AMT)
+
+if ((${#staged[@]} == 0)); then
+	exit 0
+fi
+
+# Diffing the index against the empty tree judges each staged blob alone, so a binary file that
+# was replaced by text still counts as text. numstat reports "-" for binary files.
+empty_tree=$(git hash-object -t tree /dev/null)
 while IFS= read -r -d '' record; do
 	added="${record%%$'\t'*}"
 	path="${record#*$'\t'*$'\t'}"
-	# numstat reports "-" for files git treats as binary.
 	if [[ $added == - ]] || skipped "$path"; then
 		continue
 	fi
@@ -33,7 +44,7 @@ while IFS= read -r -d '' record; do
 		*.*) extensions+=("${path##*.}") ;;
 		esac
 	fi
-done < <(git diff --cached --no-renames --numstat -z --diff-filter=AMT)
+done < <(git --literal-pathspecs diff --cached --numstat -z "$empty_tree" -- "${staged[@]}")
 
 if ((${#oversized[@]} == 0)); then
 	exit 0
