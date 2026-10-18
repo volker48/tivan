@@ -1110,9 +1110,12 @@ textarea {
 }
 
 /* The avatar stays under the line height so the --lines fit above still counts one line a member. */
+/* As wide as the name, not the card, so a name the phone remote throws into the air flies as a
+   sticker rather than a plank. */
 .wall-members li {
   display: flex;
   align-items: center;
+  align-self: flex-start;
 }
 
 .wall-members .avatar {
