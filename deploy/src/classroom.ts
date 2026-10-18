@@ -60,7 +60,7 @@ function parseStudent(raw: unknown): RosterEntry | null {
 /**
  * Calls each student by their first name, and adds their last initial ("Steve D.") when someone
  * else in the same course shares that first name. A student with no family name keeps the bare
- * first name.
+ * first name, and one with no name at all stays nameless for the client to fill in.
  */
 function nameRoster(entries: readonly RosterEntry[]): ClassroomStudent[] {
   const key = (entry: RosterEntry): string => entry.first.toLocaleLowerCase();
@@ -74,7 +74,7 @@ function nameRoster(entries: readonly RosterEntry[]): ClassroomStudent[] {
     return {
       id: entry.id,
       name:
-        shared && initial !== undefined
+        shared && entry.first !== "" && initial !== undefined
           ? `${entry.first} ${initial.toLocaleUpperCase()}.`
           : entry.first,
     };

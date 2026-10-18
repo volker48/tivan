@@ -191,10 +191,12 @@ describe("GET /api/classroom/courses", () => {
     expect(
       await roster([
         named("u1", { givenName: "Steve", familyName: "Davis" }),
-        named("u2", { givenName: "steve", familyName: "  gómez" }),
+        named("u2", { givenName: "  steve  ", familyName: "  gómez" }),
         named("u3", { givenName: "Marcus", familyName: "Aurelius" }),
         named("u4", { givenName: "Elizabeth", familyName: "Bennet" }),
         named("u5", { givenName: "Steve", familyName: "" }),
+        named("u6", { familyName: "Nobody" }),
+        named("u7", { familyName: "Nemo" }),
       ]),
     ).toEqual([
       { id: "u1", name: "Steve D." },
@@ -202,6 +204,8 @@ describe("GET /api/classroom/courses", () => {
       { id: "u3", name: "Marcus" },
       { id: "u4", name: "Elizabeth" },
       { id: "u5", name: "Steve" },
+      { id: "u6", name: "" },
+      { id: "u7", name: "" },
     ]);
   });
 
