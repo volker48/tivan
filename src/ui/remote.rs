@@ -171,6 +171,19 @@ fn status_line(link: LinkState) -> &'static str {
     }
 }
 
+/// Whether turning off would retire the room. It needs an open socket to tell the relay, or a
+/// room the relay already refuses, which forgetting here is all there is left to do. While
+/// connecting or retrying the message would be lost and the phone left on a live room. A replaced
+/// tab shares its pairing with the tab that replaced it, so turning off belongs to that tab.
+fn can_turn_off(link: LinkState) -> bool {
+    matches!(
+        link,
+        LinkState::Open { .. }
+            | LinkState::Refused(Refusal::Claimed)
+            | LinkState::Refused(Refusal::Unpaired)
+    )
+}
+
 fn link_tone(link: LinkState) -> &'static str {
     match link {
         LinkState::Open { peer: true } => "on",
@@ -253,9 +266,7 @@ pub fn RemotePanel(panel: Signal<bool>) -> Element {
                         onclick: move |_| panel.set(false),
                         "Done"
                     }
-                    // A replaced tab has no socket to tell the relay, and the tab that replaced
-                    // it shares this pairing, so turning off belongs to that tab.
-                    if state != LinkState::Refused(Refusal::Replaced) {
+                    if can_turn_off(state) {
                         button {
                             class: "btn",
                             r#type: "button",
@@ -370,5 +381,16 @@ mod tests {
             assert!(["on", "waiting", "trouble"].contains(&link_tone(state)));
         }
         assert_eq!(link_tone(LinkState::Open { peer: true }), "on");
+    }
+
+    #[test]
+    fn turning_off_is_offered_only_where_it_retires_the_room() {
+        assert!(can_turn_off(LinkState::Open { peer: true }));
+        assert!(can_turn_off(LinkState::Open { peer: false }));
+        assert!(can_turn_off(LinkState::Refused(Refusal::Claimed)));
+        assert!(can_turn_off(LinkState::Refused(Refusal::Unpaired)));
+        assert!(!can_turn_off(LinkState::Connecting));
+        assert!(!can_turn_off(LinkState::Retrying));
+        assert!(!can_turn_off(LinkState::Refused(Refusal::Replaced)));
     }
 }

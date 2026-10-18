@@ -14,26 +14,27 @@ pub struct Motion {
     pub with_gravity: bool,
 }
 
+#[cfg(test)]
 const GRAVITY: f64 = 9.81;
 
-impl Motion {
-    /// How hard the phone is being pushed, gravity aside. With gravity in the reading this is only
-    /// an estimate, because the phone's tilt is unknown, but a shake dwarfs the error.
-    fn force(self) -> f64 {
-        let magnitude = (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
-        if self.with_gravity {
-            (magnitude - GRAVITY).abs()
-        } else {
-            magnitude
-        }
-    }
+/// How much of the gravity estimate each reading leaves in place. Gravity changes only as slowly
+/// as the phone tilts, so a shake's jolts pass straight through the estimate.
+const GRAVITY_SMOOTHING: f64 = 0.9;
+
+fn length([x, y, z]: [f64; 3]) -> f64 {
+    (x * x + y * y + z * z).sqrt()
 }
 
 /// Counts jolts, each the moment the force rises past [`ShakeDetector::JOLT`], and reports a shake
 /// once enough of them land inside the window. After a shake it rests, so one long shake shuffles
 /// once and not three times.
+///
+/// Readings that include gravity have it taken out against a slow-moving estimate of where gravity
+/// points, so a sideways jolt of a phone held upright counts as fully as one with gravity removed by
+/// the phone itself.
 #[derive(Clone, Debug, Default)]
 pub struct ShakeDetector {
+    gravity: Option<[f64; 3]>,
     above: bool,
     jolts: Vec<Millis>,
     resting_until: Option<Millis>,
@@ -53,7 +54,7 @@ impl ShakeDetector {
     /// Takes one reading and says whether it completed a shake.
     pub fn sample(&mut self, motion: Motion) -> bool {
         let now = motion.at;
-        let above = motion.force() >= Self::JOLT;
+        let above = self.force(motion) >= Self::JOLT;
         let rising = above && !self.above;
         self.above = above;
         if self.resting_until.is_some_and(|until| now < until) {
@@ -72,6 +73,20 @@ impl ShakeDetector {
         self.jolts.clear();
         self.resting_until = Some(Millis(now.0 + Self::REST.0));
         true
+    }
+
+    /// How hard the phone is being pushed, gravity aside.
+    fn force(&mut self, motion: Motion) -> f64 {
+        let reading = [motion.x, motion.y, motion.z];
+        if !motion.with_gravity {
+            return length(reading);
+        }
+        let gravity = self.gravity.get_or_insert(reading);
+        for (estimate, value) in gravity.iter_mut().zip(reading) {
+            *estimate = GRAVITY_SMOOTHING * *estimate + (1.0 - GRAVITY_SMOOTHING) * value;
+        }
+        let [gx, gy, gz] = *gravity;
+        length([motion.x - gx, motion.y - gy, motion.z - gz])
     }
 }
 
@@ -199,5 +214,37 @@ mod tests {
                 ..motion
             });
         assert_eq!(shakes(&mut detector, shaken), [4_320]);
+    }
+
+    #[test]
+    fn a_sideways_shake_of_an_upright_phone_counts_when_gravity_is_in_the_reading() {
+        // Gravity along y, the shake along x. Taking 9.81 off the reading's length would leave
+        // about 12.5 of a 20 m/s² push, under the jolt threshold.
+        let upright = |motion: Motion| Motion {
+            y: GRAVITY,
+            with_gravity: true,
+            ..motion
+        };
+        let mut detector = ShakeDetector::new();
+        let resting = (0..1_000).step_by(16).map(|at| upright(still(at)));
+        assert!(shakes(&mut detector, resting).is_empty());
+        let shaken = shaking(1_000, 3, 160, 20.0).into_iter().map(upright);
+        assert_eq!(shakes(&mut detector, shaken), [1_320]);
+    }
+
+    #[test]
+    fn tilting_the_phone_slowly_is_not_a_shake() {
+        let mut detector = ShakeDetector::new();
+        // Gravity swings from y to z over two seconds, as when the phone is laid flat.
+        let tilting = (0..2_000).step_by(16).map(|at| {
+            let angle = std::f64::consts::FRAC_PI_2 * at as f64 / 2_000.0;
+            Motion {
+                y: GRAVITY * angle.cos(),
+                z: GRAVITY * angle.sin(),
+                with_gravity: true,
+                ..still(at)
+            }
+        });
+        assert!(shakes(&mut detector, tilting).is_empty());
     }
 }

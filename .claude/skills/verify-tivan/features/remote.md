@@ -26,13 +26,28 @@ Preconditions:
 - Two sessions with separate profiles: `tv-board` at 1280×800 and `tv-phone` at 390×844 (`agent-browser --session tv-phone set viewport 390 844`).
 - On the board, `McCurdy HR` with groups made (`Make groups`), then `Whiteboard`.
 
-- **Pair.** On `tv-board`, `find role button click --name "Phone remote"`, then `wait --text "Waiting for your phone"`. `eval "document.querySelector('.remote-link code').textContent"` prints `http://localhost:8787/#remote=<22 chars>`, and `eval "localStorage.getItem('tivan.remote')"` holds the same room.
+- **Pair.** On `tv-board`, `find role button click --name "Phone remote"`, then `wait --text "Waiting for your phone"`. `eval "document.querySelector('.remote-link code').textContent"` prints `http://localhost:8787/#remote=<22 chars>`, and `eval "JSON.parse(localStorage.getItem('tivan.remote')).room"` prints the same room.
 - **Connect.** On `tv-phone`, `open "<link>"`, then `wait --text "Connected to the whiteboard"`. `eval "Object.keys(localStorage)"` is `["tivan.remote.device"]` only. On `tv-board`, the button reads `Remote on`.
-- **Shake.** Save the board's `.doc.classes[0].grouping.of`. On `tv-phone`, `find role button click --name "Turn on shake"` if present (headless Chrome asks, like iOS), then dispatch a shake: `eval` a loop of 40 `new DeviceMotionEvent("devicemotion", {acceleration: {x, y: 0, z: 0}, accelerationIncludingGravity: {x, y: 0, z: 9.81}, interval: 16})` events 16 ms apart, with `x = ±22` for the first 3 frames of every 10 and `0` otherwise. Within about 0.4 s the board's cards wobble and the names fly; a screenshot 1 s after the shake shows names airborne. After 2.5 s, `.grouping.of` differs and the phone shows `Shuffled!`.
+- **Shake.** Save the board's `.doc.classes[0].grouping.of`. On `tv-phone`, `find role button click --name "Turn on shake"` if present (headless Chrome asks, like iOS), then dispatch a shake with `eval`:
+
+  ```js
+  (() => { let i = 0;
+    const tick = () => {
+      const x = i % 10 < 3 ? (Math.floor(i / 10) % 2 ? -22 : 22) : 0;
+      window.dispatchEvent(new DeviceMotionEvent("devicemotion", {
+        acceleration: { x, y: 0, z: 0 },
+        accelerationIncludingGravity: { x, y: 0, z: 9.81 },
+        interval: 16,
+      }));
+      if (++i < 40) setTimeout(tick, 16);
+    };
+    tick(); })()
+  ```
+ Within about 0.4 s the board's cards wobble and the names fly; a screenshot 1 s after the shake shows names airborne. After 2.5 s, `.grouping.of` differs and the phone shows `Shuffled!`.
 - **Commands.** On `tv-phone`, `Ask the oracle`: the board shows dialog `The oracle has chosen` and `17 left`. `Pick a group`: the dialog names a group.
 - **From Build.** Press Escape on the board until Build shows, then tap `Shuffle` on the phone. The board is back on the whiteboard (`Back to Build` visible).
 - **Claimed.** A third session opening the same link reads `paired with another phone`, and the board still reads `Remote on`.
-- **Turn off.** On `tv-board`, open the dialog, wait for its pop-in (`wait 600`), then `Turn off remote`. The phone reads `turned off on the whiteboard`, `tivan.remote` is `"null"`, and pressing `Phone remote` again gives a different room code.
+- **Turn off.** On `tv-board`, open the dialog, wait for its pop-in (`wait 600`), then `Turn off remote`. It is absent while the board is connecting or retrying, and in a tab another tab replaced. The phone reads `turned off on the whiteboard`, `tivan.remote` is `"null"`, and pressing `Phone remote` again gives a different room code.
 - **QR.** Screenshot the dialog and decode it (for example with `jsqr` and `pngjs` in a scratch directory). It decodes to the same link as the text.
 
 ## Gotchas
