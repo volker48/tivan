@@ -10,7 +10,7 @@ Answer the user's question about mcstack, hand them a prompt they can send, and 
 
 A message that asks for work, such as "use mcstack to fix this bug", is not a help question. Read [`bde-mode`](../bde-mode/SKILL.md), do the work under it, and mention once that typing `/bde-mode` at the start of each task keeps it on.
 
-This file maps questions to the skills and guide pages that hold the answers. Those files own the details. Read the file you route to before you quote it, and trust it when it disagrees with this map. The links here are relative to this skill inside the installed plugin. Don't hand the user a local path: the plugin cache sits outside their working directory, so the desktop app's file pane can't open it. Link the file on GitHub instead, at `https://github.com/volker48/mcstack/blob/main/plugins/mcstack/<path from the plugin root>`, for example `https://github.com/volker48/mcstack/blob/main/.claude/skills/bde-help/references/prompting.md`.
+This file maps questions to the skills and guide pages that hold the answers. Those files own the details. Read the file you route to before you quote it, and trust it when it disagrees with this map. The links here are relative to this skill inside the installed plugin. Don't hand the user a local path: the plugin cache sits outside their working directory, so the desktop app's file pane can't open it. Link the file on GitHub instead, at `https://github.com/volker48/mcstack/blob/main/plugins/mcstack/<path from the plugin root>`, for example `https://github.com/volker48/mcstack/blob/main/plugins/mcstack/skills/bde-help/references/prompting.md`.
 
 ## Find out what they need
 

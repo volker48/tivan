@@ -20,7 +20,8 @@ fix was picked up before it was released:
 
 1. `${CLAUDE_PLUGIN_ROOT}/skills/...` became `.claude/skills/...`
    (`bde-mode/SKILL.md`, `agents/bde-agent.md`). The `~/.claude/plugins` search
-   fallback in `bde-agent` was removed.
+   fallback in `bde-agent` was removed, and `bde-mode/SKILL.md` gained one sentence
+   saying its relative paths are relative to `.claude/skills/bde-mode/`.
 2. `subagent_type: "mcstack:bde-agent"` and `"mcstack:comment-sicko"` became
    `"bde-agent"` and `"comment-sicko"`. Project agents have no plugin prefix.
 3. `plugins/mcstack/skills/...` paths in `bde-mode/playbooks/multi-phase-plan.md`
