@@ -162,7 +162,9 @@ fn status_line(link: LinkState) -> &'static str {
         LinkState::Refused(Refusal::Claimed) => {
             "Another screen holds this remote. Turn it off and start again."
         }
-        LinkState::Refused(Refusal::Replaced) => "This remote is open in another tab or window.",
+        LinkState::Refused(Refusal::Replaced) => {
+            "This remote is open in another tab or window. Use or turn it off there."
+        }
         LinkState::Refused(Refusal::Unpaired) => {
             "This remote was turned off. Turn it off here and start again."
         }
@@ -251,14 +253,18 @@ pub fn RemotePanel(panel: Signal<bool>) -> Element {
                         onclick: move |_| panel.set(false),
                         "Done"
                     }
-                    button {
-                        class: "btn",
-                        r#type: "button",
-                        onclick: move |_| {
-                            remote.turn_off();
-                            panel.set(false);
-                        },
-                        "Turn off remote"
+                    // A replaced tab has no socket to tell the relay, and the tab that replaced
+                    // it shares this pairing, so turning off belongs to that tab.
+                    if state != LinkState::Refused(Refusal::Replaced) {
+                        button {
+                            class: "btn",
+                            r#type: "button",
+                            onclick: move |_| {
+                                remote.turn_off();
+                                panel.set(false);
+                            },
+                            "Turn off remote"
+                        }
                     }
                 }
             }

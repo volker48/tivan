@@ -90,9 +90,13 @@ fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>, kind: Draw) {
     }
 }
 
-/// A command from the phone. Shuffling and rotating clear a reveal first, so the class sees the
-/// wall move.
+/// A command from the phone. A finished timer's alert covers everything, so the command dismisses
+/// it first, as a teacher picking up the phone means to move on. Shuffling and rotating clear a
+/// reveal too, so the class sees the wall move.
 fn run_remote(mut state: AppState, mut reveal: Signal<Option<Reveal>>, command: Command) {
+    if matches!(state.timer(), Timer::Finished { .. }) {
+        state.cancel_timer();
+    }
     match command {
         Command::Shuffle => {
             reveal.set(None);
