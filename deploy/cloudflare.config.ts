@@ -1,4 +1,4 @@
-import { bindings, defineConfig } from "cf/config";
+import { bindings, defineConfig, exports } from "cf/config";
 import * as entrypoint from "./src/index.ts" with { type: "cf-worker" };
 import { LOCAL_D1_ID } from "./dev/local.ts";
 
@@ -12,7 +12,12 @@ export default defineConfig(({ mode }) => ({
     observability: { enabled: true },
     // Only the API and the sign-in flow run Worker code. Everything else stays a static asset.
     assets: { runWorkerFirst: ["/api/*", "/auth/*"] },
+    // One room per phone remote pairing. It relays between the whiteboard and the phone.
+    exports: {
+      RemoteRoom: exports.durableObject({ storage: "sqlite" }),
+    },
     env: {
+      REMOTE_ROOMS: bindings.durableObject({ worker: "tivan", exportName: "RemoteRoom" }),
       DB: bindings.d1({
         name: "tivan",
         id: mode === "local" ? LOCAL_D1_ID : undefined,

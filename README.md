@@ -20,6 +20,12 @@ In group creation mode the primary task is to create the classes and groups. The
 
 During whiteboard mode most of the UI should drop away and the focus is on the defined groups. There should be some additional options available while in whiteboard mode. There should be an Oracle button that randomly selects a student to answer a question. Once the student is chosen the UI should show "The oracle has chosen Tommy!" for example. A smaller button next to it picks one of the groups instead, showing the group's name and its members. Before the answer is shown the oracle should spin for about two seconds, flashing through the students (or groups) fast and then slowing down to land on the chosen one, unless the system asks for reduced motion. There should also be a button in this UI to create a timer that will be displayed on screen.
 
+## Phone remote
+
+On the whiteboard, **Phone remote** shows a QR code. The teacher scans it with their phone, and from then on shaking the phone shuffles the groups on the board: the cards wobble, every name is thrown up across the wall, and each one drifts down into its new group. The phone also has buttons for the oracle, picking a group and rotating centers, and a command sent while the board is in Build switches it to the whiteboard first.
+
+The phone opens the same app at `/#remote=<room>`. It shows only the remote and never loads the teacher's classes; the board tells it only whether the class has students, groups and centers. The board and the phone meet in a Durable Object (`RemoteRoom` in `deploy/src/remote-room.ts`) named by a random room code. The first board and the first phone to join each claim their seat with a random device key, so once the teacher's phone has joined, a student who photographs the QR code cannot take over. If a student's phone gets there first, the teacher's phone says the board is paired with another phone, and **Turn off remote** followed by **Phone remote** gives a fresh code. **Turn off remote** closes the room for good and tells the phone. It is offered while the board is connected, so the relay hears it, and once the relay has already refused the room, where all that is left is to forget the pairing here. The board keeps its pairing in `localStorage["tivan.remote"]`, apart from the saved classes, so the same phone keeps working the next morning. On iPhone the teacher taps **Turn on shake** once, because iOS asks before a page may read the motion sensor. Every browser can also tap **Shuffle**.
+
 ## Development
 
 Tivan is a Rust and Dioxus 0.7 web app. Signed out, it runs entirely in the browser and saves classes to `localStorage`, so each browser keeps its own data, and a first run loads three sample classes. A teacher can also sign in with Google. Their classes and groups are then stored in the Worker's D1 database, so they come back on any browser, and **Sync Classroom** pulls their active Google Classroom courses and rosters into classes. Students never sign in. Sync links a class to its course and a student to their Classroom user, so syncing again refreshes rosters without touching groups, hand-added students, or names the teacher edited. Saves are last write wins, so editing from two browsers at once can overwrite earlier edits.
@@ -29,6 +35,8 @@ Run the app locally with the Dioxus CLI (`cargo install dioxus-cli --version 0.7
 ```bash
 dx serve --platform web
 ```
+
+`dx serve` has no Worker, so there the phone remote never connects: the board's panel stays on "Connecting to Tivan…" and a phone on "Connecting…". Run the bundle through the Worker (below) to try it.
 
 Run the domain and persistence tests natively:
 

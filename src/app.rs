@@ -17,6 +17,7 @@ use gloo_timers::future::TimeoutFuture;
 
 use crate::account::{self, Booted, RemoteDoc, SaveTarget, Session};
 use crate::api::ApiError;
+use crate::domain::remote::Address;
 use crate::domain::{CalendarDay, Class, Doc, Millis, Skin, Timer, seed_doc};
 use crate::notice::Notice;
 use crate::outbox::{Edit, Outbox};
@@ -25,6 +26,8 @@ use crate::platform::{self, JsRng, LocalStorage};
 use crate::store;
 use crate::ui::avatar::AvatarSprite;
 use crate::ui::build::BuildMode;
+use crate::ui::phone::PhoneRemote;
+use crate::ui::remote::{BoardRemote, RemoteLink};
 use crate::ui::settings::SettingsMode;
 use crate::ui::whiteboard::WhiteboardMode;
 
@@ -294,6 +297,20 @@ pub fn use_escape(handler: impl FnMut() + 'static) {
     });
 }
 
+/// The page: the teacher's app, or, opened from the whiteboard's QR code, the phone remote, which
+/// never loads the teacher's classes.
+#[component]
+pub fn Root() -> Element {
+    let address = use_hook(platform::address);
+    rsx! {
+        document::Stylesheet { href: MAIN_CSS }
+        match address {
+            Address::App => rsx! { App {} },
+            Address::Remote(room) => rsx! { PhoneRemote { room } },
+        }
+    }
+}
+
 #[component]
 pub fn App() -> Element {
     let initial = use_hook(|| Rc::new(store::load(&LocalStorage, &mut JsRng)));
@@ -313,6 +330,7 @@ pub fn App() -> Element {
         today,
         skin,
     });
+    use_context_provider(BoardRemote::load);
     use_hook(|| {
         if let Some(code) = platform::take_auth_error() {
             let mut state = state;
@@ -358,8 +376,8 @@ pub fn App() -> Element {
     });
 
     rsx! {
-        document::Stylesheet { href: MAIN_CSS }
         AvatarSprite {}
+        RemoteLink {}
         div { class: "app",
             match state.mode() {
                 Mode::Build => rsx! { BuildMode {} },

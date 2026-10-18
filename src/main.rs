@@ -1,3 +1,3 @@
 fn main() {
-    dioxus::launch(tivan::app::App);
+    dioxus::launch(tivan::app::Root);
 }

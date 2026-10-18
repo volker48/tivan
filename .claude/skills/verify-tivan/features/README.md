@@ -46,6 +46,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 - [Timer](./timer.md): preset countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.
 - [Account and Classroom sync](./account.md): sign in with Google, keep classes on the server, and pull classes and rosters from Google Classroom.
 - [Settings](./settings.md): the gear page, and choosing a seasonal avatar skin.
+- [Phone remote](./remote.md): pair a phone from the whiteboard by QR code, shake it to shuffle, and drive the oracle from it. Needs the local Worker.
 
 ## Proof status
 

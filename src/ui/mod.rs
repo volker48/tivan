@@ -12,6 +12,8 @@ use crate::platform;
 pub mod account;
 pub mod avatar;
 pub mod build;
+pub mod phone;
+pub mod remote;
 pub mod settings;
 pub mod whiteboard;
 
