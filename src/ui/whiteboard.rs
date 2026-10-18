@@ -2,9 +2,11 @@ use dioxus::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
+use crate::domain::remote::Command;
 use crate::domain::{Draw, Grouping, Millis, Pick, Preset, Reel, Timer, format_mm_ss};
 use crate::platform;
 use crate::ui::avatar::AvatarIcon;
+use crate::ui::remote::{RemoteButton, RemotePanel, use_board_remote};
 use crate::ui::{GroupCard, RotateControls, center_slots, group_cards, hue};
 
 /// The oracle's latest answer. `seq` keys the overlay so each pick replays the entrance
@@ -24,15 +26,26 @@ const LOW_TIME: Millis = Millis(10_000);
 pub fn WhiteboardMode() -> Element {
     let mut state = use_app();
     let mut reveal = use_signal(|| None::<Reveal>);
+    let mut remote_panel = use_signal(|| false);
     // Escape closes the topmost overlay first, so dismissing a reveal never exposes Build mode to
     // the class.
     use_escape(move || {
-        if reveal.peek().is_some() {
+        if *remote_panel.peek() {
+            remote_panel.set(false);
+        } else if reveal.peek().is_some() {
             reveal.set(None);
         } else if matches!(state.timer(), Timer::Finished { .. }) {
             state.cancel_timer();
         } else {
             state.set_mode(Mode::Build);
+        }
+    });
+    // The phone's commands, carried out here because the oracle's overlay lives here.
+    let mut remote = use_board_remote();
+    use_effect(move || {
+        for command in remote.take_commands() {
+            remote_panel.set(false);
+            run_remote(state, reveal, command);
         }
     });
     let class_name = state
@@ -52,11 +65,13 @@ pub fn WhiteboardMode() -> Element {
                 GroupOracleButton { reveal }
                 RotateControls {}
                 TimerControls {}
+                RemoteButton { panel: remote_panel }
             }
             TimerStrip {}
             GroupWall {}
             OracleReveal { reveal }
             TimesUp {}
+            RemotePanel { panel: remote_panel }
         }
     }
 }
@@ -72,6 +87,25 @@ fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>, kind: Draw) {
     {
         let seq = reveal.peek().as_ref().map_or(0, |current| current.seq + 1);
         reveal.set(Some(Reveal { seq, pick, reel }));
+    }
+}
+
+/// A command from the phone. Shuffling and rotating clear a reveal first, so the class sees the
+/// wall move.
+fn run_remote(mut state: AppState, mut reveal: Signal<Option<Reveal>>, command: Command) {
+    match command {
+        Command::Shuffle => {
+            reveal.set(None);
+            platform::animate_burst();
+            state.edit_class(|class, rng| class.reshuffle(rng));
+        }
+        Command::Oracle => draw(state, reveal, Draw::Student),
+        Command::Group => draw(state, reveal, Draw::Group),
+        Command::Rotate => {
+            reveal.set(None);
+            platform::animate_rotation();
+            state.edit_class(|class, _| class.rotate_centers());
+        }
     }
 }
 
@@ -472,7 +506,9 @@ fn WallCard(card: GroupCard) -> Element {
             h2 { class: "wall-name", "{card.name}" }
             ul { class: "wall-members",
                 for student in card.members {
-                    li { key: "{student.id.get()}",
+                    li {
+                        key: "{student.id.get()}",
+                        "data-student": "{student.id.get()}",
                         AvatarIcon { avatar: student.avatar }
                         "{student.name}"
                     }

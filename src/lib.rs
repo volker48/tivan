@@ -6,5 +6,6 @@ pub mod notice;
 pub mod outbox;
 pub mod persist;
 pub mod platform;
+pub mod remote;
 pub mod store;
 pub mod ui;

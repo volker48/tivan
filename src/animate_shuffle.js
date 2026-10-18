@@ -6,6 +6,11 @@
 const FLIGHT_MS = 650;
 const MAX_STAGGER_MS = 180;
 const CARD_FLIGHT_MS = 800;
+// The phone remote's shake: the cards wobble like a shaken snow globe, then every name is thrown
+// up across the wall and drifts down into its new group.
+const WOBBLE_MS = 350;
+const BURST_MS = 1500;
+const MAX_BURST_STAGGER_MS = 250;
 // The re-render lands within a frame or two of the click. If nothing mutates by then there is
 // nothing to animate.
 const GIVE_UP_MS = 500;
@@ -75,8 +80,78 @@ function flyCard({ el: card, dx, dy, style }) {
   );
 }
 
+// A wobbling card is transformed, which stacks its chips under the cards after it, so the chips
+// wait for the wobble to end before they fly.
+function wobbleCard(card) {
+  const tilt = 1.5 + Math.random();
+  card.animate(
+    [
+      { transform: "rotate(0deg)" },
+      { transform: `rotate(${-tilt}deg) translateX(-0.4rem)`, offset: 0.25 },
+      { transform: `rotate(${tilt}deg) translateX(0.4rem)`, offset: 0.6 },
+      { transform: "rotate(0deg)" },
+    ],
+    { duration: WOBBLE_MS, easing: "ease-in-out" },
+  );
+}
+
+// `bounds` is the wall's box, which clips its contents, so each chip peaks somewhere inside it.
+function burstChip({ el: chip, dx, dy, style }, bounds) {
+  const to = chip.getBoundingClientRect();
+  const peakX = bounds.left + bounds.width * (0.05 + Math.random() * 0.8) - to.left;
+  const peakY = bounds.top + bounds.height * (0.05 + Math.random() * 0.5) - to.top;
+  const driftX = peakX * 0.5;
+  const driftY = peakY * 0.5 + bounds.height * 0.08;
+  const spin = (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 240);
+  // White behind the name, and a white rim standing in for padding, so a name over the dark wall
+  // or another card reads like a sticker.
+  const airborne = {
+    backgroundColor: "rgb(255, 255, 255)",
+    borderRadius: "999px",
+    boxShadow: "0 0 0 0.3em rgb(255, 255, 255), 0 14px 22px rgba(0, 0, 0, 0.4)",
+    zIndex: 10,
+  };
+  const grounded = {
+    backgroundColor: style.backgroundColor,
+    borderRadius: "999px",
+    boxShadow: "0 0 0 0 rgba(255, 255, 255, 0), 0 0 0 rgba(0, 0, 0, 0)",
+    zIndex: 10,
+  };
+  chip.animate(
+    [
+      { ...grounded, transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(1)` },
+      {
+        ...airborne,
+        transform: `translate(${peakX}px, ${peakY}px) rotate(${spin}deg) scale(1.25)`,
+        offset: 0.3,
+      },
+      {
+        ...airborne,
+        transform: `translate(${driftX}px, ${driftY}px) rotate(${spin * 0.3}deg) scale(1.1)`,
+        offset: 0.65,
+      },
+      { ...grounded, transform: "translate(0px, 0px) rotate(0deg) scale(1)" },
+    ],
+    {
+      duration: BURST_MS,
+      delay: WOBBLE_MS + Math.random() * MAX_BURST_STAGGER_MS,
+      easing: "cubic-bezier(.3, .7, .3, 1)",
+      fill: "backwards",
+    },
+  );
+}
+
 const CHIPS = { key: "student", fly: flyChip };
 const CARDS = { key: "group", fly: flyCard };
+// Every chip flies in a burst, the ones that stay in their group too, and the cards wobble first.
+const BURST = {
+  key: "student",
+  everyone: true,
+  before: (root) => {
+    for (const card of root.querySelectorAll("[data-group]")) wobbleCard(card);
+  },
+  fly: (move, root) => burstChip(move, root.getBoundingClientRect()),
+};
 
 function elementsIn(root, { key }) {
   return [...root.querySelectorAll(`[data-${key}]`)];
@@ -105,13 +180,14 @@ function flyMoved(root, kind, before) {
     const to = el.getBoundingClientRect();
     const dx = from.left - to.left;
     const dy = from.top - to.top;
-    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
+    if (kind.everyone || Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
       // Read every style before the first animate() call so the writes do not force a restyle each.
       const { backgroundColor, boxShadow } = getComputedStyle(el);
       moves.push({ el, dx, dy, style: { backgroundColor, boxShadow } });
     }
   }
-  for (const move of moves) kind.fly(move);
+  kind.before?.(root);
+  for (const move of moves) kind.fly(move, root);
 }
 
 // Records where every element of `kind` is now, then animates each one that moved once Dioxus
@@ -146,4 +222,9 @@ export function animateShuffle() {
 // Call right before the state change that rotates the groups to their next centers.
 export function animateRotation() {
   animateMoves(CARDS);
+}
+
+// Call right before the state change that re-deals the chips at the phone remote's shake.
+export function animateBurst() {
+  animateMoves(BURST);
 }

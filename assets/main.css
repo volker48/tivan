@@ -1318,6 +1318,280 @@ textarea {
   }
 }
 
+/* ---- Phone remote, board side: the button in the whiteboard bar and the pairing panel ---- */
+
+.btn-remote {
+  font-size: clamp(1rem, 1.4vw, 1.5rem);
+}
+
+.remote-dot {
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: #b9b0bf;
+}
+
+[data-tone="on"] > .remote-dot,
+.phone-connected .remote-dot {
+  background: #3ecf6e;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+[data-tone="waiting"] > .remote-dot {
+  background: var(--hero);
+}
+
+[data-tone="trouble"] > .remote-dot {
+  background: var(--primary);
+}
+
+.remote-panel {
+  display: flex;
+  flex-direction: column;
+  max-width: min(60rem, 95vw);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: clamp(1.2rem, 3vw, 2.5rem);
+  border: 4px solid var(--line);
+  border-radius: 2rem;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 0.6rem 0 var(--line);
+  animation: pop-in 420ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.remote-title {
+  margin: 0 0 1rem;
+  font-size: clamp(1.6rem, 3.4vw, 3rem);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.remote-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(1rem, 3vw, 2.5rem);
+}
+
+.qr {
+  flex: none;
+  width: clamp(12rem, 30vw, 22rem);
+  height: auto;
+  border: 4px solid var(--line);
+  border-radius: 1.2rem;
+  box-shadow: var(--sticker);
+}
+
+.remote-steps {
+  flex: 1 1 16rem;
+  font-size: clamp(1.05rem, 1.6vw, 1.5rem);
+  font-weight: 700;
+}
+
+.remote-steps ol {
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.remote-steps li + li {
+  margin-top: 0.4em;
+}
+
+.remote-status {
+  margin: 1em 0 0;
+  padding: 0.5em 0.8em;
+  border: 2px solid var(--line);
+  border-radius: 1rem;
+  background: var(--cream);
+}
+
+.remote-status[data-tone="on"] {
+  background: #c9f5d6;
+}
+
+.remote-status[data-tone="trouble"] {
+  background: #ffd9cf;
+}
+
+.remote-link {
+  margin: 0.8em 0 0;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.remote-panel .form-actions {
+  margin-top: 1.4rem;
+}
+
+/* ---- Phone remote, phone side: one column of big targets on the dark board colors ---- */
+
+.phone-screen {
+  --line: #0c0710;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1rem 1rem 2rem;
+  background: var(--board-bg);
+  color: var(--board-ink);
+  /* A double tap on a button must not zoom the page. */
+  touch-action: manipulation;
+}
+
+.phone-screen :focus-visible {
+  outline-color: var(--hero);
+}
+
+.phone-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.phone-bar .brand {
+  margin-right: 0;
+}
+
+.phone-tag {
+  font-weight: 800;
+  opacity: 0.75;
+}
+
+.phone-message {
+  margin: auto 0;
+  padding: 1.2rem;
+  border: 3px solid var(--line);
+  border-radius: 1.4rem;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 0.4rem 0 var(--line);
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.phone-message[data-tone="trouble"] {
+  background: #ffd9cf;
+}
+
+.phone-connected {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-weight: 800;
+}
+
+.shake-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.4rem 1rem;
+  border: 3px solid var(--line);
+  border-radius: 1.6rem;
+  background: var(--g4);
+  color: var(--ink);
+  box-shadow: 0 0.4rem 0 var(--line);
+  text-align: center;
+  animation: jiggle 600ms ease-in-out;
+}
+
+.shake-card[data-ready="false"] {
+  background: var(--paper);
+}
+
+.shake-phone {
+  width: 6rem;
+  height: 6rem;
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  animation: wiggle 1.4s ease-in-out infinite;
+}
+
+.shake-card[data-ready="false"] .shake-phone {
+  animation: none;
+}
+
+.shake-glass {
+  fill: var(--g1);
+  stroke-width: 2;
+}
+
+.shake-lines {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.shake-hint {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.phone-actions {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.phone-btn {
+  min-height: 4rem;
+  font-size: 1.35rem;
+}
+
+.phone-hint {
+  margin: 0;
+  font-weight: 700;
+  opacity: 0.85;
+  text-align: center;
+}
+
+.phone-confirm {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  margin: 0;
+  padding: 0.7rem 1.4rem;
+  border: 3px solid var(--line);
+  border-radius: 999px;
+  background: var(--hero);
+  color: var(--ink);
+  box-shadow: 0 0.3rem 0 var(--line);
+  font-size: 1.2rem;
+  font-weight: 900;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: toast-in 320ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes jiggle {
+  0%, 100% { transform: none; }
+  20% { transform: rotate(-4deg) scale(1.03); }
+  45% { transform: rotate(3deg) scale(1.03); }
+  70% { transform: rotate(-2deg); }
+}
+
+@keyframes wiggle {
+  0%, 60%, 100% { transform: none; }
+  70% { transform: rotate(-10deg); }
+  80% { transform: rotate(10deg); }
+  90% { transform: rotate(-6deg); }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 1rem) scale(0.8); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

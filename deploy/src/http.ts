@@ -6,6 +6,7 @@ export type ApiError =
   | "classroom_unavailable"
   | "not_found"
   | "method_not_allowed"
+  | "upgrade_required"
   | "misconfigured"
   | "internal";
 
