@@ -15,7 +15,8 @@ cloud sessions. Cloud sessions don't load plugins from a repo's
 
 ## Changes from the plugin
 
-A project skill is not a plugin, so three things were rewritten:
+A project skill is not a plugin, so three things were rewritten, and one upstream
+fix was picked up before it was released:
 
 1. `${CLAUDE_PLUGIN_ROOT}/skills/...` became `.claude/skills/...`
    (`bde-mode/SKILL.md`, `agents/bde-agent.md`). The `~/.claude/plugins` search
@@ -25,8 +26,14 @@ A project skill is not a plugin, so three things were rewritten:
 3. `plugins/mcstack/skills/...` paths in `bde-mode/playbooks/multi-phase-plan.md`
    became `.claude/skills/...`, and relative links from `bde-help` to the plugin's
    README, guide pages, and `setup-mcstack` became GitHub URLs.
+4. `bde-mode/scripts/worktree-audit.sh` is the version from
+   [volker48/mcstack#2](https://github.com/volker48/mcstack/pull/2), which picks the
+   GNU or BSD `stat` and `date` flags. The plugin's `99805bb` version only works on
+   macOS, so on Linux cloud sessions it misses recent chats.
 
 ## Updating
 
 This is a one-time copy. To pick up a newer mcstack, copy the skills and agents
-over again and repeat the three rewrites above.
+over again and repeat the three rewrites above. Then check that
+`worktree-audit.sh` still contains `mtime_and_name`. If mcstack#2 isn't in the
+version you copied from, reapply it, or the fix is lost without any error.
