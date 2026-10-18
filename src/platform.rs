@@ -5,8 +5,13 @@ use std::num::NonZeroUsize;
 use dioxus::logger::tracing::warn;
 use js_sys::{Date, Math};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
-use web_sys::{KeyboardEvent, Storage, Window};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{
+    AbortSignal, KeyboardEvent, Location, RequestCache, RequestInit, Response, Storage, Window,
+};
 
+use crate::account;
+use crate::api::{Api, Http, HttpReply, HttpRequest, TransportError, timeout_ms};
 use crate::domain::{CalendarDay, Millis, Rng};
 use crate::store::{self, StorageError};
 
@@ -89,6 +94,95 @@ fn describe(thrown: &JsValue) -> String {
         .map(|error| String::from(error.message()))
         .or_else(|| thrown.as_string())
         .unwrap_or_else(|| format!("{thrown:?}"))
+}
+
+/// `fetch` against the page's own origin, which carries the session cookie.
+pub struct Fetch;
+
+impl Http for Fetch {
+    async fn send(&self, request: HttpRequest<'_>) -> Result<HttpReply, TransportError> {
+        let thrown = |cause: JsValue| TransportError::new(describe(&cause));
+        let window = web_sys::window().ok_or_else(|| TransportError::new("there is no window"))?;
+        let init = RequestInit::new();
+        init.set_method(request.method.as_str());
+        // A stale answer to a read would later be written back over newer data.
+        init.set_cache(RequestCache::NoStore);
+        init.set_signal(Some(&AbortSignal::timeout_with_u32(timeout_ms(
+            request.path,
+        ))));
+        if let Some(body) = request.body {
+            init.set_body(&JsValue::from_str(body));
+        }
+        let response = JsFuture::from(window.fetch_with_str_and_init(request.path, &init))
+            .await
+            .map_err(thrown)?;
+        let response: Response = response
+            .dyn_into()
+            .map_err(|_| TransportError::new("fetch did not return a response"))?;
+        let text = response.text().map_err(thrown)?;
+        let body = JsFuture::from(text)
+            .await
+            .map_err(thrown)?
+            .as_string()
+            .ok_or_else(|| TransportError::new("the reply was not text"))?;
+        Ok(HttpReply {
+            status: response.status(),
+            body,
+        })
+    }
+}
+
+pub fn api() -> Api<Fetch> {
+    Api::new(Fetch)
+}
+
+/// Sends the browser to Google through the server. The page is replaced, so nothing after this
+/// call matters.
+pub fn go_to_login() {
+    navigate("go to the sign-in page", |location| {
+        location.set_href("/auth/login")
+    });
+}
+
+pub fn reload() {
+    navigate("reload the page", Location::reload);
+}
+
+/// Runs `action` on the window's location, and warns that the page could not `what` when it fails.
+fn navigate(what: &str, action: impl FnOnce(&Location) -> Result<(), JsValue>) {
+    let outcome = web_sys::window()
+        .ok_or_else(|| JsValue::from_str("there is no window"))
+        .and_then(|window| action(&window.location()));
+    if let Err(cause) = outcome {
+        warn!("could not {what}: {}", describe(&cause));
+    }
+}
+
+/// The sign-in failure code the server left in the address, if any. The query is cleared as it is
+/// read, so reloading the page does not show the same failure again.
+pub fn take_auth_error() -> Option<String> {
+    let window = web_sys::window()?;
+    let location = window.location();
+    let search = match location.search() {
+        Ok(search) => search,
+        Err(cause) => {
+            warn!("could not read the address: {}", describe(&cause));
+            return None;
+        }
+    };
+    let code = account::auth_error_code(&search)?;
+    let cleared = location.pathname().and_then(|path| {
+        window
+            .history()?
+            .replace_state_with_url(&JsValue::NULL, "", Some(&path))
+    });
+    if let Err(cause) = cleared {
+        warn!(
+            "could not clear the sign-in error from the address: {}",
+            describe(&cause)
+        );
+    }
+    Some(code)
 }
 
 /// Keeps the Escape listener registered. Dropping it removes the listener.

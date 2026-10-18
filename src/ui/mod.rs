@@ -9,6 +9,7 @@ use crate::domain::{
 };
 use crate::platform;
 
+pub mod account;
 pub mod avatar;
 pub mod build;
 pub mod settings;

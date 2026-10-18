@@ -167,6 +167,7 @@ textarea {
   top: 0;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1rem;
@@ -220,6 +221,78 @@ textarea {
 .timer-chip.is-done {
   background: var(--danger);
   animation: nudge 1.2s ease-in-out infinite;
+}
+
+/* ---- Account controls in the top bar, and the Classroom sync panel ---- */
+
+a.btn {
+  text-decoration: none;
+}
+
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  max-width: 10rem;
+  padding: 0.3rem 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--hero);
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-panel h2 {
+  margin: 0;
+}
+
+.sync-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.6rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sync-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.7rem;
+  min-height: 44px;
+  font-weight: 700;
+}
+
+label.sync-choice {
+  cursor: pointer;
+}
+
+.sync-choice input[type="checkbox"] {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  accent-color: var(--primary);
+}
+
+.sync-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sync-result {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 
 .build {
@@ -817,16 +890,23 @@ textarea {
 }
 
 @media (max-width: 40rem) {
-  .topbar {
-    flex-wrap: wrap;
-  }
-
   .class-actions {
     margin-left: 0;
   }
 
+}
+
+/* Brand, timer chip, account controls and Whiteboard stop fitting on one row near 52rem. The
+   controls then take a row of their own, which keeps the bar at two rows and the moving bar's
+   offset below it right. */
+@media (max-width: 52rem) {
+  .account {
+    order: 10;
+    flex: 1 0 100%;
+  }
+
   .moving-bar {
-    top: 7rem;
+    top: 8.5rem;
   }
 }
 
