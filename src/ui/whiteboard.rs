@@ -260,7 +260,7 @@ fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
                     for student in members {
                         li { key: "{student.id.get()}",
                             AvatarIcon { avatar: student.avatar }
-                            "{student.name}"
+                            span { class: "wall-member-name", "{student.name}" }
                         }
                     }
                 }
@@ -482,11 +482,14 @@ fn WallCard(card: GroupCard) -> Element {
             class: "wall-card hue-{hue(card.idx)}",
             "data-group": "{card.idx.get()}",
             h2 { class: "wall-name", "{card.name}" }
-            ul { class: "wall-members",
-                for student in card.members {
-                    li { key: "{student.id.get()}",
-                        AvatarIcon { avatar: student.avatar }
-                        "{student.name}"
+            // The box is what the member tiles measure to size their avatars.
+            div { class: "wall-members-box",
+                ul { class: "wall-members",
+                    for student in card.members {
+                        li { key: "{student.id.get()}",
+                            AvatarIcon { avatar: student.avatar }
+                            span { class: "wall-member-name", "{student.name}" }
+                        }
                     }
                 }
             }
