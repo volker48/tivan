@@ -130,13 +130,14 @@ textarea {
   font-size: 0.95rem;
 }
 
-/* ---- Avatars: decorative faces from the sprite, sized in em so they scale with the text beside them ---- */
+/* ---- Avatars: decorative stickers from the sprite, sized in em so they scale with the text beside
+   them. The box holds the sticker's edge and shadow too, so it is a little larger than the face. ---- */
 
 .avatar {
   flex: none;
-  width: 1.5em;
-  height: 1.5em;
-  margin-inline-end: 0.35em;
+  width: 1.75em;
+  height: 1.75em;
+  margin-inline-end: 0.3em;
   vertical-align: middle;
 }
 
@@ -873,8 +874,8 @@ textarea {
 }
 
 .skin-preview .avatar {
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 3rem;
+  height: 3rem;
   margin: 0;
 }
 
@@ -1022,8 +1023,21 @@ textarea {
   opacity: 0.8;
 }
 
+/* Computed on the member list from its box, then inherited as a length, so the tiles inside it,
+   which are containers themselves, size their avatars against the list and not themselves. */
+@property --avatar {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 .wall {
   --leading: 1.3;
+  /* In em: a member's row at its smallest avatar; a column of names, a 12-letter name and that
+     avatar; and the gaps, frame, padding and borders around a card's text. */
+  --member-row: 2.3;
+  --track: 8.8;
+  --chrome: 3.2;
   flex: 1 1 0;
   min-height: 0;
   container-type: size;
@@ -1048,6 +1062,7 @@ textarea {
   font-size: clamp(1.1rem, 2.4vw, 3rem);
   line-height: var(--leading);
   overflow-wrap: anywhere;
+  container: wall-card / inline-size;
 }
 
 /* A center frame wraps the card and is the grid cell, so it carries the same type size as the
@@ -1077,16 +1092,26 @@ textarea {
   text-align: center;
 }
 
-/* Size the type from the wall's own box: no larger than a 12-letter name and its avatar fit
-   across a column, and no larger than the fullest card fits down a row. */
+/* Size the type from the wall's own box, for names in one column and in two, and take the larger.
+   Each is no larger than its columns of 12-letter names fit across a card, and no larger than the
+   fullest card's rows fit down it. Two columns win on a wide, short wall like four groups under the
+   timer, one on a narrow one. The member tiles below then give the room left over to avatars. */
 @supports (width: 1cqw) {
   .wall-card,
   .wall-center {
+    --cell-w: calc(100cqw / var(--cols));
+    --cell-h: calc(100cqh / var(--rows) * 0.85);
     font-size: clamp(
       1rem,
-      min(
-        calc(100cqw / var(--cols) * 0.1),
-        calc(100cqh / var(--rows) * 0.85 / (var(--lines) * var(--leading)))
+      max(
+        min(
+          calc(var(--cell-w) / (var(--track) + var(--chrome))),
+          calc(var(--cell-h) / (var(--members) * var(--member-row) + var(--lines) * var(--leading)))
+        ),
+        min(
+          calc(var(--cell-w) / (2 * var(--track) + 0.6 + var(--chrome))),
+          calc(var(--cell-h) / (var(--pairs) * var(--member-row) + var(--lines) * var(--leading)))
+        )
       ),
       6rem
     );
@@ -1109,16 +1134,157 @@ textarea {
   font-weight: 700;
 }
 
-/* The avatar stays under the line height so the --lines fit above still counts one line a member. */
 .wall-members li {
   display: flex;
   align-items: center;
 }
 
 .wall-members .avatar {
-  width: 1.2em;
-  height: 1.2em;
-  margin-inline-end: 0.3em;
+  width: 1.6em;
+  height: 1.6em;
+  margin-inline-end: 0.25em;
+}
+
+/* Names beside their avatars, in one column or two on a wide card. This is the layout on a phone,
+   where cards grow to fit, and where the tiles below are not supported. */
+.wall-card .wall-members {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.1em 0.6em;
+}
+
+@container wall-card (min-width: 16.5em) {
+  .wall-card .wall-members {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.wall-card .wall-members .avatar {
+  width: 2.2em;
+  height: 2.2em;
+}
+
+.wall-members-box {
+  min-height: 0;
+}
+
+/* On the wall each member is a tile, an avatar over its name, and the avatars take the room the
+   type leaves in the card. For one to eight columns of tiles, an avatar can be as wide as a column
+   and as tall as a row less two lines of name, where the fullest card's members set the rows. A
+   name is set small enough for about ten letters to fit across its tile, between a floor and a
+   cap, and a column narrower than the floor allows does not count. Every avatar gets the largest
+   of those, and the grid then fits at least that many columns, whose names are no larger than
+   the ones reserved for. */
+@media (width > 45rem) {
+  @supports (width: round(up, 1.5px, 1px)) {
+    .wall-members-box {
+      flex: 1 1 0;
+      container: wall-members / size;
+    }
+
+    .wall-card .wall-members {
+      --gap: 0.4em;
+      --row-gap: 0.2em;
+      --name-lines: 2.4;
+      --name-width: 5.5;
+      --name-min: 0.6em;
+      --name-max: 0.9em;
+      --narrowest: calc(var(--name-width) * var(--name-min));
+      --w1: 100cqi;
+      --r1: var(--members);
+      --a1: min(
+        var(--w1),
+        (100cqb - (var(--r1) - 1) * var(--row-gap)) / var(--r1) - var(--name-lines) *
+          clamp(var(--name-min), var(--w1) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w1) - var(--narrowest)) * 1000)
+      );
+      --w2: calc((100cqi - 1 * var(--gap)) / 2);
+      --r2: round(up, var(--members) / 2, 1);
+      --a2: min(
+        var(--w2),
+        (100cqb - (var(--r2) - 1) * var(--row-gap)) / var(--r2) - var(--name-lines) *
+          clamp(var(--name-min), var(--w2) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w2) - var(--narrowest)) * 1000)
+      );
+      --w3: calc((100cqi - 2 * var(--gap)) / 3);
+      --r3: round(up, var(--members) / 3, 1);
+      --a3: min(
+        var(--w3),
+        (100cqb - (var(--r3) - 1) * var(--row-gap)) / var(--r3) - var(--name-lines) *
+          clamp(var(--name-min), var(--w3) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w3) - var(--narrowest)) * 1000)
+      );
+      --w4: calc((100cqi - 3 * var(--gap)) / 4);
+      --r4: round(up, var(--members) / 4, 1);
+      --a4: min(
+        var(--w4),
+        (100cqb - (var(--r4) - 1) * var(--row-gap)) / var(--r4) - var(--name-lines) *
+          clamp(var(--name-min), var(--w4) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w4) - var(--narrowest)) * 1000)
+      );
+      --w5: calc((100cqi - 4 * var(--gap)) / 5);
+      --r5: round(up, var(--members) / 5, 1);
+      --a5: min(
+        var(--w5),
+        (100cqb - (var(--r5) - 1) * var(--row-gap)) / var(--r5) - var(--name-lines) *
+          clamp(var(--name-min), var(--w5) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w5) - var(--narrowest)) * 1000)
+      );
+      --w6: calc((100cqi - 5 * var(--gap)) / 6);
+      --r6: round(up, var(--members) / 6, 1);
+      --a6: min(
+        var(--w6),
+        (100cqb - (var(--r6) - 1) * var(--row-gap)) / var(--r6) - var(--name-lines) *
+          clamp(var(--name-min), var(--w6) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w6) - var(--narrowest)) * 1000)
+      );
+      --w7: calc((100cqi - 6 * var(--gap)) / 7);
+      --r7: round(up, var(--members) / 7, 1);
+      --a7: min(
+        var(--w7),
+        (100cqb - (var(--r7) - 1) * var(--row-gap)) / var(--r7) - var(--name-lines) *
+          clamp(var(--name-min), var(--w7) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w7) - var(--narrowest)) * 1000)
+      );
+      --w8: calc((100cqi - 7 * var(--gap)) / 8);
+      --r8: round(up, var(--members) / 8, 1);
+      --a8: min(
+        var(--w8),
+        (100cqb - (var(--r8) - 1) * var(--row-gap)) / var(--r8) - var(--name-lines) *
+          clamp(var(--name-min), var(--w8) / var(--name-width), var(--name-max)) - 0.1em,
+        max(0px, (var(--w8) - var(--narrowest)) * 1000)
+      );
+      --avatar: clamp(
+        1.5em,
+        max(var(--a1), var(--a2), var(--a3), var(--a4), var(--a5), var(--a6), var(--a7), var(--a8)),
+        8em
+      );
+      height: 100%;
+      grid-template-columns: repeat(auto-fit, minmax(max(var(--avatar), var(--narrowest)), 1fr));
+      align-content: safe center;
+      gap: var(--row-gap) var(--gap);
+    }
+
+    .wall-card .wall-members li {
+      container-type: inline-size;
+      flex-direction: column;
+      gap: 0.1em;
+      text-align: center;
+    }
+
+    .wall-card .wall-members .avatar {
+      width: var(--avatar);
+      height: var(--avatar);
+      margin: 0;
+    }
+
+    /* Two lines tall whether or not it wraps, so tiles line up across cards. */
+    .wall-member-name {
+      min-height: calc(var(--name-lines) * 1em);
+      font-size: clamp(var(--name-min), 100cqi / var(--name-width), var(--name-max));
+      line-height: calc(var(--name-lines) / 2);
+    }
+  }
 }
 
 .wall-empty {
@@ -1179,8 +1345,8 @@ textarea {
 
 /* Inline with the name rather than above it, so the card is no taller than before on a short screen. */
 .reveal-name .avatar {
-  width: 0.8em;
-  height: 0.8em;
+  width: 0.95em;
+  height: 0.95em;
   margin-inline-end: 0.12em;
   vertical-align: -0.05em;
   animation: pop-in 520ms cubic-bezier(0.2, 1.4, 0.4, 1) 180ms both;

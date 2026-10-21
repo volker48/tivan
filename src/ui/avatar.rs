@@ -30,6 +30,9 @@ pub fn AvatarIcon(avatar: Avatar) -> Element {
 }
 
 /// An avatar with a given skin drawn over it, for a place that is not showing the active one.
+///
+/// The two are cut out as one sticker, so a hat gets the same edge as the face. The art is drawn a
+/// little smaller than the box to leave room inside it for that edge and its shadow.
 #[component]
 pub fn SkinnedAvatar(avatar: Avatar, skin: Option<Skin>) -> Element {
     rsx! {
@@ -38,9 +41,13 @@ pub fn SkinnedAvatar(avatar: Avatar, skin: Option<Skin>) -> Element {
             view_box: "0 0 100 100",
             "aria-hidden": "true",
             "focusable": "false",
-            r#use { href: "#avatar-{avatar.name()}" }
-            if let Some(skin) = skin {
-                r#use { href: "#skin-{skin.name()}" }
+            g { filter: "url(#av-sticker)",
+                g { transform: "translate(50 53) scale(.84) translate(-50 -56)",
+                    r#use { href: "#avatar-{avatar.name()}" }
+                    if let Some(skin) = skin {
+                        r#use { href: "#skin-{skin.name()}" }
+                    }
+                }
             }
         }
     }
@@ -74,5 +81,10 @@ mod tests {
             Skin::ALL.len(),
             "art without a Skin"
         );
+    }
+
+    #[test]
+    fn the_sprite_defines_the_sticker_every_avatar_is_cut_out_with() {
+        assert_eq!(SPRITE.matches("<filter id=\"av-sticker\"").count(), 1);
     }
 }
