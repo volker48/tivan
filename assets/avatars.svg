@@ -1,27 +1,74 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <clipPath id="av-head"><circle cx="50" cy="58" r="34"/></clipPath>
+    <!-- Light from the top left: a glow there, shade toward the far edge. Sized to whatever shape
+         it fills, so one gradient shades heads, ears and snouts alike. -->
+    <radialGradient id="av-depth-fill" cx=".38" cy=".3" r=".8">
+      <stop offset="0" stop-color="#fff" stop-opacity=".34"/>
+      <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".68" stop-color="#2a1f33" stop-opacity="0"/>
+      <stop offset="1" stop-color="#2a1f33" stop-opacity=".3"/>
+    </radialGradient>
+    <radialGradient id="av-dark" cx=".4" cy=".3" r=".75">
+      <stop offset="0" stop-color="#5d4466"/>
+      <stop offset="1" stop-color="#160f1c"/>
+    </radialGradient>
+    <radialGradient id="av-blush-fill">
+      <stop offset="0" stop-color="#ff5c8a" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#ff5c8a" stop-opacity="0"/>
+    </radialGradient>
+    <!-- The round head's shading: inside the outline, with a shadow under the chin. -->
+    <g id="av-depth">
+      <circle cx="50" cy="58" r="32.5" fill="url(#av-depth-fill)"/>
+      <ellipse clip-path="url(#av-head)" cx="50" cy="99" rx="48" ry="17" fill="#2a1f33" opacity=".14"/>
+    </g>
+    <g id="av-shine" fill="#fff">
+      <ellipse cx="35" cy="37" rx="11" ry="5.5" transform="rotate(-32 35 37)" opacity=".42"/>
+      <circle cx="47" cy="29.5" r="2.2" opacity=".5"/>
+    </g>
     <g id="av-eyes">
-      <circle cx="38" cy="57" r="5" fill="#2a1f33"/>
-      <circle cx="62" cy="57" r="5" fill="#2a1f33"/>
-      <circle cx="39.8" cy="55.2" r="1.7" fill="#fff"/>
-      <circle cx="63.8" cy="55.2" r="1.7" fill="#fff"/>
+      <ellipse cx="37" cy="57.5" rx="5.4" ry="6.1" fill="url(#av-dark)"/>
+      <ellipse cx="63" cy="57.5" rx="5.4" ry="6.1" fill="url(#av-dark)"/>
+      <g fill="#fff">
+        <circle cx="39" cy="55" r="2.2"/>
+        <circle cx="65" cy="55" r="2.2"/>
+        <circle cx="35.6" cy="60.2" r="1" opacity=".85"/>
+        <circle cx="61.6" cy="60.2" r="1" opacity=".85"/>
+      </g>
     </g>
     <g id="av-light-eyes">
-      <circle cx="38.5" cy="56" r="3.6" fill="#fff"/>
-      <circle cx="61.5" cy="56" r="3.6" fill="#fff"/>
-      <circle cx="39" cy="56.6" r="1.8" fill="#2a1f33"/>
-      <circle cx="61" cy="56.6" r="1.8" fill="#2a1f33"/>
+      <circle cx="38.5" cy="56.5" r="4.6" fill="#fff"/>
+      <circle cx="61.5" cy="56.5" r="4.6" fill="#fff"/>
+      <ellipse cx="39" cy="57.2" rx="2.6" ry="3" fill="url(#av-dark)"/>
+      <ellipse cx="61" cy="57.2" rx="2.6" ry="3" fill="url(#av-dark)"/>
+      <circle cx="40" cy="56" r="1.1" fill="#fff"/>
+      <circle cx="62" cy="56" r="1.1" fill="#fff"/>
     </g>
-    <g id="av-blush" fill="#ff6f91" opacity=".45">
-      <ellipse cx="27" cy="67" rx="7" ry="4.2"/>
-      <ellipse cx="73" cy="67" rx="7" ry="4.2"/>
+    <g id="av-blush" fill="url(#av-blush-fill)">
+      <ellipse cx="25.5" cy="68.5" rx="8" ry="5"/>
+      <ellipse cx="74.5" cy="68.5" rx="8" ry="5"/>
     </g>
     <path id="av-mouth" d="M44.5 67.5q2.75 3.5 5.5 0q2.75 3.5 5.5 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
     <path id="av-smile" d="M45.5 67q4.5 4.5 9 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
     <g id="av-whiskers" stroke="#2a1f33" stroke-width="2" stroke-linecap="round">
       <path d="M19 63l-11-2M19 69l-11 2M81 63l11-2M81 69l11 2"/>
     </g>
+    <!-- A die-cut sticker: a cream edge grown around the whole picture, hat included, and a soft
+         shadow under it so it lifts off whatever card it sits on. -->
+    <filter id="av-sticker" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+      <feMorphology in="SourceAlpha" operator="dilate" radius="4" result="grown"/>
+      <feGaussianBlur in="grown" stdDeviation="2.2" result="blur"/>
+      <feOffset in="blur" dy="3.4" result="drop"/>
+      <feFlood flood-color="#120b17" flood-opacity=".5"/>
+      <feComposite in2="drop" operator="in" result="shadow"/>
+      <feFlood flood-color="#fffdf8"/>
+      <feComposite in2="grown" operator="in" result="edge"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="edge"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
   <symbol id="avatar-bear" viewBox="0 0 100 100">
@@ -31,12 +78,20 @@
     </g>
     <circle cx="25" cy="31" r="6.5" fill="#f4cfa6"/>
     <circle cx="75" cy="31" r="6.5" fill="#f4cfa6"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="25" cy="31" r="11.5"/>
+      <circle cx="75" cy="31" r="11.5"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#c68a5b" stroke="#2a1f33" stroke-width="3"/>
-    <ellipse cx="50" cy="70" rx="14" ry="10" fill="#f6dcc0"/>
+    <ellipse cx="50" cy="74" rx="14" ry="10" fill="#7a4626" opacity=".25"/>
+    <ellipse cx="50" cy="72.5" rx="14" ry="10" fill="#f6dcc0"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="65.5" rx="4.2" ry="3" fill="#2a1f33"/>
-    <use href="#av-mouth" transform="translate(0 3)"/>
+    <ellipse cx="50" cy="67.5" rx="4.6" ry="3.3" fill="url(#av-dark)"/>
+    <ellipse cx="48.6" cy="66.4" rx="1.5" ry=".85" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(0 5)"/>
   </symbol>
 
   <symbol id="avatar-panda" viewBox="0 0 100 100">
@@ -44,12 +99,18 @@
       <circle cx="25" cy="31" r="13"/>
       <circle cx="75" cy="31" r="13"/>
     </g>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="25" cy="31" r="13"/>
+      <circle cx="75" cy="31" r="13"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#fffdf8" stroke="#2a1f33" stroke-width="3"/>
-    <g fill="#2a1f33">
+    <g fill="url(#av-dark)">
       <ellipse cx="37" cy="57" rx="8.5" ry="10.5" transform="rotate(35 37 57)"/>
       <ellipse cx="63" cy="57" rx="8.5" ry="10.5" transform="rotate(-35 63 57)"/>
       <ellipse cx="50" cy="66" rx="3.8" ry="2.6"/>
     </g>
+    <ellipse cx="48.8" cy="65.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
+    <use href="#av-depth"/>
     <use href="#av-light-eyes"/>
     <use href="#av-blush"/>
     <use href="#av-mouth" transform="translate(0 2)"/>
@@ -58,27 +119,40 @@
   <symbol id="avatar-cat" viewBox="0 0 100 100">
     <path d="M19 46L21 13L47 29Z M81 46L79 13L53 29Z" fill="#ffb15c" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
     <path d="M25 37L26 21L39 29Z M75 37L74 21L61 29Z" fill="#ffb3c1"/>
+    <g fill="url(#av-depth-fill)">
+      <path d="M19 46L21 13L47 29Z"/>
+      <path d="M81 46L79 13L53 29Z"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#ffb15c" stroke="#2a1f33" stroke-width="3"/>
     <g clip-path="url(#av-head)" stroke="#e8893a" stroke-width="3.4" stroke-linecap="round">
       <path d="M50 25v8M43 26l1.5 6M57 26l-1.5 6"/>
     </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <use href="#av-whiskers"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <path d="M47 63.5h6l-3 3z" fill="#ff6f91" stroke="#ff6f91" stroke-width="1.5" stroke-linejoin="round"/>
-    <use href="#av-mouth" transform="translate(0 0.5)"/>
+    <path d="M47 64.5h6l-3 3z" fill="#ff6f91" stroke="#ff6f91" stroke-width="1.5" stroke-linejoin="round"/>
+    <use href="#av-mouth" transform="translate(0 1.5)"/>
   </symbol>
 
   <symbol id="avatar-fox" viewBox="0 0 100 100">
     <path d="M17 47L20 9L47 30Z M83 47L80 9L53 30Z" fill="#ff8c4a" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
     <path d="M24 38L25.5 19L38 30Z M76 38L74.5 19L62 30Z" fill="#fff1e0"/>
+    <g fill="url(#av-depth-fill)">
+      <path d="M17 47L20 9L47 30Z"/>
+      <path d="M83 47L80 9L53 30Z"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#ff8c4a"/>
-    <path clip-path="url(#av-head)" d="M14 60Q32 56 50 70Q68 56 86 60L86 96L14 96Z" fill="#fff4e2"/>
+    <path clip-path="url(#av-head)" d="M14 61Q32 57 50 71Q68 57 86 61L86 96L14 96Z" fill="#fff4e2"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="67" rx="3.8" ry="2.8" fill="#2a1f33"/>
-    <use href="#av-smile" transform="translate(0 4)"/>
+    <ellipse cx="50" cy="68" rx="3.8" ry="2.8" fill="url(#av-dark)"/>
+    <ellipse cx="48.8" cy="67.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
+    <use href="#av-smile" transform="translate(0 5)"/>
   </symbol>
 
   <symbol id="avatar-bunny" viewBox="0 0 100 100">
@@ -90,11 +164,16 @@
       <ellipse cx="37" cy="25" rx="4" ry="13" transform="rotate(-10 37 25)"/>
       <ellipse cx="63" cy="25" rx="4" ry="13" transform="rotate(10 63 25)"/>
     </g>
+    <g fill="url(#av-depth-fill)">
+      <ellipse cx="37" cy="24" rx="7.5" ry="18.5" transform="rotate(-10 37 24)"/>
+      <ellipse cx="63" cy="24" rx="7.5" ry="18.5" transform="rotate(10 63 24)"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#fff7f9" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-depth"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="64.5" rx="3.2" ry="2.4" fill="#ff6f91"/>
-    <use href="#av-mouth"/>
+    <ellipse cx="50" cy="65.5" rx="3.2" ry="2.4" fill="#ff6f91"/>
+    <use href="#av-mouth" transform="translate(0 1)"/>
   </symbol>
 
   <symbol id="avatar-koala" viewBox="0 0 100 100">
@@ -104,23 +183,37 @@
     </g>
     <circle cx="21" cy="37" r="9" fill="#f3eef6"/>
     <circle cx="79" cy="37" r="9" fill="#f3eef6"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="21" cy="37" r="14.5"/>
+      <circle cx="79" cy="37" r="14.5"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#b3b6c8" stroke="#2a1f33" stroke-width="3"/>
-    <use href="#av-eyes" transform="translate(50 57) scale(1.15 1) translate(-50 -57)"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <use href="#av-eyes" transform="translate(50 57) scale(1.1 1) translate(-50 -57)"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="67" rx="6.5" ry="8.5" fill="#2a1f33"/>
-    <circle cx="48" cy="63.5" r="1.6" fill="#fff" opacity=".7"/>
-    <path d="M46.5 79q3.5 2.5 7 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
+    <ellipse cx="50" cy="67.5" rx="6.5" ry="8.5" fill="url(#av-dark)"/>
+    <ellipse cx="47.6" cy="63.6" rx="2" ry="1.3" fill="#fff" opacity=".7"/>
+    <path d="M46.5 79.5q3.5 2.5 7 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
   </symbol>
 
   <symbol id="avatar-pig" viewBox="0 0 100 100">
     <path d="M20 42L22 17L43 29Z M80 42L78 17L57 29Z" fill="#ff9fb5" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <g fill="url(#av-depth-fill)">
+      <path d="M20 42L22 17L43 29Z"/>
+      <path d="M80 42L78 17L57 29Z"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#ffc2cf" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <use href="#av-eyes" transform="translate(0 -2)"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="69" rx="11" ry="8" fill="#ff9fb5" stroke="#2a1f33" stroke-width="2.5"/>
+    <ellipse cx="50" cy="71.5" rx="11" ry="8" fill="#2a1f33" opacity=".18"/>
+    <ellipse cx="50" cy="70" rx="11" ry="8" fill="#ff9fb5" stroke="#2a1f33" stroke-width="2.5"/>
+    <ellipse cx="50" cy="70" rx="9.75" ry="6.75" fill="url(#av-depth-fill)"/>
     <g fill="#2a1f33">
-      <ellipse cx="46" cy="69" rx="1.9" ry="2.9"/>
-      <ellipse cx="54" cy="69" rx="1.9" ry="2.9"/>
+      <ellipse cx="46" cy="70" rx="1.9" ry="2.9"/>
+      <ellipse cx="54" cy="70" rx="1.9" ry="2.9"/>
     </g>
   </symbol>
 
@@ -128,26 +221,36 @@
     <g stroke="#2a1f33" stroke-width="3" fill="#9be37a">
       <circle cx="32" cy="33" r="13"/>
       <circle cx="68" cy="33" r="13"/>
-      <ellipse cx="50" cy="63" rx="38" ry="29"/>
     </g>
-    <circle cx="32" cy="33" r="6" fill="#2a1f33"/>
-    <circle cx="68" cy="33" r="6" fill="#2a1f33"/>
-    <circle cx="34" cy="31" r="2" fill="#fff"/>
-    <circle cx="70" cy="31" r="2" fill="#fff"/>
-    <g fill="#ff6f91" opacity=".45">
-      <ellipse cx="25" cy="66" rx="7" ry="4.2"/>
-      <ellipse cx="75" cy="66" rx="7" ry="4.2"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="32" cy="33" r="11.5"/>
+      <circle cx="68" cy="33" r="11.5"/>
     </g>
+    <ellipse cx="50" cy="63" rx="38" ry="29" fill="#9be37a" stroke="#2a1f33" stroke-width="3"/>
+    <ellipse cx="50" cy="63" rx="36.5" ry="27.5" fill="url(#av-depth-fill)"/>
+    <use href="#av-shine" transform="translate(2 12)"/>
+    <ellipse cx="32" cy="33" rx="6.4" ry="7" fill="url(#av-dark)"/>
+    <ellipse cx="68" cy="33" rx="6.4" ry="7" fill="url(#av-dark)"/>
+    <g fill="#fff">
+      <circle cx="34.2" cy="30.4" r="2.4"/>
+      <circle cx="70.2" cy="30.4" r="2.4"/>
+      <circle cx="30.6" cy="35.8" r="1.1" opacity=".85"/>
+      <circle cx="66.6" cy="35.8" r="1.1" opacity=".85"/>
+    </g>
+    <use href="#av-blush" transform="translate(0 -1)"/>
     <path d="M37 62q13 11 26 0" fill="none" stroke="#2a1f33" stroke-width="2.6" stroke-linecap="round"/>
   </symbol>
 
   <symbol id="avatar-chick" viewBox="0 0 100 100">
     <path d="M47 26q-1-11 6-15M51 26q4-9 12-9" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linecap="round"/>
     <circle cx="50" cy="58" r="34" fill="#ffd166" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <path d="M44.5 65.5L50 62L55.5 65.5L50 70Z" fill="#ff9f43" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M44.5 65.5h11" stroke="#2a1f33" stroke-width="1.6"/>
+    <path d="M44.5 66.5L50 63L55.5 66.5L50 71Z" fill="#ff9f43" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M44.5 66.5h11" stroke="#2a1f33" stroke-width="1.6"/>
+    <path d="M47.5 65.4L50 64" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
   </symbol>
 
   <symbol id="avatar-penguin" viewBox="0 0 100 100">
@@ -156,10 +259,13 @@
       <ellipse cx="39" cy="64" rx="15" ry="20"/>
       <ellipse cx="61" cy="64" rx="15" ry="20"/>
     </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <path d="M44.5 64.5h11L50 71Z" fill="#ffb347" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M44.5 65.5h11L50 72Z" fill="#ffb347" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M47.5 67h3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
   </symbol>
 
   <symbol id="avatar-mouse" viewBox="0 0 100 100">
@@ -169,27 +275,42 @@
     </g>
     <circle cx="22" cy="31" r="9.5" fill="#ffc2cf"/>
     <circle cx="78" cy="31" r="9.5" fill="#ffc2cf"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="22" cy="31" r="14.5"/>
+      <circle cx="78" cy="31" r="14.5"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#c9c3d6" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <use href="#av-whiskers"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <circle cx="50" cy="64.5" r="3" fill="#ff6f91"/>
-    <use href="#av-mouth" transform="translate(0 1.5)"/>
+    <circle cx="50" cy="65.5" r="3" fill="#ff6f91"/>
+    <circle cx="49" cy="64.6" r=".9" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(0 2.5)"/>
   </symbol>
 
   <symbol id="avatar-lion" viewBox="0 0 100 100">
     <circle cx="50" cy="56" r="36" fill="#e8893a"/>
     <circle cx="50" cy="56" r="37" fill="none" stroke="#e8893a" stroke-width="14" stroke-dasharray="0.1 10.5" stroke-linecap="round"/>
+    <circle cx="50" cy="56" r="42" fill="url(#av-depth-fill)"/>
     <g stroke="#2a1f33" stroke-width="3" fill="#ffd166">
       <circle cx="29" cy="35" r="7.5"/>
       <circle cx="71" cy="35" r="7.5"/>
-      <circle cx="50" cy="59" r="29"/>
     </g>
-    <ellipse cx="50" cy="70" rx="12" ry="8" fill="#fff1c9"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="29" cy="35" r="6"/>
+      <circle cx="71" cy="35" r="6"/>
+    </g>
+    <circle cx="50" cy="59" r="29" fill="#ffd166" stroke="#2a1f33" stroke-width="3"/>
+    <ellipse cx="50" cy="71.5" rx="12" ry="8" fill="#fff1c9"/>
+    <circle cx="50" cy="59" r="27.5" fill="url(#av-depth-fill)"/>
+    <use href="#av-shine" transform="translate(50 59) scale(.85) translate(-50 -58)"/>
     <use href="#av-eyes" transform="translate(50 59) scale(.92) translate(-50 -57)"/>
     <use href="#av-blush" transform="translate(50 67) scale(.82) translate(-50 -67)"/>
-    <ellipse cx="50" cy="66" rx="3.8" ry="2.8" fill="#2a1f33"/>
-    <use href="#av-mouth" transform="translate(0 2)"/>
+    <ellipse cx="50" cy="67" rx="3.8" ry="2.8" fill="url(#av-dark)"/>
+    <ellipse cx="48.8" cy="66.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(0 3)"/>
   </symbol>
 
   <symbol id="avatar-tiger" viewBox="0 0 100 100">
@@ -199,26 +320,40 @@
     </g>
     <circle cx="25" cy="31" r="6" fill="#fff1e0"/>
     <circle cx="75" cy="31" r="6" fill="#fff1e0"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="25" cy="31" r="10.5"/>
+      <circle cx="75" cy="31" r="10.5"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#ffa94d"/>
     <g clip-path="url(#av-head)">
-      <ellipse cx="50" cy="70" rx="14" ry="9.5" fill="#fff4e2"/>
+      <ellipse cx="50" cy="71.5" rx="14" ry="9.5" fill="#fff4e2"/>
       <path d="M50 24v9M42 25l2 7M58 25l-2 7M14 52h10M14 60h8M86 52h-10M86 60h-8" stroke="#2a1f33" stroke-width="3" stroke-linecap="round"/>
     </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="65.5" rx="4" ry="2.8" fill="#ff6f91"/>
-    <use href="#av-mouth" transform="translate(0 2.5)"/>
+    <ellipse cx="50" cy="66.5" rx="4" ry="2.8" fill="#ff6f91"/>
+    <ellipse cx="48.8" cy="65.6" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(0 3.5)"/>
   </symbol>
 
   <symbol id="avatar-puppy" viewBox="0 0 100 100">
     <circle cx="50" cy="58" r="34" fill="#f5deb3" stroke="#2a1f33" stroke-width="3"/>
-    <ellipse cx="63" cy="55" rx="9.5" ry="8.5" fill="#e2b98a"/>
+    <ellipse cx="63" cy="55.5" rx="9.5" ry="8.5" fill="#e2b98a"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <path d="M27 28Q9 30 10 56Q12 72 23 64Q29 48 35 31Z M73 28Q91 30 90 56Q88 72 77 64Q71 48 65 31Z" fill="#a0673f" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <g fill="url(#av-depth-fill)">
+      <path d="M27 28Q9 30 10 56Q12 72 23 64Q29 48 35 31Z"/>
+      <path d="M73 28Q91 30 90 56Q88 72 77 64Q71 48 65 31Z"/>
+    </g>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="65.5" rx="4.6" ry="3.2" fill="#2a1f33"/>
-    <use href="#av-mouth" transform="translate(0 2.5)"/>
+    <ellipse cx="50" cy="66.5" rx="4.6" ry="3.2" fill="url(#av-dark)"/>
+    <ellipse cx="48.6" cy="65.4" rx="1.5" ry=".85" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(0 3.5)"/>
   </symbol>
 
   <symbol id="avatar-monkey" viewBox="0 0 100 100">
@@ -228,35 +363,48 @@
     </g>
     <circle cx="16" cy="58" r="5" fill="#f6d5b5"/>
     <circle cx="84" cy="58" r="5" fill="#f6d5b5"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="16" cy="58" r="8.5"/>
+      <circle cx="84" cy="58" r="8.5"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#a8714f" stroke="#2a1f33" stroke-width="3"/>
     <g fill="#f6d5b5">
-      <circle cx="39" cy="55" r="12"/>
-      <circle cx="61" cy="55" r="12"/>
-      <ellipse cx="50" cy="70" rx="21" ry="14"/>
+      <circle cx="38.5" cy="55.5" r="12"/>
+      <circle cx="61.5" cy="55.5" r="12"/>
+      <ellipse cx="50" cy="71" rx="21" ry="14"/>
     </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <path d="M45 25q5-8 10 0" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linecap="round"/>
     <use href="#av-eyes"/>
     <use href="#av-blush"/>
     <g fill="#2a1f33">
-      <circle cx="47" cy="65" r="1.4"/>
-      <circle cx="53" cy="65" r="1.4"/>
+      <circle cx="47" cy="66" r="1.4"/>
+      <circle cx="53" cy="66" r="1.4"/>
     </g>
-    <use href="#av-smile" transform="translate(0 4)"/>
+    <use href="#av-smile" transform="translate(0 5)"/>
   </symbol>
 
   <symbol id="avatar-raccoon" viewBox="0 0 100 100">
     <path d="M19 44L23 15L45 30Z M81 44L77 15L55 30Z" fill="#9ea3b5" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
     <path d="M25 37L27 22L38 30Z M75 37L73 22L62 30Z" fill="#4a4458"/>
+    <g fill="url(#av-depth-fill)">
+      <path d="M19 44L23 15L45 30Z"/>
+      <path d="M81 44L77 15L55 30Z"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#9ea3b5"/>
     <g clip-path="url(#av-head)">
-      <ellipse cx="50" cy="71" rx="13" ry="9" fill="#f4f1f8"/>
+      <ellipse cx="50" cy="72" rx="13" ry="9" fill="#f4f1f8"/>
       <path d="M14 51Q30 43 50 54Q70 43 86 51Q82 66 64 64Q56 63 50 60Q44 63 36 64Q18 66 14 51Z" fill="#3a3346"/>
     </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-light-eyes"/>
     <use href="#av-blush" transform="translate(0 2)"/>
-    <ellipse cx="50" cy="67" rx="3.8" ry="2.7" fill="#2a1f33"/>
-    <use href="#av-mouth" transform="translate(0 3)"/>
+    <ellipse cx="50" cy="68" rx="3.8" ry="2.7" fill="url(#av-dark)"/>
+    <ellipse cx="48.8" cy="67.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(0 4)"/>
   </symbol>
 
   <symbol id="avatar-hamster" viewBox="0 0 100 100">
@@ -266,19 +414,25 @@
     </g>
     <circle cx="28" cy="30" r="4.5" fill="#ffc2cf"/>
     <circle cx="72" cy="30" r="4.5" fill="#ffc2cf"/>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="28" cy="30" r="7"/>
+      <circle cx="72" cy="30" r="7"/>
+    </g>
     <circle cx="50" cy="58" r="34" fill="#f7b26a"/>
     <g clip-path="url(#av-head)" fill="#fff4e2">
-      <ellipse cx="50" cy="84" rx="36" ry="22"/>
+      <ellipse cx="50" cy="85" rx="36" ry="22"/>
       <ellipse cx="50" cy="31" rx="5" ry="10"/>
     </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-eyes"/>
-    <g fill="#ff6f91" opacity=".45">
-      <ellipse cx="26" cy="68" rx="9" ry="6"/>
-      <ellipse cx="74" cy="68" rx="9" ry="6"/>
+    <g fill="url(#av-blush-fill)">
+      <ellipse cx="25" cy="69.5" rx="10" ry="6.5"/>
+      <ellipse cx="75" cy="69.5" rx="10" ry="6.5"/>
     </g>
-    <ellipse cx="50" cy="64" rx="2.6" ry="2" fill="#ff6f91"/>
-    <use href="#av-mouth" transform="translate(0 0.5)"/>
+    <ellipse cx="50" cy="65" rx="2.6" ry="2" fill="#ff6f91"/>
+    <use href="#av-mouth" transform="translate(0 1.5)"/>
   </symbol>
 
   <symbol id="avatar-sheep" viewBox="0 0 100 100">
@@ -288,18 +442,31 @@
       <circle cx="19" cy="54" r="11"/><circle cx="23.2" cy="69.5" r="11"/><circle cx="34.5" cy="80.8" r="11"/>
       <circle cx="50" cy="85" r="11"/><circle cx="65.5" cy="80.8" r="11"/><circle cx="76.8" cy="69.5" r="11"/>
     </g>
+    <g fill="url(#av-depth-fill)">
+      <circle cx="81" cy="54" r="9.5"/><circle cx="76.8" cy="38.5" r="9.5"/><circle cx="65.5" cy="27.2" r="9.5"/>
+      <circle cx="50" cy="23" r="9.5"/><circle cx="34.5" cy="27.2" r="9.5"/><circle cx="23.2" cy="38.5" r="9.5"/>
+      <circle cx="19" cy="54" r="9.5"/><circle cx="23.2" cy="69.5" r="9.5"/><circle cx="34.5" cy="80.8" r="9.5"/>
+      <circle cx="50" cy="85" r="9.5"/><circle cx="65.5" cy="80.8" r="9.5"/><circle cx="76.8" cy="69.5" r="9.5"/>
+    </g>
     <circle cx="50" cy="54" r="32" fill="#fffdf8"/>
     <g fill="#f3dcc5" stroke="#2a1f33" stroke-width="3">
       <ellipse cx="25" cy="56" rx="9" ry="5" transform="rotate(-20 25 56)"/>
       <ellipse cx="75" cy="56" rx="9" ry="5" transform="rotate(20 75 56)"/>
       <ellipse cx="50" cy="61" rx="22" ry="21"/>
     </g>
+    <g fill="url(#av-depth-fill)">
+      <ellipse cx="25" cy="56" rx="7.5" ry="3.5" transform="rotate(-20 25 56)"/>
+      <ellipse cx="75" cy="56" rx="7.5" ry="3.5" transform="rotate(20 75 56)"/>
+      <ellipse cx="50" cy="61" rx="20.5" ry="19.5"/>
+    </g>
+    <use href="#av-shine" transform="translate(50 61) scale(.6) translate(-50 -56)"/>
     <g fill="#fffdf8" stroke="#2a1f33" stroke-width="3">
       <circle cx="41" cy="41" r="7"/><circle cx="50" cy="38" r="7.5"/><circle cx="59" cy="41" r="7"/>
     </g>
     <g fill="#fffdf8"><circle cx="41" cy="41" r="7"/><circle cx="50" cy="38" r="7.5"/><circle cx="59" cy="41" r="7"/></g>
-    <use href="#av-eyes" transform="translate(50 57) scale(.9) translate(-50 -55)"/>
+    <g fill="url(#av-depth-fill)"><circle cx="41" cy="41" r="7"/><circle cx="50" cy="38" r="7.5"/><circle cx="59" cy="41" r="7"/></g>
+    <use href="#av-eyes" transform="translate(50 57.5) scale(.88) translate(-50 -55)"/>
     <use href="#av-blush" transform="translate(50 67) scale(.7) translate(-50 -67)"/>
-    <use href="#av-mouth" transform="translate(0 1)"/>
+    <use href="#av-mouth" transform="translate(0 2)"/>
   </symbol>
 </svg>

@@ -383,8 +383,12 @@ fn TimesUp() -> Element {
 struct WallLayout {
     cols: usize,
     rows: usize,
-    /// Text lines to fit in the fullest card: its members plus two for the group name and padding,
-    /// and two more when centers are on: the center name above the card and the frame around it.
+    /// Members in the fullest card: its rows when its names sit in one column.
+    members: usize,
+    /// Its rows when its names sit in two columns.
+    pairs: usize,
+    /// Text lines in a card besides its members: two for the group name and padding, and two more
+    /// when centers are on: the center name above the card and the frame around it.
     lines: usize,
 }
 
@@ -409,7 +413,9 @@ fn wall_layout(groups: usize, fullest: usize, centers: bool) -> WallLayout {
     WallLayout {
         cols,
         rows: groups.div_ceil(cols).max(1),
-        lines: fullest + 2 + 2 * usize::from(centers),
+        members: fullest,
+        pairs: fullest.div_ceil(2),
+        lines: 2 + 2 * usize::from(centers),
     }
 }
 
@@ -442,11 +448,17 @@ fn GroupWall() -> Element {
         .map(|card| card.members.len())
         .max()
         .unwrap_or(0);
-    let WallLayout { cols, rows, lines } = wall_layout(cards.len(), fullest, centers.is_some());
+    let WallLayout {
+        cols,
+        rows,
+        members,
+        pairs,
+        lines,
+    } = wall_layout(cards.len(), fullest, centers.is_some());
     rsx! {
         section {
             class: "wall",
-            style: "--cols: {cols}; --rows: {rows}; --lines: {lines}",
+            style: "--cols: {cols}; --rows: {rows}; --members: {members}; --pairs: {pairs}; --lines: {lines}",
             if let Some(centers) = centers {
                 for center in centers {
                     div { key: "{center.idx.get()}", class: "wall-center",
@@ -533,21 +545,25 @@ mod tests {
     }
 
     #[test]
-    fn layout_counts_rows_and_reserves_lines_for_the_fullest_card() {
+    fn layout_counts_rows_and_the_fullest_cards_members_in_one_and_two_columns() {
         assert_eq!(
             wall_layout(4, 5, false),
             WallLayout {
                 cols: 2,
                 rows: 2,
-                lines: 7
+                members: 5,
+                pairs: 3,
+                lines: 2
             }
         );
         assert_eq!(
-            wall_layout(5, 3, false),
+            wall_layout(5, 4, false),
             WallLayout {
                 cols: 3,
                 rows: 2,
-                lines: 5
+                members: 4,
+                pairs: 2,
+                lines: 2
             }
         );
     }
@@ -556,7 +572,12 @@ mod tests {
     fn layout_reserves_two_more_lines_for_the_center_frame_when_centers_are_on() {
         let plain = wall_layout(4, 5, false);
         let centered = wall_layout(4, 5, true);
-        assert_eq!(centered.lines, plain.lines + 2);
-        assert_eq!((centered.cols, centered.rows), (plain.cols, plain.rows));
+        assert_eq!(
+            centered,
+            WallLayout {
+                lines: plain.lines + 2,
+                ..plain
+            }
+        );
     }
 }

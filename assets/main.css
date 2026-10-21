@@ -130,13 +130,14 @@ textarea {
   font-size: 0.95rem;
 }
 
-/* ---- Avatars: decorative faces from the sprite, sized in em so they scale with the text beside them ---- */
+/* ---- Avatars: decorative stickers from the sprite, sized in em so they scale with the text beside
+   them. The box holds the sticker's edge and shadow too, so it is a little larger than the face. ---- */
 
 .avatar {
   flex: none;
-  width: 1.5em;
-  height: 1.5em;
-  margin-inline-end: 0.35em;
+  width: 1.75em;
+  height: 1.75em;
+  margin-inline-end: 0.3em;
   vertical-align: middle;
 }
 
@@ -873,8 +874,8 @@ textarea {
 }
 
 .skin-preview .avatar {
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 3rem;
+  height: 3rem;
   margin: 0;
 }
 
@@ -1024,6 +1025,11 @@ textarea {
 
 .wall {
   --leading: 1.3;
+  /* In em: a member's row, set by its avatar; the narrowest column of names, a 12-letter name and
+     its avatar; and the frame, padding and borders around a card's text. */
+  --member-row: 2.3;
+  --track: 8.8;
+  --chrome: 2.6;
   flex: 1 1 0;
   min-height: 0;
   container-type: size;
@@ -1077,16 +1083,26 @@ textarea {
   text-align: center;
 }
 
-/* Size the type from the wall's own box: no larger than a 12-letter name and its avatar fit
-   across a column, and no larger than the fullest card fits down a row. */
+/* Size the type from the wall's own box, for names in one column and in two, and take the larger.
+   Each is no larger than its columns of 12-letter names fit across a card, and no larger than the
+   fullest card's rows fit down it. Two columns win on a wide, short wall like four groups under the
+   timer, one on a narrow one; the member grid below then lays out whichever fits. */
 @supports (width: 1cqw) {
   .wall-card,
   .wall-center {
+    --cell-w: calc(100cqw / var(--cols));
+    --cell-h: calc(100cqh / var(--rows) * 0.85);
     font-size: clamp(
       1rem,
-      min(
-        calc(100cqw / var(--cols) * 0.1),
-        calc(100cqh / var(--rows) * 0.85 / (var(--lines) * var(--leading)))
+      max(
+        min(
+          calc(var(--cell-w) / (var(--track) + var(--chrome))),
+          calc(var(--cell-h) / (var(--members) * var(--member-row) + var(--lines) * var(--leading)))
+        ),
+        min(
+          calc(var(--cell-w) / (2 * var(--track) + 0.6 + var(--chrome))),
+          calc(var(--cell-h) / (var(--pairs) * var(--member-row) + var(--lines) * var(--leading)))
+        )
       ),
       6rem
     );
@@ -1109,16 +1125,29 @@ textarea {
   font-weight: 700;
 }
 
-/* The avatar stays under the line height so the --lines fit above still counts one line a member. */
 .wall-members li {
   display: flex;
   align-items: center;
 }
 
 .wall-members .avatar {
-  width: 1.2em;
-  height: 1.2em;
-  margin-inline-end: 0.3em;
+  width: 1.6em;
+  height: 1.6em;
+  margin-inline-end: 0.25em;
+}
+
+/* Two columns of names once the card is wide enough for them, and never more. A column is a little
+   narrower than the --track the type is sized by, so a card sized for two always gets two. */
+.wall-card .wall-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(calc((var(--track) - 0.3) * 1em), 34%), 1fr));
+  gap: 0.1em 0.6em;
+}
+
+/* The avatar sets the row height that --member-row counts. */
+.wall-card .wall-members .avatar {
+  width: 2.2em;
+  height: 2.2em;
 }
 
 .wall-empty {
@@ -1179,8 +1208,8 @@ textarea {
 
 /* Inline with the name rather than above it, so the card is no taller than before on a short screen. */
 .reveal-name .avatar {
-  width: 0.8em;
-  height: 0.8em;
+  width: 0.95em;
+  height: 0.95em;
   margin-inline-end: 0.12em;
   vertical-align: -0.05em;
   animation: pop-in 520ms cubic-bezier(0.2, 1.4, 0.4, 1) 180ms both;
