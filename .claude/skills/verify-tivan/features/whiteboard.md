@@ -8,6 +8,7 @@ Whiteboard mode drops the editing UI and projects the current class's groups as 
 - `wb-wall`: one card per group, with the group name as a heading and members listed.
 - `wb-empty`: an ungrouped class shows `No groups yet.` with `Go back to Build and press Make groups.`
 - `wb-leave`: `Back to Build` or Escape with no overlay open returns to Build.
+- `wb-fullscreen`: entering the wall makes the page fullscreen (`document.fullscreenElement` is `HTML`), and leaving it exits fullscreen. A browser that refuses stays windowed.
 - `oracle-spin`: for about two seconds after either oracle button, the overlay flashes through the students (or groups) fast then slowing, with no buttons, and lands on the pick. Reduced motion, or a class of one, skips it.
 - `oracle-pick`: `Ask the oracle` opens the reveal dialog with one name, and `<n> left` drops by one.
 - `oracle-again`: `Pick again` in the dialog picks the next student.
@@ -48,6 +49,7 @@ Preconditions:
 
 ## Gotchas
 
+- In fullscreen the browser takes the first Escape to exit fullscreen and the page never sees it, so with the wall (or a dialog) open that Escape leaves it showing, windowed. A second Escape then behaves as described above. Check fullscreen with `agent-browser --session "$SESSION" eval "String(document.fullscreenElement)"`.
 - The pick is random. Assert it is a roster member not already in `.oracle.drawn`, never a specific name.
 - `--name "Ask the oracle"` matches the full name `Ask the oracle <n> left`, which changes with every pick. The group button's name is `Pick a group <n> left`, which does not contain `Ask the oracle`, and `Pick again` does not match `Pick a group`.
 - `.grouping.oracle` is absent from the saved state until the first group pick, and again after `Make groups`. Read it as `.grouping.oracle.drawn // []`.

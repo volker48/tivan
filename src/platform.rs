@@ -48,6 +48,33 @@ pub fn prefers_reduced_motion() -> bool {
     }
 }
 
+/// Fills the screen with the page, so the wall gets the whole display. Browsers only allow this
+/// from a user gesture, so call it synchronously from the click that opens the wall. A refusal
+/// (iPhone Safari has no page fullscreen, and a browser can decline) leaves the wall windowed.
+pub fn enter_fullscreen() {
+    let Some(page) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.document_element())
+    else {
+        warn!("could not go fullscreen: there is no page");
+        return;
+    };
+    if let Err(cause) = page.request_fullscreen() {
+        warn!("could not go fullscreen: {}", describe(&cause));
+    }
+}
+
+/// Undoes [`enter_fullscreen`]. Does nothing when the teacher already left fullscreen with Escape,
+/// because exiting from windowed mode is a rejected promise.
+pub fn exit_fullscreen() {
+    let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        return;
+    };
+    if document.fullscreen_element().is_some() {
+        document.exit_fullscreen();
+    }
+}
+
 /// The date on the teacher's wall clock, which is what a season means to them.
 pub fn today() -> CalendarDay {
     let now = Date::new_0();
