@@ -1025,11 +1025,11 @@ textarea {
 
 .wall {
   --leading: 1.3;
-  /* In em: a member's row, set by its avatar; the narrowest column of names, a 12-letter name and
-     its avatar; and the frame, padding and borders around a card's text. */
+  /* In em: a member's row at its smallest avatar; a column of names, a 12-letter name and that
+     avatar; and the gaps, frame, padding and borders around a card's text. */
   --member-row: 2.3;
   --track: 8.8;
-  --chrome: 2.6;
+  --chrome: 3.2;
   flex: 1 1 0;
   min-height: 0;
   container-type: size;
@@ -1054,6 +1054,7 @@ textarea {
   font-size: clamp(1.1rem, 2.4vw, 3rem);
   line-height: var(--leading);
   overflow-wrap: anywhere;
+  container: wall-card / inline-size;
 }
 
 /* A center frame wraps the card and is the grid cell, so it carries the same type size as the
@@ -1136,18 +1137,32 @@ textarea {
   margin-inline-end: 0.25em;
 }
 
-/* Two columns of names once the card is wide enough for them, and never more. A column is a little
-   narrower than the --track the type is sized by, so a card sized for two always gets two. */
+/* The members fill the rest of the card in as many rows as the fullest card needs, so every card's
+   rows line up and the room the type leaves over goes to bigger avatars. */
 .wall-card .wall-members {
+  --member-rows: var(--members);
+  flex: 1 1 0;
+  min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(max(calc((var(--track) - 0.3) * 1em), 34%), 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(var(--member-rows), minmax(0, 1fr));
   gap: 0.1em 0.6em;
 }
 
-/* The avatar sets the row height that --member-row counts. */
+/* Two columns once the card is wide enough for them. The threshold is under what the type's two
+   column size leaves across a card, so a card sized for two always gets two. */
+@container wall-card (min-width: 16.5em) {
+  .wall-card .wall-members {
+    --member-rows: var(--pairs);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* As tall as its row, from the 2.2em the type is sized for up to a cap. */
 .wall-card .wall-members .avatar {
-  width: 2.2em;
-  height: 2.2em;
+  width: auto;
+  height: min(100%, 3.2em);
+  aspect-ratio: 1;
 }
 
 .wall-empty {
@@ -1338,6 +1353,17 @@ textarea {
   .wall-card,
   .wall-center {
     font-size: 1.2rem;
+  }
+
+  /* Cards grow to fit here, so rows take their content's height and avatars a fixed size. */
+  .wall-card .wall-members {
+    flex: none;
+    grid-template-rows: none;
+  }
+
+  .wall-card .wall-members .avatar {
+    width: 2.2em;
+    height: 2.2em;
   }
 
   /* Undo the desktop min-height: 0, which lets the auto rows split the wall's height and clip
