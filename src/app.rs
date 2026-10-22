@@ -102,7 +102,15 @@ impl AppState {
         *self.mode.read()
     }
 
+    /// Entering the whiteboard also takes the browser fullscreen, which only works inside a user
+    /// gesture, so call this straight from the click handler.
     pub fn set_mode(&mut self, mode: Mode) {
+        let previous = *self.mode.peek();
+        if mode == Mode::Whiteboard {
+            platform::enter_fullscreen();
+        } else if previous == Mode::Whiteboard {
+            platform::exit_fullscreen();
+        }
         self.mode.set(mode);
     }
 

@@ -19,12 +19,12 @@ On the whiteboard a teacher starts a 1, 2, 3, 5 or 10 minute countdown that show
 
 Preconditions:
 
-- Baseline seed, `McCurdy HR` selected, on the whiteboard (`find role button click --name "Whiteboard" --exact`).
+- Baseline seed, `McCurdy HR` selected, on the whiteboard (`find role button click --name "Whiteboard" --exact`), then `press Escape` once to leave fullscreen. See the fullscreen gotcha in [Whiteboard](./whiteboard.md).
 - Every command below is prefixed with `source target/verify/<run>/run.env &&`.
 
 - **Start.** Run `agent-browser --session "$SESSION" find role button click --name "Start a 1 minute timer"`. The `Timer` group now holds `Pause` and `Cancel`. `agent-browser --session "$SESSION" get text ".timer-strip"` prints `1:00` or `0:59`, and a second read a few seconds later prints a smaller value.
 - **Pause and resume.** Run `agent-browser --session "$SESSION" find role button click --name "Pause"`. The strip shows `Paused`, and two reads 3 s apart print the same digits. Run `agent-browser --session "$SESSION" find role button click --name "Resume"`. The digits move again.
-- **Chip in Build.** Run `agent-browser --session "$SESSION" find role button click --name "Back to Build"`. The Build top bar has a button with the remaining `m:ss` and `Timer`. Clicking it returns to the whiteboard.
+- **Chip in Build.** Run `agent-browser --session "$SESSION" find role button click --name "Back to Build"`. The Build top bar has a button with the remaining `m:ss` and `Timer`. Clicking it returns to the whiteboard in fullscreen, so run `agent-browser --session "$SESSION" press Escape` once to leave fullscreen.
 - **Time's up.** Run `agent-browser --session "$SESSION" wait --text "Time's up!" --timeout 75000`. Alertdialog `Time's up` covers the wall. Run `tivan-capture <run> timer-done`. Then run `agent-browser --session "$SESSION" press Escape`. The dialog closes, the presets return, and the page is still on the whiteboard.
 - **Cancel.** Start a 2-minute timer, then run `agent-browser --session "$SESSION" find role button click --name "Cancel"`. The strip disappears and the five presets return.
 - **Not saved.** Start a timer and reload. The page opens in Build with no chip. That is expected behavior, not a failure.
@@ -35,5 +35,5 @@ Preconditions:
 - The digits update four times a second. Assert ranges or "decreased", never an exact value.
 - `--name "Cancel"` is unique on the whiteboard but not in Build, where the move bar and paste box also have `Cancel`.
 - Time's up while in Build shows only in the chip (`Time's up!` / `Dismiss`). The full-screen dialog belongs to the whiteboard.
-- A finished timer absorbs the first Escape on the whiteboard. A second Escape leaves the whiteboard.
+- A finished timer absorbs the first Escape on a windowed whiteboard. A second Escape leaves the whiteboard. In fullscreen, one more Escape comes first, to leave fullscreen.
 - The countdown is in memory only, and `state.json` never contains it. Prove timer behavior with screen captures alone.
