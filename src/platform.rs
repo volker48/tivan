@@ -3,9 +3,9 @@
 use std::num::NonZeroUsize;
 
 use dioxus::logger::tracing::warn;
-use js_sys::{Date, Math};
+use js_sys::{Date, Math, Promise};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure, prelude::wasm_bindgen};
-use wasm_bindgen_futures::JsFuture;
+use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
     AbortSignal, KeyboardEvent, Location, RequestCache, RequestInit, Response, Storage, Window,
 };
@@ -59,9 +59,11 @@ pub fn enter_fullscreen() {
         warn!("could not go fullscreen: there is no page");
         return;
     };
-    if let Err(cause) = page.request_fullscreen() {
-        warn!("could not go fullscreen: {}", describe(&cause));
-    }
+    warn_on_rejection(
+        "go fullscreen",
+        page.unchecked_ref::<FullscreenTarget>()
+            .request_fullscreen(),
+    );
 }
 
 /// Undoes [`enter_fullscreen`]. Does nothing when the teacher already left fullscreen with Escape,
@@ -71,7 +73,37 @@ pub fn exit_fullscreen() {
         return;
     };
     if document.fullscreen_element().is_some() {
-        document.exit_fullscreen();
+        warn_on_rejection(
+            "leave fullscreen",
+            document
+                .unchecked_ref::<FullscreenDocument>()
+                .exit_fullscreen(),
+        );
+    }
+}
+
+#[wasm_bindgen]
+extern "C" {
+    // web-sys drops the promises these return, and a refusal arrives only as a rejection.
+    type FullscreenTarget;
+    #[wasm_bindgen(method, catch, js_name = requestFullscreen)]
+    fn request_fullscreen(this: &FullscreenTarget) -> Result<Promise, JsValue>;
+
+    type FullscreenDocument;
+    #[wasm_bindgen(method, catch, js_name = exitFullscreen)]
+    fn exit_fullscreen(this: &FullscreenDocument) -> Result<Promise, JsValue>;
+}
+
+/// Warns that the page could not `what` when `call` throws or its promise later rejects. The
+/// call itself has already run, so a user-gesture requirement is still met.
+fn warn_on_rejection(what: &'static str, call: Result<Promise, JsValue>) {
+    match call {
+        Ok(promise) => spawn_local(async move {
+            if let Err(cause) = JsFuture::from(promise).await {
+                warn!("could not {what}: {}", describe(&cause));
+            }
+        }),
+        Err(cause) => warn!("could not {what}: {}", describe(&cause)),
     }
 }
 
