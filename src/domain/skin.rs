@@ -2,6 +2,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use super::avatar::Avatar;
+
 const MONTHS: [&str; 12] = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
@@ -39,10 +41,10 @@ impl fmt::Display for Season {
     }
 }
 
-/// A decoration drawn over every student's avatar. Stored by name, so renaming or removing a
-/// variant is a schema change, and adding one moves the schema version too, so an older build
-/// refuses a blob naming a skin it cannot draw. Seasons must not overlap, so at most one
-/// skin is ever in season.
+/// A holiday look drawn over every student's avatar, each avatar wearing one of its costumes.
+/// Stored by name, so renaming or removing a variant is a schema change, and adding one moves the
+/// schema version too, so an older build refuses a blob naming a skin it cannot draw. Seasons must
+/// not overlap, so at most one skin is ever in season.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Skin {
@@ -53,7 +55,7 @@ pub enum Skin {
 impl Skin {
     pub const ALL: [Skin; 2] = [Skin::Halloween, Skin::Christmas];
 
-    /// The stored name, which is also the suffix of the sprite symbol `skin-<name>`.
+    /// The stored name.
     pub fn name(self) -> &'static str {
         match self {
             Skin::Halloween => "halloween",
@@ -79,6 +81,75 @@ impl Skin {
                 from: day(12, 1),
                 to: day(12, 25),
             },
+        }
+    }
+
+    /// The costumes this skin hands out, in turn order.
+    fn costumes(self) -> &'static [Costume] {
+        match self {
+            Skin::Halloween => &[
+                Costume::WitchHat,
+                Costume::PumpkinHat,
+                Costume::Bat,
+                Costume::Spider,
+            ],
+            Skin::Christmas => &[Costume::SantaHat],
+        }
+    }
+
+    /// What `avatar` wears in this skin. Avatars take turns, in [`Avatar::ALL`] order, through the
+    /// costumes that fit them, so neighbours dress differently and an avatar always wears the same
+    /// one. Every skin has a costume that fits every avatar.
+    pub fn costume(self, avatar: Avatar) -> Costume {
+        let fitting: Vec<Costume> = self
+            .costumes()
+            .iter()
+            .copied()
+            .filter(|costume| costume.fits(avatar))
+            .collect();
+        fitting[avatar as usize % fitting.len()]
+    }
+}
+
+/// One piece of art a skin draws over an avatar. Worked out from the skin and the avatar each time
+/// and never stored, so it has no serde, and adding or renaming one is not a schema change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Costume {
+    WitchHat,
+    PumpkinHat,
+    Bat,
+    Spider,
+    SantaHat,
+}
+
+impl Costume {
+    pub const ALL: [Costume; 5] = [
+        Costume::WitchHat,
+        Costume::PumpkinHat,
+        Costume::Bat,
+        Costume::Spider,
+        Costume::SantaHat,
+    ];
+
+    /// The suffix of the sprite symbol `costume-<name>`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Costume::WitchHat => "witch-hat",
+            Costume::PumpkinHat => "pumpkin-hat",
+            Costume::Bat => "bat",
+            Costume::Spider => "spider",
+            Costume::SantaHat => "santa-hat",
+        }
+    }
+
+    /// Whether this costume looks right on `avatar`. A Halloween hat rests on the crown, which the
+    /// frog's eyes and the bunny's ears take up, so on them it hovers.
+    fn fits(self, avatar: Avatar) -> bool {
+        match self {
+            Costume::WitchHat | Costume::PumpkinHat => {
+                !matches!(avatar, Avatar::Frog | Avatar::Bunny)
+            }
+            Costume::Bat | Costume::Spider | Costume::SantaHat => true,
         }
     }
 }
@@ -147,6 +218,8 @@ impl Settings {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{HashMap, HashSet};
+
     use serde_json::json;
 
     use super::*;
@@ -227,6 +300,75 @@ mod tests {
             let season = skin.season();
             assert!(season.from <= season.to, "{skin:?}");
         }
+    }
+
+    fn costumes_worn(skin: Skin) -> HashMap<Avatar, Costume> {
+        Avatar::ALL
+            .into_iter()
+            .map(|avatar| (avatar, skin.costume(avatar)))
+            .collect()
+    }
+
+    #[test]
+    fn a_hat_never_fits_the_frog_or_the_bunny() {
+        for hat in [Costume::WitchHat, Costume::PumpkinHat] {
+            for avatar in [Avatar::Frog, Avatar::Bunny] {
+                assert!(!hat.fits(avatar), "{hat:?} fits {avatar:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn halloween_never_puts_a_hat_on_the_frog_or_the_bunny() {
+        let worn = costumes_worn(Skin::Halloween);
+        for avatar in [Avatar::Frog, Avatar::Bunny] {
+            assert!(
+                !matches!(worn[&avatar], Costume::WitchHat | Costume::PumpkinHat),
+                "{avatar:?} wears {:?}",
+                worn[&avatar]
+            );
+        }
+    }
+
+    #[test]
+    fn every_avatar_wears_a_costume_that_fits_it() {
+        for skin in Skin::ALL {
+            for (avatar, costume) in costumes_worn(skin) {
+                assert!(
+                    costume.fits(avatar),
+                    "{skin:?}: {avatar:?} wears {costume:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn halloween_dresses_the_avatars_in_every_one_of_its_costumes() {
+        let worn: HashSet<Costume> = costumes_worn(Skin::Halloween).into_values().collect();
+        let expected: HashSet<Costume> = [
+            Costume::WitchHat,
+            Costume::PumpkinHat,
+            Costume::Bat,
+            Costume::Spider,
+        ]
+        .into();
+        assert_eq!(worn, expected);
+    }
+
+    #[test]
+    fn christmas_puts_a_santa_hat_on_everyone() {
+        for (avatar, costume) in costumes_worn(Skin::Christmas) {
+            assert_eq!(costume, Costume::SantaHat, "{avatar:?}");
+        }
+    }
+
+    #[test]
+    fn every_costume_is_worn_somewhere() {
+        let worn: HashSet<Costume> = Skin::ALL
+            .into_iter()
+            .flat_map(|skin| costumes_worn(skin).into_values())
+            .collect();
+        assert_eq!(worn.len(), Costume::ALL.len());
     }
 
     #[test]
