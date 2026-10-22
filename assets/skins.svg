@@ -3,8 +3,8 @@
     <clipPath id="sk-witch-cone"><path d="M36 22C39 18 42.5 12.5 45.5 8.5C48 5 54 3 60.5 4.5C58.5 6.5 57.5 9 57.5 12C57.5 16.5 60.5 19 64 22Q50 27 36 22Z"/></clipPath>
   </defs>
 
-  <symbol id="skin-halloween" viewBox="0 0 100 100">
-    <g transform="translate(50 18) scale(.86) rotate(-5) translate(-50 -21)" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+  <symbol id="costume-witch-hat" viewBox="0 0 100 100">
+    <g transform="translate(50 19.5) scale(.86) rotate(-5) translate(-50 -21)" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
       <ellipse cx="50" cy="21" rx="34" ry="5.2" fill="#3d2766"/>
       <path d="M36 22C39 18 42.5 12.5 45.5 8.5C48 5 54 3 60.5 4.5C58.5 6.5 57.5 9 57.5 12C57.5 16.5 60.5 19 64 22Q50 27 36 22Z" fill="#6b43b0"/>
       <rect x="20" y="16.5" width="60" height="9" fill="#ff8c1a" stroke="none" clip-path="url(#sk-witch-cone)"/>
@@ -13,7 +13,56 @@
     </g>
   </symbol>
 
-  <symbol id="skin-christmas" viewBox="0 0 100 100">
+  <symbol id="costume-pumpkin-hat" viewBox="0 0 100 100">
+    <g transform="translate(50 26) scale(1.15) rotate(-6) translate(-50 -25)" stroke="#2a1f33" stroke-width="2.6" stroke-linejoin="round">
+      <path d="M48 9l.6-5.5q2.4-2 4.6-.2l-1.4 5.7z" fill="#4f9a45"/>
+      <ellipse cx="40" cy="16.5" rx="10.5" ry="9" fill="#ff8c1a"/>
+      <ellipse cx="60" cy="16.5" rx="10.5" ry="9" fill="#ff8c1a"/>
+      <ellipse cx="50" cy="16" rx="10" ry="9.5" fill="#ffa23d"/>
+      <g fill="#2a1f33" stroke="none">
+        <path d="M41.5 13.5l3.5 4h-7z"/>
+        <path d="M58.5 13.5l3.5 4h-7z"/>
+        <path d="M42 20.5q8 4 16 0l-2 2.5l-2-1.5l-2 2l-2-2l-2 2l-2-2l-2 1.5z"/>
+      </g>
+      <ellipse cx="44" cy="11" rx="3" ry="1.6" transform="rotate(-25 44 11)" fill="#fff" stroke="none" opacity=".45"/>
+    </g>
+  </symbol>
+
+  <symbol id="costume-bat" viewBox="0 0 100 100">
+    <g transform="rotate(8 50 11)" stroke="#2a1f33" stroke-width="2.6" stroke-linejoin="round">
+      <path d="M46 9Q38 0 24 3Q28 7 27 12Q32 9.5 35 13.5Q39 10.5 46 15Z M54 9Q62 0 76 3Q72 7 73 12Q68 9.5 65 13.5Q61 10.5 54 15Z" fill="#4a3566"/>
+      <path d="M45.5 7L45 1.5L48.5 5Z M54.5 7L55 1.5L51.5 5Z" fill="#4a3566"/>
+      <ellipse cx="50" cy="10.5" rx="5.5" ry="6.5" fill="#4a3566"/>
+      <g fill="#ffd166" stroke="none">
+        <circle cx="47.8" cy="9.5" r="1.4"/>
+        <circle cx="52.2" cy="9.5" r="1.4"/>
+      </g>
+      <path d="M48.6 13.6l.7 1.4.7-1.4M50 13.6l.7 1.4.7-1.4" fill="#fff" stroke="none"/>
+    </g>
+  </symbol>
+
+  <symbol id="costume-spider" viewBox="0 0 100 100">
+    <path d="M78 0V19" stroke="#2a1f33" stroke-width="1.4"/>
+    <g transform="translate(78 27) scale(1.25) translate(-76 -26)">
+      <g stroke="#2a1f33" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <path d="M71 24l-6-4l-2 3M70.5 27l-7 0l-2 3M71 30l-6 3l-1 3M72 32l-4 5l0 3"/>
+        <path d="M81 24l6-4l2 3M81.5 27l7 0l2 3M81 30l6 3l1 3M80 32l4 5l0 3"/>
+      </g>
+      <circle cx="76" cy="28" r="6.5" fill="#3d2766" stroke="#2a1f33" stroke-width="2.6"/>
+      <circle cx="76" cy="20.5" r="3.6" fill="#3d2766" stroke="#2a1f33" stroke-width="2.4"/>
+      <g fill="#fff">
+        <circle cx="74" cy="27" r="1.7"/>
+        <circle cx="78" cy="27" r="1.7"/>
+      </g>
+      <g fill="#2a1f33">
+        <circle cx="74.3" cy="27.3" r=".8"/>
+        <circle cx="78.3" cy="27.3" r=".8"/>
+      </g>
+      <path d="M74 31q2 1.6 4 0" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  </symbol>
+
+  <symbol id="costume-santa-hat" viewBox="0 0 100 100">
     <g transform="translate(50 18) scale(.86) rotate(-4) translate(-50 -22)" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
       <path d="M27 22C27 10 37 3.5 52 3.5C64 3.5 73 8 77.5 16C76 19 75 21 75 22Z" fill="#e63946"/>
       <rect x="20" y="17" width="60" height="10" rx="5" fill="#fffdf8"/>

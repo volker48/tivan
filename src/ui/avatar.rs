@@ -29,7 +29,7 @@ pub fn AvatarIcon(avatar: Avatar) -> Element {
     }
 }
 
-/// An avatar with a given skin drawn over it, for a place that is not showing the active one.
+/// An avatar wearing its costume from a given skin, for a place that is not showing the active one.
 ///
 /// The two are cut out as one sticker, so a hat gets the same edge as the face. The art is drawn a
 /// little smaller than the box to leave room inside it for that edge and its shadow.
@@ -45,7 +45,7 @@ pub fn SkinnedAvatar(avatar: Avatar, skin: Option<Skin>) -> Element {
                 g { transform: "translate(50 53) scale(.84) translate(-50 -56)",
                     r#use { href: "#avatar-{avatar.name()}" }
                     if let Some(skin) = skin {
-                        r#use { href: "#skin-{skin.name()}" }
+                        r#use { href: "#costume-{skin.costume(avatar).name()}" }
                     }
                 }
             }
@@ -56,6 +56,7 @@ pub fn SkinnedAvatar(avatar: Avatar, skin: Option<Skin>) -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::Costume;
 
     #[test]
     fn the_sprite_has_one_symbol_for_every_avatar() {
@@ -71,15 +72,15 @@ mod tests {
     }
 
     #[test]
-    fn the_sprite_has_one_symbol_for_every_skin() {
-        for skin in Skin::ALL {
-            let symbol = format!("<symbol id=\"skin-{}\"", skin.name());
-            assert!(SPRITE.contains(&symbol), "no art for {skin:?}");
+    fn the_sprite_has_one_symbol_for_every_costume() {
+        for costume in Costume::ALL {
+            let symbol = format!("<symbol id=\"costume-{}\"", costume.name());
+            assert!(SPRITE.contains(&symbol), "no art for {costume:?}");
         }
         assert_eq!(
-            SPRITE.matches("<symbol id=\"skin-").count(),
-            Skin::ALL.len(),
-            "art without a Skin"
+            SPRITE.matches("<symbol id=\"costume-").count(),
+            Costume::ALL.len(),
+            "art without a Costume"
         );
     }
 
