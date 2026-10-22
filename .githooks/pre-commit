@@ -1,0 +1,138 @@
+#!/bin/bash
+set -euo pipefail
+
+# Refuses a commit that stages a file over the token limit, counting tokens as bytes / 4, so no
+# file grows past what an agent can read and edit in one go. Only staged contents are checked.
+# Files marked linguist-generated or linguist-vendored in .gitattributes (lockfiles, codegen,
+# installed skills) and binary files are skipped. Enabled by `git config core.hooksPath .githooks`,
+# which scripts/bootstrap.sh runs.
+
+max_tokens=5000
+
+oversized=()
+extensions=()
+
+skipped() {
+	# --cached reads .gitattributes from the index, so a staged attribute change applies.
+	git check-attr --cached linguist-generated linguist-vendored -- "$1" |
+		grep -qE ': (set|true)$'
+}
+
+# --no-renames reports a renamed file as added, so a moved file is checked at its new path.
+staged=()
+while IFS= read -r -d '' path; do
+	staged+=("$path")
+done < <(git diff --cached --no-renames --name-only -z --diff-filter=AMT)
+
+if ((${#staged[@]} == 0)); then
+	exit 0
+fi
+
+# Diffing the index against the empty tree judges each staged blob alone, so a binary file that
+# was replaced by text still counts as text. numstat reports "-" for binary files.
+empty_tree=$(git hash-object -t tree /dev/null)
+while IFS= read -r -d '' record; do
+	added="${record%%$'\t'*}"
+	path="${record#*$'\t'*$'\t'}"
+	if [[ $added == - ]] || skipped "$path"; then
+		continue
+	fi
+	tokens=$(($(git cat-file -s ":$path") / 4))
+	if ((tokens > max_tokens)); then
+		oversized+=("$(printf '%7d tokens  %s' "$tokens" "$path")")
+		case "$path" in
+		*.*) extensions+=("${path##*.}") ;;
+		esac
+	fi
+done < <(git --literal-pathspecs diff --cached --numstat -z "$empty_tree" -- "${staged[@]}")
+
+if ((${#oversized[@]} == 0)); then
+	exit 0
+fi
+
+has_extension() {
+	local extension
+	# The +"..." form keeps bash 3.2 (macOS) from treating an empty array as unset.
+	for extension in ${extensions[@]+"${extensions[@]}"}; do
+		[[ $extension == "$1" ]] && return 0
+	done
+	return 1
+}
+
+{
+	cat <<EOF
+pre-commit: these staged files are over the $max_tokens token limit (tokens = bytes / 4):
+
+$(printf '%s\n' "${oversized[@]}")
+
+Split each one before committing:
+
+1. Find the seams. Group the items that change together and are used together (a type and its
+   impls, one component and its private helpers, the handlers for one route, the steps of one
+   recipe). Each group becomes its own file. Split by responsibility, never at an arbitrary line.
+2. Aim for files under 3,000 tokens (12 KB), so each one has room to grow before it hits the
+   limit again.
+3. Move code verbatim. Do not rewrite or rename while moving; fix only the imports and
+   visibility the move breaks, so the diff reads as a move.
+4. Keep the original path as the entry point and re-export from it, so callers do not change.
+5. Move each group's tests along with it.
+6. Run the checks (cargo test, and pnpm run typecheck, lint and test in deploy/ for Worker
+   code), git add the new files, and commit again.
+EOF
+
+	if has_extension rs; then
+		cat <<'EOF'
+
+Rust (src/<dir>/<name>.rs), following src/domain/ and src/ui/:
+  - git mv src/<dir>/<name>.rs src/<dir>/<name>/mod.rs
+  - Move each group into src/<dir>/<name>/<part>.rs. In mod.rs, declare `mod <part>;` and
+    `pub use <part>::{Item, ...};` so paths like crate::<dir>::<name>::Item keep working.
+  - Items one part needs from another become pub(super), not pub.
+  - Move the `#[cfg(test)] mod tests { ... }` block into src/<dir>/<name>/tests.rs and leave
+    `#[cfg(test)] mod tests;` in mod.rs; `use super::*;` still works there. If the tests alone are
+    over the limit, give each part file its own tests module for what it covers.
+  - Dioxus components: one component and its private helpers per file.
+  - A top-level src/<name>.rs works the same way: move it to src/<name>/mod.rs; the
+    `pub mod <name>;` in src/lib.rs stays as it is.
+EOF
+	fi
+
+	if has_extension ts; then
+		cat <<'EOF'
+
+TypeScript (deploy/src/<name>.ts):
+  - Move each group into deploy/src/<name>/<part>.ts and re-export it from deploy/src/<name>.ts
+    with `export { item } from "./<name>/<part>.ts";`, keeping the .ts import extensions.
+  - Split a <name>.test.ts by the behaviour under test into <name>-<area>.test.ts files, and move
+    shared setup into deploy/src/testing/.
+EOF
+	fi
+
+	if has_extension css; then
+		cat <<'EOF'
+
+CSS (assets/main.css):
+  - Move the rules for one screen or component into assets/<area>.css.
+  - Load it next to MAIN_CSS in src/app.rs: an `asset!("/assets/<area>.css")` const and a
+    `document::Stylesheet` for it.
+  - If you move the .hue-N rules, point the include_str! in src/ui/mod.rs's tests at their new file.
+EOF
+	fi
+
+	if has_extension md; then
+		cat <<'EOF'
+
+Markdown:
+  - Move each self-contained section into its own file and link to it from the original, the way
+    .claude/skills/verify-tivan/SKILL.md links to features/<feature>.md.
+  - Leave the original as a short overview plus an index saying when to read each file.
+EOF
+	fi
+
+	cat <<'EOF'
+
+Do not bypass this with --no-verify. If a file really is generated or vendored, not written by
+hand or by an agent, mark it in .gitattributes with linguist-generated or linguist-vendored.
+EOF
+} >&2
+exit 1
