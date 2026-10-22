@@ -1,6 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <clipPath id="sk-witch-cone"><path d="M36 22C39 18 42.5 12.5 45.5 8.5C48 5 54 3 60.5 4.5C58.5 6.5 57.5 9 57.5 12C57.5 16.5 60.5 19 64 22Q50 27 36 22Z"/></clipPath>
+    <mask id="sk-outside-head" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <rect width="100" height="100" fill="#fff"/>
+      <circle cx="50" cy="58" r="33" fill="#000"/>
+    </mask>
+    <linearGradient id="sk-sheet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4def2"/>
+    </linearGradient>
   </defs>
 
   <symbol id="costume-witch-hat" viewBox="0 0 100 100">
@@ -59,6 +67,75 @@
         <circle cx="78.3" cy="27.3" r=".8"/>
       </g>
       <path d="M74 31q2 1.6 4 0" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+    </g>
+  </symbol>
+
+  <symbol id="costume-mummy" viewBox="0 0 100 100">
+    <g clip-path="url(#av-head)" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round">
+      <g fill="#efe4c8">
+        <path d="M6 22L94 14L94 28L6 36Z"/>
+        <path d="M6 33L94 39L94 49L6 44Z"/>
+        <path d="M6 58L27 63L25 73L6 70Z"/>
+        <path d="M94 58L73 63L75 73L94 70Z"/>
+        <path d="M6 79L94 86L94 98L6 92Z"/>
+        <path d="M6 96L94 78L94 87L6 104Z"/>
+      </g>
+      <g fill="none" stroke="#c4b187" stroke-width="1.4" stroke-linecap="round">
+        <path d="M18 27l22-2M56 22l24-2M22 39l18 1.2M58 42l20 1.4M14 64l8 1.6M78 65l8-1.6M30 88l20 1.6M62 85l16-3"/>
+      </g>
+    </g>
+    <path d="M84 24q8-2 12-9q1.5 6-2.5 9.5q4 .5 5.5 4q-8 3-15 1z" fill="#efe4c8" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="costume-ghost" viewBox="0 0 100 100">
+    <path fill="url(#sk-sheet)" fill-rule="evenodd" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"
+      d="M14.5 60A35.5 35.5 0 0 1 85.5 60L89 90q-4.9 7-9.75 0q-4.9 7-9.75 0q-4.9 7-9.75 0q-4.9 7-9.75 0q-4.9 7-9.75 0q-4.9 7-9.75 0q-4.9 7-9.75 0q-4.9 7-9.75 0Z
+         M29.5 57.5a7.5 8.5 0 1 0 15 0a7.5 8.5 0 1 0 -15 0Z
+         M55.5 57.5a7.5 8.5 0 1 0 15 0a7.5 8.5 0 1 0 -15 0Z"/>
+    <ellipse cx="34" cy="36" rx="9" ry="4.5" transform="rotate(-30 34 36)" fill="#fff" opacity=".9"/>
+    <g fill="url(#av-blush-fill)">
+      <ellipse cx="26" cy="72" rx="7" ry="4.5"/>
+      <ellipse cx="74" cy="72" rx="7" ry="4.5"/>
+    </g>
+    <ellipse cx="50" cy="76" rx="3.6" ry="4.6" fill="#2a1f33"/>
+  </symbol>
+
+  <symbol id="costume-vampire" viewBox="0 0 100 100">
+    <g mask="url(#sk-outside-head)" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+      <path d="M50 99C32 99 14 97 7 93L3 44L20 62Q26 82 50 92Q74 82 80 62L97 44L93 93C86 97 68 99 50 99Z" fill="#2a2340"/>
+      <path d="M50 95C36 95 20 93 12 90L9 55L21 68Q27 85 50 95Q73 85 79 68L91 55L88 90C80 93 64 95 50 95Z" fill="#c1121f" stroke="none"/>
+    </g>
+    <g clip-path="url(#av-head)">
+      <path d="M8 18H92V45Q72 33 50 47Q28 33 8 45Z" fill="#2a2340" stroke="#2a1f33" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M30 31q8-4 16-2" fill="none" stroke="#6d6390" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    <circle cx="50" cy="94.5" r="4" fill="#ffd166" stroke="#2a1f33" stroke-width="2.4"/>
+  </symbol>
+
+  <symbol id="costume-monster" viewBox="0 0 100 100">
+    <g clip-path="url(#av-head)">
+      <path d="M8 18H92V37l-6 5l-5-5l-6 5l-5-5l-6 5l-5-5l-6 5l-5-5l-6 5l-5-5l-6 5l-5-5l-6 5l-5-5Z" fill="#2a2340" stroke="#2a1f33" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M26 29h14" stroke="#6d6390" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    <path d="M60 46.5h12M62.5 44v5M66 44v5M69.5 44v5" fill="none" stroke="#2a1f33" stroke-width="1.8" stroke-linecap="round"/>
+    <g stroke="#2a1f33" stroke-width="2.6" stroke-linejoin="round">
+      <rect x="9" y="70" width="11" height="8" rx="1.5" fill="#a9b0c2"/>
+      <rect x="5" y="68" width="5" height="12" rx="1.5" fill="#d7dbe6"/>
+      <rect x="80" y="70" width="11" height="8" rx="1.5" fill="#a9b0c2"/>
+      <rect x="90" y="68" width="5" height="12" rx="1.5" fill="#d7dbe6"/>
+    </g>
+  </symbol>
+
+  <symbol id="costume-werewolf" viewBox="0 0 100 100">
+    <g stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+      <path d="M15 46L17 5L45 27Z M85 46L83 5L55 27Z" fill="#7d8296"/>
+      <path d="M21 37L22.5 16L36 27Z M79 37L77.5 16L64 27Z" fill="#4b4f60" stroke="none"/>
+      <path d="M21 52L8 55L15 61L4 67L15 70L7 79L21 76Z M79 52L92 55L85 61L96 67L85 70L93 79L79 76Z" fill="#7d8296"/>
+      <path d="M36 27L41 20L44 26L50 18L56 26L59 20L64 27Q50 33 36 27Z" fill="#7d8296"/>
+    </g>
+    <g fill="url(#av-depth-fill)">
+      <path d="M15 46L17 5L45 27Z"/>
+      <path d="M85 46L83 5L55 27Z"/>
     </g>
   </symbol>
 

@@ -72,6 +72,13 @@ impl Avatar {
             Avatar::Sheep => "sheep",
         }
     }
+
+    /// Whether the face is the shared round head, which costumes that wrap the face are drawn to.
+    /// The frog's face is wider and flatter, the lion's sits inside its mane, and the sheep's sits
+    /// inside its wool.
+    pub fn has_round_head(self) -> bool {
+        !matches!(self, Avatar::Frog | Avatar::Lion | Avatar::Sheep)
+    }
 }
 
 /// Uniform among the avatars used least often in `taken`, so no avatar repeats until all of them
