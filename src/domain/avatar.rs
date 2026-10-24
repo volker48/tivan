@@ -2,8 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use super::rng::{Rng, choose};
 
-/// A student's picture. Stored by name, so renaming or removing a variant is a schema change and
-/// adding one is not.
+/// A student's picture. Stored by name, so renaming or removing a variant is a schema change, and
+/// adding one moves the schema version too, so an older build refuses a blob naming an avatar it
+/// cannot draw instead of starting over without it. New variants go at the end, which keeps every
+/// older avatar's place in turn orders such as [`super::Skin::costume`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Avatar {
@@ -25,10 +27,22 @@ pub enum Avatar {
     Raccoon,
     Hamster,
     Sheep,
+    Unicorn,
+    Dragon,
+    Dino,
+    Axolotl,
+    Owl,
+    Shark,
+    Octopus,
+    Sloth,
+    Elephant,
+    Hedgehog,
+    RedPanda,
+    Cow,
 }
 
 impl Avatar {
-    pub const ALL: [Avatar; 18] = [
+    pub const ALL: [Avatar; 30] = [
         Avatar::Bear,
         Avatar::Panda,
         Avatar::Cat,
@@ -47,6 +61,18 @@ impl Avatar {
         Avatar::Raccoon,
         Avatar::Hamster,
         Avatar::Sheep,
+        Avatar::Unicorn,
+        Avatar::Dragon,
+        Avatar::Dino,
+        Avatar::Axolotl,
+        Avatar::Owl,
+        Avatar::Shark,
+        Avatar::Octopus,
+        Avatar::Sloth,
+        Avatar::Elephant,
+        Avatar::Hedgehog,
+        Avatar::RedPanda,
+        Avatar::Cow,
     ];
 
     /// The stored name, which is also the suffix of the sprite symbol `avatar-<name>`.
@@ -70,6 +96,18 @@ impl Avatar {
             Avatar::Raccoon => "raccoon",
             Avatar::Hamster => "hamster",
             Avatar::Sheep => "sheep",
+            Avatar::Unicorn => "unicorn",
+            Avatar::Dragon => "dragon",
+            Avatar::Dino => "dino",
+            Avatar::Axolotl => "axolotl",
+            Avatar::Owl => "owl",
+            Avatar::Shark => "shark",
+            Avatar::Octopus => "octopus",
+            Avatar::Sloth => "sloth",
+            Avatar::Elephant => "elephant",
+            Avatar::Hedgehog => "hedgehog",
+            Avatar::RedPanda => "redpanda",
+            Avatar::Cow => "cow",
         }
     }
 }

@@ -290,3 +290,11 @@ extern "C" {
     #[wasm_bindgen(js_name = animateRotation)]
     pub fn animate_rotation();
 }
+
+#[wasm_bindgen(module = "/src/avatar_life.js")]
+extern "C" {
+    /// Keeps the avatars on the whiteboard blinking and fidgeting now and then, one at a time,
+    /// unless the system asks for less motion. Calling it again does nothing.
+    #[wasm_bindgen(js_name = startAvatarLife)]
+    pub fn start_avatar_life();
+}
