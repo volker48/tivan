@@ -46,6 +46,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 - [Timer](./timer.md): preset countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.
 - [Account and Classroom sync](./account.md): sign in with Google, keep classes on the server, and pull classes and rosters from Google Classroom.
 - [Settings](./settings.md): the gear page, and choosing a seasonal avatar skin.
+- [Avatars](./avatars.md): the 30 animal stickers, their blinks and smiles, and how they celebrate on the wall and in the oracle.
 
 ## Proof status
 
@@ -61,6 +62,8 @@ Verification on 2026-10-16, app rev `b3307e7`, using dx 0.7.10, agent-browser 0.
 
 - **Settings**: the gear opens Settings, the four skin radios save to `doc.settings.skin` (`auto`, `plain`, `{"fixed":"christmas"}`), the whiteboard shows `#skin-halloween` or `#skin-christmas` on all 18 avatars or none, the choice survives reload, and Escape returns to Build. Run `20261016-100817-17074` (rev `ed53995+dirty`, before commit); evidence in `target/verify/20261016-100817-17074/` and `target/verify/20261016-100508-15439/` (phone width 375, no horizontal scroll).
 - **Halloween costumes** (2026-10-22): with `Halloween` fixed, the Settings previews show `#costume-witch-hat`, `#costume-pumpkin-hat` and `#costume-bat` on bear, panda and cat, and the whiteboard dresses its 18 avatars in all four Halloween costumes, the frog in the spider and the bunny in the bat. The choice survived reload and the stored version stayed 6. Run `20261022-090103-50451` (rev `1c9a81a+dirty`); evidence `settings-halloween` and `wall-halloween` in `target/verify/20261022-090103-50451/`. Since then the sprite symbols are `#costume-<name>`, not `#skin-<name>`.
+
+- **Avatars** (2026-10-24): every step of `avatars.md` passed in run `20261024-182836-28108` (rev `b0798e1+dirty`, before commit) at 1280x720: a fresh profile saves version 7 and `Reading Club`'s 27 students have 27 different animals, hovering a roster row shows happy eyes, flying chips grin during `Shuffle again` and stop on landing, the wall's avatars arrive in a wave and blink (16 blinking frames sampled in 3 s on the wall, 0 in Build), the oracle's chosen avatar leaps in with sparks and settles with open eyes and every spark faded, a picked group's members pop up in turn, and reduced motion stops the blinking and shows the reveal settled. The saved version stayed 7 after reload. With `Christmas` fixed the wall lists `#costume-santa-hat` and `#costume-holly`, and the shark wears holly. At 375 px the wall and the reveal do not scroll sideways. Evidence `avatars-*`, `settings-christmas`, `wall-christmas` and `phone-*` in `target/verify/20261024-182836-28108/`.
 
 Each run records browser commands in `commands.log`; every capture includes a screenshot, accessibility tree and saved JSON. Doctor passed before and after both runs, and both sessions and servers were cleaned up. The first launch, `20261016-090628-99697`, lost its server when its command runner exited; it was cleaned up and excluded from proof. The roster placeholder selector and the centers recipe's stored-version expectation were corrected to match the observed app.
 

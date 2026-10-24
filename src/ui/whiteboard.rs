@@ -216,7 +216,9 @@ fn SpinFace(pick: Pick, frame: usize) -> Element {
             match &pick {
                 Pick::Student(student) => rsx! {
                     strong { key: "{frame}", class: "reveal-name",
-                        AvatarIcon { avatar: student.avatar }
+                        span { class: "reveal-avatar",
+                            AvatarIcon { avatar: student.avatar }
+                        }
                         "{student.name}"
                     }
                 },
@@ -246,7 +248,10 @@ fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
                 match &pick {
                     Pick::Student(student) => rsx! {
                         strong { class: "reveal-name",
-                            AvatarIcon { avatar: student.avatar }
+                            span { class: "reveal-avatar",
+                                Sparks {}
+                                AvatarIcon { avatar: student.avatar }
+                            }
                             "{student.name}!"
                         }
                     },
@@ -257,8 +262,8 @@ fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
             }
             if let Pick::Group { members, .. } = &pick {
                 ul { class: "wall-members reveal-members",
-                    for student in members {
-                        li { key: "{student.id.get()}",
+                    for (n , student) in members.iter().enumerate() {
+                        li { key: "{student.id.get()}", style: "--n: {n}",
                             AvatarIcon { avatar: student.avatar }
                             span { class: "wall-member-name", "{student.name}" }
                         }
@@ -279,6 +284,22 @@ fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
                     onclick: move |_| reveal.set(None),
                     "Done"
                 }
+            }
+        }
+    }
+}
+
+/// How many sparks burst out from behind a chosen student's avatar. The stylesheet aims and colors
+/// each one by its place.
+const SPARKS: usize = 10;
+
+/// A burst of sparks behind the avatar of the student the oracle chose. Decorative.
+#[component]
+fn Sparks() -> Element {
+    rsx! {
+        span { class: "sparks", aria_hidden: "true",
+            for n in 0..SPARKS {
+                i { key: "{n}" }
             }
         }
     }
@@ -485,8 +506,8 @@ fn WallCard(card: GroupCard) -> Element {
             // The box is what the member tiles measure to size their avatars.
             div { class: "wall-members-box",
                 ul { class: "wall-members",
-                    for student in card.members {
-                        li { key: "{student.id.get()}",
+                    for (n , student) in card.members.into_iter().enumerate() {
+                        li { key: "{student.id.get()}", style: "--n: {n}",
                             AvatarIcon { avatar: student.avatar }
                             span { class: "wall-member-name", "{student.name}" }
                         }

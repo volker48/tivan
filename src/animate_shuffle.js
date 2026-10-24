@@ -19,6 +19,16 @@ function stopWaiting() {
   pending = null;
 }
 
+// The avatars in a flying chip or card grin until just before they land: their happy eyes show
+// in place of the open ones.
+const GLAD = [{ opacity: 1 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }];
+const NOT_GLAD = [{ opacity: 0 }, { opacity: 0, offset: 0.85 }, { opacity: 1 }];
+
+function grin(el, timing) {
+  for (const eyes of el.querySelectorAll(".av-glad")) eyes.animate(GLAD, timing);
+  for (const eyes of el.querySelectorAll(".av-open")) eyes.animate(NOT_GLAD, timing);
+}
+
 function flyChip({ el: chip, dx, dy, style }) {
   const background = style.backgroundColor;
   const distance = Math.hypot(dx, dy);
@@ -26,6 +36,7 @@ function flyChip({ el: chip, dx, dy, style }) {
   const spin = (Math.random() < 0.5 ? -1 : 1) * (8 + Math.random() * 14);
   const rest = "translate(0px, 0px) rotate(0deg) scale(1)";
   const edge = { boxShadow: "0 0 0 rgba(0, 0, 0, 0)", backgroundColor: background, zIndex: 10 };
+  const delay = Math.random() * MAX_STAGGER_MS;
   chip.animate(
     [
       { ...edge, transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(1)` },
@@ -41,11 +52,12 @@ function flyChip({ el: chip, dx, dy, style }) {
     ],
     {
       duration: FLIGHT_MS,
-      delay: Math.random() * MAX_STAGGER_MS,
+      delay,
       easing: "cubic-bezier(.2, .8, .2, 1)",
       fill: "backwards",
     },
   );
+  grin(chip, { duration: FLIGHT_MS, delay, fill: "backwards" });
 }
 
 // A card is already opaque, so it keeps its own background and shadow at both ends of the flight.
@@ -73,6 +85,7 @@ function flyCard({ el: card, dx, dy, style }) {
       fill: "backwards",
     },
   );
+  grin(card, { duration: CARD_FLIGHT_MS, fill: "backwards" });
 }
 
 const CHIPS = { key: "student", fly: flyChip };
