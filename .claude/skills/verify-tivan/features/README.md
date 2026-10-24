@@ -44,7 +44,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 - [Attendance](./attendance.md): mark a student absent for the day so groups and the oracle skip them.
 - [Centers](./centers.md): turn learning centers on for a grouped class, rotate the groups through them, rename them.
 - [Whiteboard and oracle](./whiteboard.md): the projected group wall and the random student and group pickers.
-- [Timer](./timer.md): preset countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.
+- [Timer](./timer.md): preset and custom-length countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.
 - [Account and Classroom sync](./account.md): sign in with Google, keep classes on the server, and pull classes and rosters from Google Classroom.
 - [Settings](./settings.md): the gear page, and choosing a seasonal avatar skin.
 - [Avatars](./avatars.md): the 30 animal stickers, their blinks and smiles, and how they celebrate on the wall and in the oracle.

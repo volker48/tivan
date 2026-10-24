@@ -12,18 +12,11 @@ pub enum Preset {
     Two,
     Three,
     Five,
-    Ten,
 }
 
 impl Preset {
     /// The one list the UI renders buttons from.
-    pub const ALL: [Preset; 5] = [
-        Preset::One,
-        Preset::Two,
-        Preset::Three,
-        Preset::Five,
-        Preset::Ten,
-    ];
+    pub const ALL: [Preset; 4] = [Preset::One, Preset::Two, Preset::Three, Preset::Five];
 
     pub fn minutes(self) -> u64 {
         match self {
@@ -31,13 +24,32 @@ impl Preset {
             Preset::Two => 2,
             Preset::Three => 3,
             Preset::Five => 5,
-            Preset::Ten => 10,
         }
     }
 
     pub fn duration(self) -> Millis {
         Millis(self.minutes() * 60_000)
     }
+}
+
+/// The longest countdown the minutes field accepts: a long block period, and short enough that the
+/// digits stay on one line.
+pub const MAX_MINUTES: u64 = 180;
+
+/// What the minutes field starts at.
+pub const DEFAULT_MINUTES: u64 = 10;
+
+/// Reads the minutes field: a whole number from 1 to [`MAX_MINUTES`], with surrounding space
+/// ignored. Anything else, including the empty text a number field reports mid-edit, is `None`.
+pub fn parse_minutes(text: &str) -> Option<Millis> {
+    let text = text.trim();
+    if !text.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let minutes: u64 = text.parse().ok()?;
+    (1..=MAX_MINUTES)
+        .contains(&minutes)
+        .then_some(Millis(minutes * 60_000))
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -147,10 +159,46 @@ mod tests {
     }
 
     #[test]
-    fn presets_cover_one_two_three_five_ten_minutes() {
+    fn presets_cover_one_two_three_five_minutes() {
         let minutes: Vec<u64> = Preset::ALL.iter().map(|p| p.minutes()).collect();
-        assert_eq!(minutes, [1, 2, 3, 5, 10]);
+        assert_eq!(minutes, [1, 2, 3, 5]);
         assert_eq!(Preset::Three.duration(), Millis(3 * MIN));
+    }
+
+    #[test]
+    fn minutes_field_takes_any_whole_number_from_one_to_the_max() {
+        assert_eq!(parse_minutes("1"), Some(Millis(MIN)));
+        assert_eq!(parse_minutes("10"), Some(Millis(10 * MIN)));
+        assert_eq!(parse_minutes("47"), Some(Millis(47 * MIN)));
+        assert_eq!(parse_minutes(" 10 "), Some(Millis(10 * MIN)));
+        assert_eq!(parse_minutes("007"), Some(Millis(7 * MIN)));
+        assert_eq!(
+            parse_minutes(&MAX_MINUTES.to_string()),
+            Some(Millis(MAX_MINUTES * MIN))
+        );
+        assert_eq!(
+            parse_minutes(&DEFAULT_MINUTES.to_string()),
+            Some(Millis(10 * MIN))
+        );
+    }
+
+    #[test]
+    fn minutes_field_rejects_zero_overflow_and_non_whole_numbers() {
+        let max_plus_one = (MAX_MINUTES + 1).to_string();
+        for text in [
+            "",
+            " ",
+            "0",
+            &max_plus_one,
+            "99999999999999999999",
+            "abc",
+            "1.5",
+            "-3",
+            "+3",
+            "1e2",
+        ] {
+            assert_eq!(parse_minutes(text), None, "{text:?}");
+        }
     }
 
     #[test]

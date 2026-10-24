@@ -38,7 +38,7 @@ pub use rng::{Rng, SplitMix64};
 pub use seed::seed_doc;
 pub use skin::{CalendarDay, Costume, Season, Settings, Skin, SkinChoice};
 pub use spin::{Frame, Reel};
-pub use timer::{Millis, Preset, Timer, format_mm_ss};
+pub use timer::{DEFAULT_MINUTES, MAX_MINUTES, Millis, Preset, Timer, format_mm_ss, parse_minutes};
 
 #[cfg(test)]
 pub(crate) mod testing {

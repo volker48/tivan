@@ -1113,6 +1113,38 @@ textarea {
   font-size: clamp(1rem, 1.4vw, 1.5rem);
 }
 
+.custom-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: clamp(1rem, 1.4vw, 1.5rem);
+  font-weight: 700;
+}
+
+.custom-timer input {
+  width: 4.5ch;
+  min-height: 44px;
+  padding: 0.3rem 0.4rem;
+  appearance: textfield;
+  border: 2px solid var(--line);
+  border-radius: 0.8rem;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Typed, not stepped: the spinner arrows would cover the digits of so narrow a field. */
+.custom-timer input::-webkit-inner-spin-button,
+.custom-timer input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.custom-timer input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
 .timer-strip {
   flex: none;
   display: flex;

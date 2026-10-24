@@ -3,7 +3,8 @@ use gloo_timers::future::TimeoutFuture;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
 use crate::domain::{
-    Avatar, Draw, Grouping, Millis, Pick, Preset, Reel, StudentId, Timer, format_mm_ss,
+    Avatar, DEFAULT_MINUTES, Draw, Grouping, MAX_MINUTES, Millis, Pick, Preset, Reel, StudentId,
+    Timer, format_mm_ss, parse_minutes,
 };
 use crate::platform;
 use crate::ui::avatar::AvatarIcon;
@@ -342,6 +343,9 @@ fn Sparks() -> Element {
 fn TimerControls() -> Element {
     let mut state = use_app();
     let timer = state.timer();
+    // Held here rather than in `CustomTimer`, which unmounts while a countdown runs, so the field
+    // comes back with the teacher's last entry.
+    let minutes = use_signal(|| DEFAULT_MINUTES.to_string());
     rsx! {
         div { class: "timer-controls", role: "group", aria_label: "Timer",
             match timer {
@@ -358,6 +362,7 @@ fn TimerControls() -> Element {
                             "{preset.minutes()} min"
                         }
                     }
+                    CustomTimer { minutes }
                 },
                 Timer::Running { .. } => rsx! {
                     button {
@@ -383,6 +388,46 @@ fn TimerControls() -> Element {
                     onclick: move |_| state.cancel_timer(),
                     "Cancel"
                 }
+            }
+        }
+    }
+}
+
+/// A countdown of any whole number of minutes. Enter in the field starts it too.
+#[component]
+fn CustomTimer(minutes: Signal<String>) -> Element {
+    let mut state = use_app();
+    let duration = parse_minutes(&minutes.read());
+    rsx! {
+        form {
+            class: "custom-timer",
+            onsubmit: move |event| {
+                event.prevent_default();
+                if let Some(duration) = duration {
+                    state.update_timer(|_, now| Timer::start(duration, now));
+                }
+            },
+            input {
+                r#type: "number",
+                min: "1",
+                max: "{MAX_MINUTES}",
+                step: "1",
+                inputmode: "numeric",
+                aria_label: "Minutes",
+                aria_invalid: "{duration.is_none()}",
+                value: "{minutes}",
+                oninput: move |event| minutes.set(event.value()),
+            }
+            span { "min" }
+            button {
+                class: "btn btn-preset",
+                r#type: "submit",
+                disabled: duration.is_none(),
+                aria_label: match duration {
+                    Some(duration) => format!("Start a {} minute timer", duration.0 / 60_000),
+                    None => "Start timer".to_string(),
+                },
+                "Start"
             }
         }
     }
