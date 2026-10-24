@@ -6,37 +6,34 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Millis(pub u64);
 
+/// A countdown length in whole minutes, `1..=Minutes::MAX`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Preset {
-    One,
-    Two,
-    Three,
-    Five,
-    Ten,
-}
+pub struct Minutes(u64);
 
-impl Preset {
-    /// The one list the UI renders buttons from.
-    pub const ALL: [Preset; 5] = [
-        Preset::One,
-        Preset::Two,
-        Preset::Three,
-        Preset::Five,
-        Preset::Ten,
-    ];
+impl Minutes {
+    /// The longest countdown: a long block period, and short enough that the digits stay on one
+    /// line.
+    pub const MAX: u64 = 180;
 
-    pub fn minutes(self) -> u64 {
-        match self {
-            Preset::One => 1,
-            Preset::Two => 2,
-            Preset::Three => 3,
-            Preset::Five => 5,
-            Preset::Ten => 10,
-        }
+    /// The one-tap lengths the UI renders buttons for. Any other length is typed.
+    pub const PRESETS: [Minutes; 3] = [Minutes(1), Minutes(3), Minutes(5)];
+
+    /// Reads the minutes field, ignoring surrounding space. Anything outside the range, including
+    /// the empty text a number field reports mid-edit, is `None`.
+    pub fn parse(text: &str) -> Option<Minutes> {
+        text.trim()
+            .parse()
+            .ok()
+            .filter(|m| (1..=Minutes::MAX).contains(m))
+            .map(Minutes)
+    }
+
+    pub fn get(self) -> u64 {
+        self.0
     }
 
     pub fn duration(self) -> Millis {
-        Millis(self.minutes() * 60_000)
+        Millis(self.0 * 60_000)
     }
 }
 
@@ -147,15 +144,46 @@ mod tests {
     }
 
     #[test]
-    fn presets_cover_one_two_three_five_ten_minutes() {
-        let minutes: Vec<u64> = Preset::ALL.iter().map(|p| p.minutes()).collect();
-        assert_eq!(minutes, [1, 2, 3, 5, 10]);
-        assert_eq!(Preset::Three.duration(), Millis(3 * MIN));
+    fn presets_cover_one_three_five_minutes() {
+        let minutes: Vec<u64> = Minutes::PRESETS.iter().map(|m| m.get()).collect();
+        assert_eq!(minutes, [1, 3, 5]);
+        assert_eq!(Minutes::PRESETS[1].duration(), Millis(3 * MIN));
+    }
+
+    #[test]
+    fn minutes_field_takes_any_whole_number_from_one_to_the_max() {
+        let parsed = |text: &str| Minutes::parse(text).map(Minutes::get);
+        assert_eq!(parsed("1"), Some(1));
+        assert_eq!(parsed(" 10 "), Some(10));
+        assert_eq!(parsed("007"), Some(7));
+        assert_eq!(parsed(&Minutes::MAX.to_string()), Some(Minutes::MAX));
+        assert_eq!(
+            Minutes::parse("47").map(Minutes::duration),
+            Some(Millis(47 * MIN))
+        );
+    }
+
+    #[test]
+    fn minutes_field_rejects_zero_overflow_and_non_whole_numbers() {
+        let max_plus_one = (Minutes::MAX + 1).to_string();
+        for text in [
+            "",
+            " ",
+            "0",
+            &max_plus_one,
+            "99999999999999999999",
+            "abc",
+            "1.5",
+            "-3",
+            "1e2",
+        ] {
+            assert_eq!(Minutes::parse(text), None, "{text:?}");
+        }
     }
 
     #[test]
     fn start_counts_down_from_the_full_duration() {
-        let timer = Timer::start(Preset::Five.duration(), Millis(1_000));
+        let timer = Timer::start(Minutes::PRESETS[2].duration(), Millis(1_000));
         assert_eq!(timer, running(1_000 + 5 * MIN, 5 * MIN));
         assert_eq!(timer.remaining(Millis(1_000)), Millis(5 * MIN));
     }

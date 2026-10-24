@@ -3,7 +3,7 @@ use gloo_timers::future::TimeoutFuture;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
 use crate::domain::{
-    Avatar, Draw, Grouping, Millis, Pick, Preset, Reel, StudentId, Timer, format_mm_ss,
+    Avatar, Draw, Grouping, Millis, Minutes, Pick, Reel, StudentId, Timer, format_mm_ss,
 };
 use crate::platform;
 use crate::ui::avatar::AvatarIcon;
@@ -18,6 +18,9 @@ struct Reveal {
     pick: Pick,
     reel: Reel,
 }
+
+/// What the custom timer's minutes field starts at.
+const CUSTOM_MINUTES: &str = "10";
 
 /// Under this the countdown turns red.
 const LOW_TIME: Millis = Millis(10_000);
@@ -342,22 +345,26 @@ fn Sparks() -> Element {
 fn TimerControls() -> Element {
     let mut state = use_app();
     let timer = state.timer();
+    // Held here rather than in `CustomTimer`, which unmounts while a countdown runs, so the field
+    // comes back with the teacher's last entry.
+    let draft = use_signal(|| CUSTOM_MINUTES.to_string());
     rsx! {
         div { class: "timer-controls", role: "group", aria_label: "Timer",
             match timer {
                 Timer::Idle | Timer::Finished { .. } => rsx! {
                     span { class: "bar-label", "Timer" }
-                    for preset in Preset::ALL {
+                    for minutes in Minutes::PRESETS {
                         button {
                             class: "btn btn-preset",
                             r#type: "button",
-                            aria_label: "Start a {preset.minutes()} minute timer",
+                            aria_label: "Start a {minutes.get()} minute timer",
                             onclick: move |_| {
-                                state.update_timer(|_, now| Timer::start(preset.duration(), now));
+                                state.update_timer(|_, now| Timer::start(minutes.duration(), now));
                             },
-                            "{preset.minutes()} min"
+                            "{minutes.get()} min"
                         }
                     }
+                    CustomTimer { draft }
                 },
                 Timer::Running { .. } => rsx! {
                     button {
@@ -382,6 +389,51 @@ fn TimerControls() -> Element {
                     r#type: "button",
                     onclick: move |_| state.cancel_timer(),
                     "Cancel"
+                }
+            }
+        }
+    }
+}
+
+/// A countdown of any whole number of minutes, drawn as one pill: the field, then a "min ▶" half
+/// that starts it. Enter in the field starts it too.
+#[component]
+fn CustomTimer(draft: Signal<String>) -> Element {
+    let mut state = use_app();
+    let minutes = Minutes::parse(&draft.read());
+    rsx! {
+        form {
+            class: "custom-timer",
+            onsubmit: move |event| {
+                event.prevent_default();
+                if let Some(minutes) = minutes {
+                    state.update_timer(|_, now| Timer::start(minutes.duration(), now));
+                }
+            },
+            input {
+                r#type: "number",
+                min: "1",
+                max: "{Minutes::MAX}",
+                step: "1",
+                inputmode: "numeric",
+                aria_label: "Minutes",
+                aria_invalid: "{minutes.is_none()}",
+                value: "{draft}",
+                oninput: move |event| draft.set(event.value()),
+            }
+            button {
+                r#type: "submit",
+                disabled: minutes.is_none(),
+                aria_label: match minutes {
+                    Some(minutes) => format!("Start a {} minute timer", minutes.get()),
+                    None => "Start timer".to_string(),
+                },
+                "min"
+                svg {
+                    class: "play",
+                    view_box: "0 0 10 12",
+                    "aria-hidden": "true",
+                    path { d: "M1 1 L9 6 L1 11 Z" }
                 }
             }
         }
