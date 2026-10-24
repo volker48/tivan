@@ -62,7 +62,7 @@ SESSION=acct-verify
 - The session cookie is `httpOnly`, so `eval` cannot see or change it. Use `cookies get` and `cookies clear`.
 - Saves wait about 0.8 s after the last change. Wait 2 s before reading the server's doc or counting requests.
 - The class name and the student count run together in a checkbox's name (`Period 1 Math 4 students`). Match on the class name and avoid `--exact`.
-- A student's name is Classroom's full name, cut to 40 characters, and `Student` when Classroom sent none. A sync never renames a student or a class that is already linked.
+- A student's name is their Classroom given name, with their last initial added (`Ada L.`, `Ada Y.`) when another student in the same course shares it. Without a given name it is the full name. It is cut to 40 characters, and `Student` when Classroom sent none. The fake's `Period 1 Science` shows both forms. A sync never renames a student or a class that is already linked.
 - A class made from Classroom is linked to its course, not to its name. Two courses with the same name give two classes.
 - After `account-session-ended`, signing in again loads the server's doc, so changes made while signed out are not in it. They stay in the browser's copy.
 - Two browsers signed in at once overwrite each other: the last save wins.

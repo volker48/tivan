@@ -31,14 +31,54 @@ function parseCourse(raw: unknown): CourseHeader | null {
   return { id: raw["id"], name: typeof raw["name"] === "string" ? raw["name"] : "" };
 }
 
-function parseStudent(raw: unknown): ClassroomStudent | null {
+/** A student as Google names them, before the roster decides what to call them. */
+interface RosterEntry {
+  readonly id: string;
+  /** The given name, or the full name when Google sent no given name. */
+  readonly first: string;
+  readonly family: string;
+}
+
+function parseStudent(raw: unknown): RosterEntry | null {
   if (!isRecord(raw) || typeof raw["userId"] !== "string") {
     return null;
   }
   const profile = raw["profile"];
   const name = isRecord(profile) ? profile["name"] : undefined;
-  const fullName = isRecord(name) ? name["fullName"] : undefined;
-  return { id: raw["userId"], name: typeof fullName === "string" ? fullName : "" };
+  const field = (key: string): string => {
+    const value = isRecord(name) ? name[key] : undefined;
+    return typeof value === "string" ? value.trim() : "";
+  };
+  const given = field("givenName");
+  return {
+    id: raw["userId"],
+    first: given === "" ? field("fullName") : given,
+    family: field("familyName"),
+  };
+}
+
+/**
+ * Calls each student by their first name, and adds their last initial ("Steve D.") when someone
+ * else in the same course shares that first name. A student with no family name keeps the bare
+ * first name, and one with no name at all stays nameless for the client to fill in.
+ */
+function nameRoster(entries: readonly RosterEntry[]): ClassroomStudent[] {
+  const key = (entry: RosterEntry): string => entry.first.toLocaleLowerCase();
+  const counts = new Map<string, number>();
+  for (const entry of entries) {
+    counts.set(key(entry), (counts.get(key(entry)) ?? 0) + 1);
+  }
+  return entries.map((entry) => {
+    const initial = Array.from(entry.family.normalize("NFC"))[0];
+    const shared = (counts.get(key(entry)) ?? 0) > 1;
+    return {
+      id: entry.id,
+      name:
+        shared && entry.first !== "" && initial !== undefined
+          ? `${entry.first} ${initial.toLocaleUpperCase()}.`
+          : entry.first,
+    };
+  });
 }
 
 /**
@@ -153,7 +193,7 @@ async function fetchRosters(
         failed = true;
         return students;
       }
-      rosters[index] = { ...course, students: students.value };
+      rosters[index] = { ...course, students: nameRoster(students.value) };
     }
     return null;
   };
