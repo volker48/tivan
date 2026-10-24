@@ -17,7 +17,7 @@ use gloo_timers::future::TimeoutFuture;
 
 use crate::account::{self, Booted, RemoteDoc, SaveTarget, Session};
 use crate::api::ApiError;
-use crate::domain::{CalendarDay, Class, Doc, Millis, Skin, Timer, seed_doc};
+use crate::domain::{Class, Day, Doc, Millis, Skin, Timer, seed_doc};
 use crate::notice::Notice;
 use crate::outbox::{Edit, Outbox};
 use crate::persist;
@@ -58,7 +58,7 @@ pub struct AppState {
     remote: Signal<RemoteDoc>,
     /// Whether this browser's storage may be written, as the startup load found it.
     local_can_save: bool,
-    today: Signal<CalendarDay>,
+    today: Signal<Day>,
     skin: Memo<Option<Skin>>,
 }
 
@@ -93,8 +93,9 @@ impl AppState {
         (self.skin)()
     }
 
-    /// Reactive read. Changes at midnight, so a tab left open across a season's edge follows it.
-    pub fn today(&self) -> CalendarDay {
+    /// Reactive read. Changes at midnight, so a tab left open across a season's edge follows it,
+    /// and so do the day's absences.
+    pub fn today(&self) -> Day {
         *self.today.read()
     }
 
@@ -175,7 +176,8 @@ impl AppState {
         {
             self.notice.set(None);
         }
-        if let Some(doc) = booted.doc {
+        if let Some(mut doc) = booted.doc {
+            doc.start_day(*self.today.peek());
             self.doc.set(doc);
         }
         self.remote.set(booted.remote);
@@ -237,6 +239,16 @@ impl AppState {
         let today = platform::today();
         if today != *self.today.peek() {
             self.today.set(today);
+            self.start_day();
+        }
+    }
+
+    /// Brings back the students marked absent on an earlier day. Writes the doc only when that
+    /// changes it, so an ordinary midnight costs no save.
+    fn start_day(&mut self) {
+        let today = *self.today.peek();
+        if self.doc.peek().absences_lapsed(today) {
+            self.doc.write().start_day(today);
         }
     }
 }
@@ -305,10 +317,14 @@ pub fn use_escape(handler: impl FnMut() + 'static) {
 #[component]
 pub fn App() -> Element {
     let initial = use_hook(|| Rc::new(store::load(&LocalStorage, &mut JsRng)));
-    let doc = use_signal(|| initial.doc.clone());
-    let notice = use_signal(|| initial.notice.clone());
     let today = use_signal(platform::today);
-    let skin = use_memo(move || doc.read().settings().active_skin(*today.read()));
+    let doc = use_signal(|| {
+        let mut doc = initial.doc.clone();
+        doc.start_day(*today.peek());
+        doc
+    });
+    let notice = use_signal(|| initial.notice.clone());
+    let skin = use_memo(move || doc.read().settings().active_skin(today.read().calendar()));
     let state = use_context_provider(|| AppState {
         doc,
         mode: Signal::new(Mode::Build),
