@@ -48,4 +48,6 @@ Preconditions:
 - With Chrome for Testing 151, `press Enter` in the `Group name` box hung the page. Enter saves and removes the field, so the Enter reached the page body, and that Chrome answered with a storm of synthetic key events. The same happens on a plain HTML page, so the app is not at fault. Chrome for Testing 155 is clean. On an older Chrome, save by clicking away. See the stuck-page notes in `SKILL.md`.
 - An empty or unchanged name in the `Group name` box cancels the rename silently. A name over 40 characters shows the alert `Keep names to 40 characters or fewer.`
 - `--name "Lock <group>"` must use the group's current name, which a reroll or Make groups changes.
+- A class with no groups yet opens with its `Students` panel expanded, so clicking `Students` there collapses it. Read its `aria-expanded` first.
+- After the page scrolls, the sticky top bar can cover roster toggles and agent-browser refuses the click. Scroll the button into view first.
 - `McCurdy HR` has 18 students, so the stepper allows up to 18 groups. A class with fewer students caps lower.
