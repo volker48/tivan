@@ -528,11 +528,17 @@ fn GroupControls() -> Element {
     let mut wanted = use_signal(|| current.unwrap_or(DEFAULT_GROUPS));
     let mut confirming_removal = use_signal(|| false);
     let mut confirming_regroup = use_signal(|| false);
-    let all_locked = current.is_some_and(|groups| locked == groups);
+    let any_locked = locked > 0;
+    let all_locked = current == Some(locked);
     // The roster can shrink, or a student be marked absent, after the teacher set the stepper, so
     // the count is re-derived each render from the students present.
     let groups = GroupCount::nearest(wanted(), students).ok();
     let shown = groups.map_or(0, GroupCount::get);
+    let mut regroup = move || {
+        if let Some(groups) = groups {
+            state.edit_class(|class, rng| class.regroup(groups, rng));
+        }
+    };
     rsx! {
         section { class: "controls",
             div { class: "stepper", role: "group", aria_label: "Number of groups",
@@ -566,16 +572,14 @@ fn GroupControls() -> Element {
             if let Some(hint) = groups.and_then(|groups| size_hint(students, groups)) {
                 span { class: "hint", "{hint}" }
             }
-            if confirming_regroup() && locked > 0 {
+            if confirming_regroup() && any_locked {
                 div { class: "confirm",
                     span { class: "confirm-text", "New groups mix everyone, locked groups too. Go ahead?" }
                     button {
                         class: "btn btn-danger btn-small",
                         r#type: "button",
                         onclick: move |_| {
-                            if let Some(groups) = groups {
-                                state.edit_class(|class, rng| class.regroup(groups, rng));
-                            }
+                            regroup();
                             confirming_regroup.set(false);
                         },
                         "Yes, make groups"
@@ -593,10 +597,10 @@ fn GroupControls() -> Element {
                     r#type: "button",
                     disabled: groups.is_none(),
                     onclick: move |_| {
-                        if locked > 0 {
+                        if any_locked {
                             confirming_regroup.set(true);
-                        } else if let Some(groups) = groups {
-                            state.edit_class(|class, rng| class.regroup(groups, rng));
+                        } else {
+                            regroup();
                         }
                     },
                     "Make groups"
@@ -607,7 +611,7 @@ fn GroupControls() -> Element {
                     class: "btn",
                     r#type: "button",
                     disabled: all_locked,
-                    title: if all_locked { "Every group is locked. Unlock one to shuffle." } else if locked > 0 { "Locked groups stay as they are" },
+                    title: if all_locked { "Every group is locked. Unlock one to shuffle." } else if any_locked { "Locked groups stay as they are" },
                     onclick: move |_| {
                         platform::animate_shuffle();
                         state.edit_class(|class, rng| class.reshuffle(rng));

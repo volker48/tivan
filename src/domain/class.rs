@@ -1664,21 +1664,22 @@ mod tests {
         }
     }
 
+    /// Whether some seed's reshuffle changes who is in group `g`.
+    fn some_shuffle_changes(class: &Class, g: usize) -> bool {
+        let before = member_ids(class);
+        (0..20).any(|seed| {
+            let mut shuffled = class.clone();
+            shuffled.reshuffle(&mut rng(seed));
+            member_ids(&shuffled)[g] != before[g]
+        })
+    }
+
     #[test]
     fn shuffling_with_a_locked_group_still_moves_the_others_around() {
         let mut class = class_of(12);
         class.regroup(count(3, &class), &mut rng(1));
         class.set_group_locked(GroupIdx(0), true).unwrap();
-        let before = member_ids(&class);
-        let moved = (0..20).any(|seed| {
-            let mut shuffled = class.clone();
-            shuffled.reshuffle(&mut rng(seed));
-            member_ids(&shuffled)[1..] != before[1..]
-        });
-        assert!(
-            moved,
-            "some seed should deal the unlocked groups differently"
-        );
+        assert!(some_shuffle_changes(&class, 1));
     }
 
     #[test]
@@ -1701,13 +1702,7 @@ mod tests {
         class.regroup(count(3, &class), &mut rng(1));
         class.set_group_locked(GroupIdx(2), true).unwrap();
         class.set_group_locked(GroupIdx(2), false).unwrap();
-        let before = member_ids(&class);
-        let moved = (0..20).any(|seed| {
-            let mut shuffled = class.clone();
-            shuffled.reshuffle(&mut rng(seed));
-            member_ids(&shuffled)[2] != before[2]
-        });
-        assert!(moved);
+        assert!(some_shuffle_changes(&class, 2));
     }
 
     #[test]
@@ -1748,19 +1743,8 @@ mod tests {
             let mut class = class_of(12);
             class.regroup(count(3, &class), &mut rng(1));
             class.set_group_locked(GroupIdx(0), true).unwrap();
-            let grouping = class.grouping().unwrap();
-            let in_locked = class
-                .students()
-                .iter()
-                .map(|s| s.id)
-                .find(|&id| grouping.group_of(id) == Some(GroupIdx(0)))
-                .unwrap();
-            let elsewhere = class
-                .students()
-                .iter()
-                .map(|s| s.id)
-                .find(|&id| grouping.group_of(id) != Some(GroupIdx(0)))
-                .unwrap();
+            let members = member_ids(&class);
+            let (in_locked, elsewhere) = (members[0][0], members[1][0]);
             class.mark_absent(in_locked, day(24));
             class.mark_absent(elsewhere, day(24));
 

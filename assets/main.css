@@ -383,7 +383,9 @@ label.sync-choice {
   background: #fff;
 }
 
-.pill[aria-pressed="true"] {
+.pill[aria-pressed="true"],
+.lock-btn[aria-pressed="true"],
+.lock-btn[aria-pressed="true"]:hover {
   background: var(--ink);
   color: var(--cream);
 }
@@ -806,14 +808,8 @@ textarea {
   background: rgba(255, 255, 255, 0.45);
 }
 
-/* A locked group's padlock reads as on, and its card gets a heavier edge so the teacher can see at a
+/* A locked group's card gets a heavier edge, beside its pressed padlock, so the teacher can see at a
    glance which groups Shuffle again leaves alone. */
-.lock-btn[aria-pressed="true"],
-.lock-btn[aria-pressed="true"]:hover {
-  background: var(--ink);
-  color: var(--cream);
-}
-
 .group-card[data-locked="true"] {
   border-width: 4px;
   padding: calc(0.8rem - 2px);
