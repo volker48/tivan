@@ -45,7 +45,7 @@ fn auto_hint(showing: Option<Skin>) -> String {
 fn SkinSettings() -> Element {
     let mut state = use_app();
     let chosen = state.with_doc(|doc| doc.settings().skin());
-    let today = state.today();
+    let today = state.today().calendar();
     let hint = auto_hint(SkinChoice::Auto.resolve(today));
     rsx! {
         section { class: "panel",

@@ -1,0 +1,98 @@
+{
+  "version": 8,
+  "doc": {
+    "classes": [
+      {
+        "id": 0,
+        "name": "Fixture Class",
+        "classroom_course_id": "course-1",
+        "students": [
+          {
+            "id": 0,
+            "name": "Ava",
+            "avatar": "bear",
+            "classroom_user_id": "user-ava"
+          },
+          {
+            "id": 1,
+            "name": "Ben",
+            "avatar": "panda"
+          },
+          {
+            "id": 2,
+            "name": "Chloe",
+            "avatar": "cat",
+            "classroom_user_id": "user-chloe"
+          },
+          {
+            "id": 4,
+            "name": "Diego",
+            "avatar": "unicorn"
+          }
+        ],
+        "next_student": 7,
+        "grouping": {
+          "names": [
+            "Brave Bears",
+            "Sunny Seals"
+          ],
+          "of": {
+            "0": 0,
+            "1": 1,
+            "2": 0,
+            "4": 1
+          },
+          "centers": {
+            "names": [
+              "Reading Nook",
+              "Center 2"
+            ],
+            "turn": 1
+          },
+          "oracle": {
+            "drawn": [
+              1
+            ]
+          }
+        },
+        "oracle": {
+          "drawn": [
+            4,
+            1
+          ]
+        },
+        "absent": {
+          "on": {
+            "year": 2026,
+            "month": 10,
+            "day": 24
+          },
+          "students": [
+            2
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "name": "Second Class",
+        "students": [
+          {
+            "id": 0,
+            "name": "Zed",
+            "avatar": "redpanda"
+          }
+        ],
+        "next_student": 1,
+        "grouping": null,
+        "oracle": {
+          "drawn": []
+        }
+      }
+    ],
+    "selected": 2,
+    "next_class": 5,
+    "settings": {
+      "skin": "auto"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::attendance::Day;
 use super::class::{Class, ClassId};
 use super::classroom::ClassroomCourseId;
 use super::label::Label;
@@ -87,6 +88,21 @@ impl Doc {
                 .get(position)
                 .or_else(|| self.classes.last())
                 .map(Class::id);
+        }
+    }
+
+    /// Whether some class still has absences from a day before `today`, so the shell writes the
+    /// doc only when [`Doc::start_day`] would change it.
+    pub fn absences_lapsed(&self, today: Day) -> bool {
+        self.classes
+            .iter()
+            .any(|class| class.absences_lapsed(today))
+    }
+
+    /// Brings back every student marked absent on a day before `today`, in every class.
+    pub fn start_day(&mut self, today: Day) {
+        for class in &mut self.classes {
+            class.start_day(today);
         }
     }
 
@@ -256,6 +272,36 @@ mod tests {
         doc.delete_class(ids[1]);
         let fresh = doc.create_class(label("C"), vec![], &mut rng());
         assert!(!ids.contains(&fresh));
+        doc.assert_invariants();
+    }
+
+    #[test]
+    fn a_new_day_brings_back_the_absent_in_every_class_and_only_then() {
+        let (mut doc, ids) = doc_with(&["A", "B"]);
+        let monday = Day {
+            year: 2026,
+            month: 10,
+            day: 26,
+        };
+        let tuesday = Day { day: 27, ..monday };
+        for id in &ids {
+            doc.select(*id);
+            let class = doc.selected_mut().unwrap();
+            let first = class.students()[0].id;
+            class.mark_absent(first, monday);
+        }
+        let marked = doc.clone();
+
+        assert!(!doc.absences_lapsed(monday));
+        doc.start_day(monday);
+        assert_eq!(doc, marked);
+
+        assert!(doc.absences_lapsed(tuesday));
+        doc.start_day(tuesday);
+        assert!(!doc.absences_lapsed(tuesday));
+        for class in doc.classes() {
+            assert_eq!(class.absent().count(), 0, "{}", class.name());
+        }
         doc.assert_invariants();
     }
 

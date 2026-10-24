@@ -41,6 +41,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 - [Classes](./classes.md): create, switch, rename and delete classes.
 - [Roster](./roster.md): add, remove and paste students into a class.
 - [Groups](./groups.md): choose a group count, make and reshuffle groups, move students, rename groups.
+- [Attendance](./attendance.md): mark a student absent for the day so groups and the oracle skip them.
 - [Centers](./centers.md): turn learning centers on for a grouped class, rotate the groups through them, rename them.
 - [Whiteboard and oracle](./whiteboard.md): the projected group wall and the random student and group pickers.
 - [Timer](./timer.md): preset countdowns on the whiteboard, pause, cancel, Time's up, and the Build-mode chip.

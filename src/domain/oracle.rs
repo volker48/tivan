@@ -50,6 +50,11 @@ impl<I: Copy + Eq> Oracle<I> {
         pool.iter().copied().filter(|id| !self.drawn.contains(id))
     }
 
+    /// Puts `id` back among those waiting this round. Idempotent.
+    pub(super) fn forget(&mut self, id: I) {
+        self.drawn.retain(|&drawn| drawn != id);
+    }
+
     /// Forgets drawn ids that are no longer in the pool.
     pub(super) fn retain(&mut self, pool: &[I]) {
         self.drawn.retain(|id| pool.contains(id));

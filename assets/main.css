@@ -567,6 +567,69 @@ textarea {
   font-weight: 600;
 }
 
+/* An absent student's entry fades behind a dashed edge, and their Absent toggle reads as on. */
+.roster-item[data-absent="true"] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.roster-absent {
+  min-height: 34px;
+  margin-inline-start: 0.4rem;
+  padding: 0.1rem 0.65rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.roster-absent:hover {
+  background: rgba(42, 31, 51, 0.08);
+}
+
+.roster-absent[aria-pressed="true"] {
+  background: var(--hero);
+}
+
+/* Who is away today, between the roster and the group controls. */
+.absent-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.8rem;
+  padding: 0.6rem 0.9rem;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: #fff1cc;
+}
+
+.absent-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.absent-tray .hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.chip-absent {
+  border: 2px dashed var(--line);
+  background: var(--paper);
+}
+
+.chip-undo {
+  margin-inline-start: 0.45em;
+  opacity: 0.65;
+}
+
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -670,6 +733,16 @@ textarea {
   color: var(--cream);
   box-shadow: var(--sticker);
   animation: slide-down 180ms ease-out;
+}
+
+.moving-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.moving-actions .btn {
+  white-space: nowrap;
 }
 
 .cards {

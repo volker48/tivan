@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
+use super::attendance::{Absences, Day};
 use super::avatar::{self, Avatar};
 use super::centers::CenterIdx;
 use super::classroom::{ClassroomCourseId, ClassroomStudent, ClassroomUserId, SyncReport};
@@ -93,9 +94,12 @@ pub struct CenterView<'a> {
     pub group: GroupIdx,
 }
 
-/// Owns the roster, the grouping, and the student oracle round for one class. Roster edits go
-/// through this type so the three stay consistent within a single call. The group round lives in
-/// the grouping.
+/// Owns the roster, the grouping, the student oracle round and today's absences for one class.
+/// Roster edits go through this type so the four stay consistent within a single call. The group
+/// round lives in the grouping.
+///
+/// An absent student keeps their place in the grouping, so they are back in their group once the
+/// absence lapses, but group views, splits and student draws see only the students present.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Class {
     id: ClassId,
@@ -106,6 +110,8 @@ pub struct Class {
     next_student: u32,
     grouping: Option<Grouping>,
     oracle: Oracle<StudentId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    absent: Option<Absences>,
 }
 
 impl Class {
@@ -118,6 +124,7 @@ impl Class {
             next_student: 0,
             grouping: None,
             oracle: Oracle::default(),
+            absent: None,
         };
         for student in students {
             class.enroll(student, None, rng);
@@ -148,6 +155,62 @@ impl Class {
 
     pub fn grouping(&self) -> Option<&Grouping> {
         self.grouping.as_ref()
+    }
+
+    pub fn is_absent(&self, id: StudentId) -> bool {
+        self.absent
+            .as_ref()
+            .is_some_and(|absences| absences.contains(id))
+    }
+
+    /// Students not marked absent, in roster order.
+    pub fn present(&self) -> impl Iterator<Item = &Student> {
+        self.students.iter().filter(|s| !self.is_absent(s.id))
+    }
+
+    /// Students marked absent, in roster order.
+    pub fn absent(&self) -> impl Iterator<Item = &Student> {
+        self.students.iter().filter(|s| self.is_absent(s.id))
+    }
+
+    /// Marks the student away for `today`. Absences left over from an earlier day lapse first, so
+    /// they never come back alongside today's. The student keeps their group, and leaves the
+    /// oracle round so a turn they missed is still theirs when they are back. Does nothing for an
+    /// id not on the roster.
+    pub fn mark_absent(&mut self, id: StudentId, today: Day) {
+        if self.student(id).is_none() {
+            return;
+        }
+        self.start_day(today);
+        match &mut self.absent {
+            Some(absences) => absences.insert(id),
+            None => self.absent = Some(Absences::new(today, id)),
+        }
+        self.oracle.forget(id);
+    }
+
+    /// Idempotent.
+    pub fn mark_present(&mut self, id: StudentId) {
+        if let Some(absences) = &mut self.absent {
+            absences.remove(id);
+            if absences.is_empty() {
+                self.absent = None;
+            }
+        }
+    }
+
+    /// Whether some absence was marked on a day before `today`.
+    pub(super) fn absences_lapsed(&self, today: Day) -> bool {
+        self.absent
+            .as_ref()
+            .is_some_and(|absences| absences.lapsed(today))
+    }
+
+    /// Drops absences marked on a day before `today`, so everyone is back.
+    pub(super) fn start_day(&mut self, today: Day) {
+        if self.absences_lapsed(today) {
+            self.absent = None;
+        }
     }
 
     pub fn rename(&mut self, name: Label) {
@@ -210,28 +273,34 @@ impl Class {
         self.reconcile();
     }
 
-    /// Fresh random split with fresh names, replacing any existing grouping. A `count` made for
-    /// an earlier, larger roster is clamped to the current one. Centers carry over with their
-    /// names, fitted to the new group count, and start again at round 1.
+    /// Fresh random split of the students present, with fresh names, replacing any existing
+    /// grouping. A `count` made for an earlier, larger roster is clamped to the students present.
+    /// Absent students then join the smallest groups, so the groups stay even when they are back.
+    /// Centers carry over with their names, fitted to the new group count, and start again at
+    /// round 1. Does nothing when no one is present.
     pub fn regroup(&mut self, count: GroupCount, rng: &mut impl Rng) {
+        let present: Vec<Student> = self.present().cloned().collect();
+        let Ok(count) = GroupCount::nearest(count.get(), present.len()) else {
+            return;
+        };
         let mut centers = self.grouping.as_mut().and_then(Grouping::take_centers);
         if let Some(centers) = &mut centers {
             centers.restart();
         }
-        self.grouping = GroupCount::nearest(count.get(), self.students.len())
-            .ok()
-            .map(|count| {
-                let mut grouping = Grouping::split(&self.students, count, rng);
-                grouping.set_centers(centers);
-                grouping
-            });
+        let mut grouping = Grouping::split(&present, count, rng);
+        grouping.set_centers(centers);
+        grouping.reconcile(&self.students);
+        self.grouping = Some(grouping);
     }
 
-    /// Re-deals the students across the existing groups, keeping the group names and the
-    /// centers. Does nothing when there is no grouping yet.
+    /// Re-deals the students present across the existing groups, keeping the group names and the
+    /// centers. Absent students then join the smallest groups, as in [`Class::regroup`]. Does
+    /// nothing when there is no grouping yet or no one is present.
     pub fn reshuffle(&mut self, rng: &mut impl Rng) {
+        let present: Vec<Student> = self.present().cloned().collect();
         if let Some(grouping) = &mut self.grouping {
-            grouping.reshuffle(&self.students, rng);
+            grouping.reshuffle(&present, rng);
+            grouping.reconcile(&self.students);
         }
     }
 
@@ -279,7 +348,7 @@ impl Class {
             .rename_center(idx, name)
     }
 
-    /// Groups with resolved members, empty when there is no grouping.
+    /// Groups with their present members resolved, empty when there is no grouping.
     pub fn group_views(&self) -> Vec<GroupView<'_>> {
         let Some(grouping) = &self.grouping else {
             return Vec::new();
@@ -294,7 +363,7 @@ impl Class {
                 members: Vec::new(),
             })
             .collect();
-        for student in &self.students {
+        for student in self.present() {
             if let Some(group) = grouping.group_of(student.id) {
                 views[group.get()].members.push(student);
             }
@@ -322,12 +391,12 @@ impl Class {
         Some(views)
     }
 
-    /// `None` when the class has no students, or when `kind` is [`Draw::Group`] and it has no
-    /// grouping.
+    /// `None` when no student is present, or when `kind` is [`Draw::Group`] and the class has no
+    /// grouping. A student draw picks only students present.
     pub fn draw(&mut self, kind: Draw, rng: &mut impl Rng) -> Option<Pick> {
         match kind {
             Draw::Student => {
-                let id = self.oracle.draw(&self.roster_ids(), rng)?;
+                let id = self.oracle.draw(&self.present_ids(), rng)?;
                 let student = self.student(id).expect("the oracle draws from the roster");
                 Some(Pick::Student(student.clone()))
             }
@@ -342,22 +411,26 @@ impl Class {
     /// nothing, so the UI can flash these before the real pick lands without spending a draw.
     pub fn candidates(&self, kind: Draw) -> Vec<Pick> {
         match kind {
-            Draw::Student => self.students.iter().cloned().map(Pick::Student).collect(),
+            Draw::Student => self.present().cloned().map(Pick::Student).collect(),
             Draw::Group => self.group_views().iter().map(Pick::of_group).collect(),
         }
     }
 
-    /// Students or groups the oracle has not chosen yet this round. Zero for groups when the
-    /// class has no grouping.
+    /// Students present or groups the oracle has not chosen yet this round. Zero for groups when
+    /// the class has no grouping.
     pub fn oracle_remaining(&self, kind: Draw) -> usize {
         match kind {
-            Draw::Student => self.oracle.remaining(&self.roster_ids()),
+            Draw::Student => self.oracle.remaining(&self.present_ids()),
             Draw::Group => self.grouping.as_ref().map_or(0, Grouping::remaining),
         }
     }
 
     fn roster_ids(&self) -> Vec<StudentId> {
         self.students.iter().map(|s| s.id).collect()
+    }
+
+    fn present_ids(&self) -> Vec<StudentId> {
+        self.present().map(|s| s.id).collect()
     }
 
     /// The avatar is per student, not per name, so two children called Emma get different faces.
@@ -400,6 +473,13 @@ impl Class {
             }
         }
         self.oracle.retain(&self.roster_ids());
+        if let Some(absences) = &mut self.absent {
+            let students = &self.students;
+            absences.retain(|id| students.iter().any(|s| s.id == id));
+            if absences.is_empty() {
+                self.absent = None;
+            }
+        }
         if let Some(grouping) = &mut self.grouping {
             grouping.reconcile(&self.students);
         }
@@ -423,6 +503,14 @@ impl Class {
             grouping.assert_invariants(&self.students);
         }
         self.oracle.assert_invariants(&self.roster_ids());
+        if let Some(absences) = &self.absent {
+            assert!(!absences.is_empty(), "an empty absence list is kept");
+            assert_eq!(
+                self.absent().count(),
+                absences.len(),
+                "an absent id is not on the roster"
+            );
+        }
     }
 }
 
@@ -1507,6 +1595,210 @@ mod tests {
         assert_eq!(class.students().len(), 4);
         assert_eq!(class.students()[0].id, first);
         assert_ne!(class.students()[3].id, first);
+        class.assert_invariants();
+    }
+
+    fn day(day: u8) -> Day {
+        Day {
+            year: 2026,
+            month: 10,
+            day,
+        }
+    }
+
+    fn present_ids(class: &Class) -> Vec<StudentId> {
+        class.present().map(|s| s.id).collect()
+    }
+
+    fn absent_ids(class: &Class) -> Vec<StudentId> {
+        class.absent().map(|s| s.id).collect()
+    }
+
+    #[test]
+    fn an_absent_student_leaves_the_group_views_but_keeps_their_group() {
+        let mut class = class_of(9);
+        class.regroup(count(3, &class), &mut rng(1));
+        let away = class.students()[4].id;
+        let home = class.grouping().unwrap().group_of(away).unwrap();
+
+        class.mark_absent(away, day(24));
+
+        assert!(class.is_absent(away));
+        assert_eq!(absent_ids(&class), [away]);
+        assert!(!member_ids(&class).concat().contains(&away));
+        assert_eq!(class.group_views()[home.get()].members.len(), 2);
+        assert_eq!(class.grouping().unwrap().group_of(away), Some(home));
+        class.assert_invariants();
+
+        class.mark_present(away);
+
+        assert!(!class.is_absent(away));
+        assert!(member_ids(&class)[home.get()].contains(&away));
+        assert_eq!(class.absent, None);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn the_oracle_never_picks_an_absent_student_or_counts_them_as_waiting() {
+        let mut class = class_of(4);
+        let away = class.students()[1].id;
+        class.mark_absent(away, day(24));
+        assert_eq!(class.oracle_remaining(Draw::Student), 3);
+        assert_eq!(class.candidates(Draw::Student).len(), 3);
+
+        let mut rng = rng(2);
+        for _ in 0..30 {
+            assert_ne!(draw_student(&mut class, &mut rng).id, away);
+        }
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn a_student_marked_absent_after_their_pick_gets_their_turn_back() {
+        let mut class = class_of(5);
+        let mut rng = rng(3);
+        let picked = draw_student(&mut class, &mut rng).id;
+        assert_eq!(class.oracle_remaining(Draw::Student), 4);
+
+        class.mark_absent(picked, day(24));
+        assert_eq!(class.oracle_remaining(Draw::Student), 4);
+        class.mark_present(picked);
+
+        assert_eq!(class.oracle_remaining(Draw::Student), 5);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn with_everyone_absent_there_is_no_one_to_pick() {
+        let mut class = class_of(2);
+        for id in class.roster_ids() {
+            class.mark_absent(id, day(24));
+        }
+        assert_eq!(class.draw(Draw::Student, &mut rng(1)), None);
+        assert_eq!(class.oracle_remaining(Draw::Student), 0);
+        assert!(class.candidates(Draw::Student).is_empty());
+    }
+
+    #[test]
+    fn making_groups_splits_the_students_present_evenly_and_files_the_absent_with_the_smallest() {
+        for seed in 0..20 {
+            let mut class = class_of(10);
+            let away = [class.students()[0].id, class.students()[1].id];
+            for id in away {
+                class.mark_absent(id, day(24));
+            }
+
+            class.regroup(count(3, &class), &mut rng(seed));
+
+            assert_eq!(group_sizes(&class), [3, 3, 2], "seed {seed}");
+            class.assert_invariants();
+            class.mark_present(away[0]);
+            class.mark_present(away[1]);
+            let mut sizes = group_sizes(&class);
+            sizes.sort_unstable();
+            assert_eq!(sizes, [3, 3, 4], "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn making_groups_clamps_the_count_to_the_students_present() {
+        let mut class = class_of(4);
+        let wanted = count(4, &class);
+        class.mark_absent(class.students()[0].id, day(24));
+        class.regroup(wanted, &mut rng(1));
+        assert_eq!(group_sizes(&class), [1, 1, 1]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn making_groups_with_everyone_absent_changes_nothing() {
+        let mut class = class_of(3);
+        class.regroup(count(2, &class), &mut rng(1));
+        for id in class.roster_ids() {
+            class.mark_absent(id, day(24));
+        }
+        let before = class.clone();
+
+        class.regroup(count(2, &class), &mut rng(2));
+        class.reshuffle(&mut rng(3));
+
+        assert_eq!(class, before);
+    }
+
+    #[test]
+    fn shuffling_deals_the_students_present_evenly_and_keeps_the_absent_in_a_group() {
+        for seed in 0..20 {
+            let mut class = class_of(12);
+            class.regroup(count(4, &class), &mut rng(1));
+            let away = class.students()[5].id;
+            class.mark_absent(away, day(24));
+
+            class.reshuffle(&mut rng(seed));
+
+            let mut sizes = group_sizes(&class);
+            sizes.sort_unstable();
+            assert_eq!(sizes, [2, 3, 3, 3], "seed {seed}");
+            assert!(class.grouping().unwrap().group_of(away).is_some());
+            class.assert_invariants();
+        }
+    }
+
+    #[test]
+    fn absences_lapse_on_a_later_day_and_hold_on_their_own() {
+        let mut class = class_of(3);
+        let away = class.students()[0].id;
+        class.mark_absent(away, day(24));
+
+        class.start_day(day(24));
+        assert!(class.is_absent(away));
+        assert!(!class.absences_lapsed(day(24)));
+
+        assert!(class.absences_lapsed(day(25)));
+        class.start_day(day(25));
+        assert!(!class.is_absent(away));
+        assert_eq!(present_ids(&class).len(), 3);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn marking_someone_absent_on_a_new_day_brings_back_yesterdays_absences() {
+        let mut class = class_of(3);
+        let [monday, tuesday] = [class.students()[0].id, class.students()[1].id];
+        class.mark_absent(monday, day(26));
+
+        class.mark_absent(tuesday, day(27));
+
+        assert_eq!(absent_ids(&class), [tuesday]);
+        assert!(!class.absences_lapsed(day(27)));
+    }
+
+    #[test]
+    fn marking_absent_ignores_unknown_ids_and_marking_present_is_idempotent() {
+        let mut class = class_of(2);
+        class.mark_absent(StudentId(99), day(24));
+        assert_eq!(class.absent, None);
+
+        let away = class.students()[0].id;
+        class.mark_absent(away, day(24));
+        class.mark_absent(away, day(24));
+        assert_eq!(absent_ids(&class), [away]);
+        class.mark_present(away);
+        class.mark_present(away);
+        assert_eq!(class.absent, None);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn removing_an_absent_student_drops_their_absence() {
+        let mut class = class_of(3);
+        let [away, also] = [class.students()[0].id, class.students()[1].id];
+        class.mark_absent(away, day(24));
+        class.mark_absent(also, day(24));
+
+        class.remove_student(away);
+        assert_eq!(absent_ids(&class), [also]);
+        class.remove_student(also);
+        assert_eq!(class.absent, None);
         class.assert_invariants();
     }
 }

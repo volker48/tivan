@@ -12,7 +12,7 @@ use web_sys::{
 
 use crate::account;
 use crate::api::{Api, Http, HttpReply, HttpRequest, TransportError, timeout_ms};
-use crate::domain::{CalendarDay, Millis, Rng};
+use crate::domain::{Day, Millis, Rng};
 use crate::store::{self, StorageError};
 
 /// Not cryptographic, which classroom groups do not need. Chosen over `rand` to avoid the
@@ -107,10 +107,11 @@ fn warn_on_rejection(what: &'static str, call: Result<Promise, JsValue>) {
     }
 }
 
-/// The date on the teacher's wall clock, which is what a season means to them.
-pub fn today() -> CalendarDay {
+/// The date on the teacher's wall clock, which is what a season and a day's absences mean to them.
+pub fn today() -> Day {
     let now = Date::new_0();
-    CalendarDay {
+    Day {
+        year: now.get_full_year() as u16,
         month: now.get_month() as u8 + 1,
         day: now.get_date() as u8,
     }

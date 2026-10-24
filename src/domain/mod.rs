@@ -2,6 +2,7 @@
 //! Every random choice takes `&mut impl Rng` and every time-dependent choice takes `Millis`.
 //! Fields are private, so each invariant has exactly one writer.
 
+pub mod attendance;
 pub mod avatar;
 pub mod centers;
 pub mod class;
@@ -17,6 +18,7 @@ pub mod skin;
 pub mod spin;
 pub mod timer;
 
+pub use attendance::Day;
 pub use avatar::Avatar;
 pub use centers::{CenterIdx, Centers};
 pub use class::{

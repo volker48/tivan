@@ -1,4 +1,4 @@
-//! Persistence format and load policy: one versioned JSON envelope, `{"version":7,"doc":{..}}`,
+//! Persistence format and load policy: one versioned JSON envelope, `{"version":8,"doc":{..}}`,
 //! stored under [`KEY`]. This is the pure half. It owns the format and the corrupt or newer-blob
 //! policy and runs natively under `cargo test`. The domain types are the stored shape, so a schema
 //! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm for the old shape. Version 1 differs
@@ -11,10 +11,11 @@
 //! so it shares the arm as well. Version 5 differs only by lacking the optional Classroom links
 //! (`classroom_course_id` on a class, `classroom_user_id` on a student), which an absent key reads
 //! as none, so it shares the arm too. Version 6 differs only by never naming the avatars added
-//! after it (unicorn through cow), so it shares the arm as well. The version still moves with each
-//! additive field or name, so an older build refuses a newer blob instead of dropping the field on
-//! its next save or starting over because it cannot read a name. The fixtures
-//! under `tests/fixtures/` are the guard: they must never be edited.
+//! after it (unicorn through cow), so it shares the arm as well. Version 7 differs only by lacking
+//! a class's optional absences (`absent`), which an absent key reads as none, so it shares the arm
+//! too. The version still moves with each additive field or name, so an older build refuses a
+//! newer blob instead of dropping the field on its next save or starting over because it cannot
+//! read a name. The fixtures under `tests/fixtures/` are the guard: they must never be edited.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -24,7 +25,7 @@ use crate::domain::{Doc, Rng, avatar};
 pub const KEY: &str = "tivan.state";
 /// Where an unreadable blob is copied before the app starts over.
 pub const BACKUP_KEY: &str = "tivan.state.backup";
-pub const SCHEMA_VERSION: u64 = 7;
+pub const SCHEMA_VERSION: u64 = 8;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -60,7 +61,7 @@ pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        1 | 2 | 3 | 4 | 5 | 6 | SCHEMA_VERSION => {
+        1 | 2 | 3 | 4 | 5 | 6 | 7 | SCHEMA_VERSION => {
             let doc = envelope
                 .get_mut("doc")
                 .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
@@ -134,7 +135,7 @@ mod tests {
 
     use super::*;
     use crate::domain::{
-        Avatar, ClassroomCourseId, ClassroomUserId, Draw, GroupCount, Label, Pick, Skin,
+        Avatar, ClassroomCourseId, ClassroomUserId, Day, Draw, GroupCount, Label, Pick, Skin,
         SkinChoice, SplitMix64, seed_doc,
     };
 
@@ -145,6 +146,7 @@ mod tests {
     const V5: &str = include_str!("../tests/fixtures/v5.json");
     const V6: &str = include_str!("../tests/fixtures/v6.json");
     const V7: &str = include_str!("../tests/fixtures/v7.json");
+    const V8: &str = include_str!("../tests/fixtures/v8.json");
 
     fn rng() -> SplitMix64 {
         SplitMix64::seeded(1)
@@ -475,12 +477,82 @@ mod tests {
     }
 
     #[test]
-    fn the_frozen_v7_fixture_re_encodes_to_itself() {
+    fn the_frozen_v7_fixture_re_encodes_with_only_the_version_changed() {
         let doc = decode(V7, &mut rng()).unwrap();
+        let mut expected = parse(V7);
+        expected["version"] = SCHEMA_VERSION.into();
         assert_eq!(
             parse(&encode(&doc)),
-            parse(V7),
+            expected,
             "stored shape drifted: bump SCHEMA_VERSION"
+        );
+    }
+
+    #[test]
+    fn the_frozen_v1_to_v7_fixtures_have_everyone_present() {
+        for raw in [V1, V2, V3, V4, V5, V6, V7] {
+            let doc = decode(raw, &mut rng()).unwrap();
+            assert!(
+                doc.classes()
+                    .iter()
+                    .all(|class| class.absent().next().is_none())
+            );
+        }
+    }
+
+    #[test]
+    fn the_frozen_v8_fixture_decodes_with_its_absences_until_their_day_is_over() {
+        let mut doc = decode(V8, &mut rng()).unwrap();
+        doc.assert_invariants();
+        let class = &doc.classes()[0];
+        let absent: Vec<&str> = class.absent().map(|s| s.name.as_str()).collect();
+        assert_eq!(absent, ["Chloe"]);
+        let members: Vec<Vec<&str>> = class
+            .group_views()
+            .iter()
+            .map(|g| g.members.iter().map(|s| s.name.as_str()).collect())
+            .collect();
+        assert_eq!(members, [vec!["Ava"], vec!["Ben", "Diego"]]);
+
+        let same_day = Day {
+            year: 2026,
+            month: 10,
+            day: 24,
+        };
+        assert!(!doc.absences_lapsed(same_day));
+        let next_day = Day {
+            day: 25,
+            ..same_day
+        };
+        assert!(doc.absences_lapsed(next_day));
+        doc.start_day(next_day);
+        assert!(doc.classes()[0].absent().next().is_none());
+        assert_fixture_classes(&doc);
+    }
+
+    #[test]
+    fn the_frozen_v8_fixture_re_encodes_to_itself() {
+        let doc = decode(V8, &mut rng()).unwrap();
+        assert_eq!(
+            parse(&encode(&doc)),
+            parse(V8),
+            "stored shape drifted: bump SCHEMA_VERSION"
+        );
+    }
+
+    #[test]
+    fn an_absence_for_a_student_no_longer_on_the_roster_is_dropped_on_load() {
+        let mut value = parse(V8);
+        value["doc"]["classes"][0]["absent"]["students"] = json!([9]);
+
+        let doc = decode(&value.to_string(), &mut rng()).unwrap();
+
+        doc.assert_invariants();
+        assert!(doc.classes()[0].absent().next().is_none());
+        assert!(
+            parse(&encode(&doc))["doc"]["classes"][0]
+                .get("absent")
+                .is_none()
         );
     }
 

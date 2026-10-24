@@ -2,7 +2,9 @@ use dioxus::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
-use crate::domain::{Avatar, Draw, Grouping, Millis, Pick, Preset, Reel, Timer, format_mm_ss};
+use crate::domain::{
+    Avatar, Draw, Grouping, Millis, Pick, Preset, Reel, StudentId, Timer, format_mm_ss,
+};
 use crate::platform;
 use crate::ui::avatar::AvatarIcon;
 use crate::ui::{GroupCard, RotateControls, center_slots, group_cards, hue};
@@ -61,17 +63,30 @@ pub fn WhiteboardMode() -> Element {
     }
 }
 
-fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>, kind: Draw) {
-    if let Some((pick, reel)) = state
+/// Says whether there was anyone to pick.
+fn draw(mut state: AppState, mut reveal: Signal<Option<Reveal>>, kind: Draw) -> bool {
+    let Some((pick, reel)) = state
         .edit_class(|class, rng| {
             let pick = class.draw(kind, rng)?;
             let reel = Reel::new(class.candidates(kind), &pick, rng);
             Some((pick, reel))
         })
         .flatten()
-    {
-        let seq = reveal.peek().as_ref().map_or(0, |current| current.seq + 1);
-        reveal.set(Some(Reveal { seq, pick, reel }));
+    else {
+        return false;
+    };
+    let seq = reveal.peek().as_ref().map_or(0, |current| current.seq + 1);
+    reveal.set(Some(Reveal { seq, pick, reel }));
+    true
+}
+
+/// For a pick who is not in the room: marks them absent for the day and picks again, or closes
+/// the reveal when no one is left to pick.
+fn not_here(mut state: AppState, mut reveal: Signal<Option<Reveal>>, id: StudentId) {
+    let today = state.today();
+    state.edit_class(|class, _| class.mark_absent(id, today));
+    if !draw(state, reveal, Draw::Student) {
+        reveal.set(None);
     }
 }
 
@@ -81,7 +96,7 @@ fn OracleButton(reveal: Signal<Option<Reveal>>) -> Element {
     let (students, left) = state
         .with_class(|class| {
             (
-                class.students().len(),
+                class.present().count(),
                 class.oracle_remaining(Draw::Student),
             )
         })
@@ -91,7 +106,9 @@ fn OracleButton(reveal: Signal<Option<Reveal>>) -> Element {
             class: "btn btn-hero btn-oracle",
             r#type: "button",
             disabled: students == 0,
-            onclick: move |_| draw(state, reveal, Draw::Student),
+            onclick: move |_| {
+                draw(state, reveal, Draw::Student);
+            },
             span { "Ask the oracle" }
             if students > 0 {
                 span { class: "sub", "{left} left" }
@@ -115,7 +132,9 @@ fn GroupOracleButton(reveal: Signal<Option<Reveal>>) -> Element {
         button {
             class: "btn btn-oracle btn-oracle-group",
             r#type: "button",
-            onclick: move |_| draw(state, reveal, Draw::Group),
+            onclick: move |_| {
+                draw(state, reveal, Draw::Group);
+            },
             span { "Pick a group" }
             span { class: "sub", "{left} left" }
         }
@@ -237,6 +256,10 @@ fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
     let left = state
         .with_class(|class| class.oracle_remaining(kind))
         .unwrap_or_default();
+    let student = match &pick {
+        Pick::Student(student) => Some(student.id),
+        Pick::Group { .. } => None,
+    };
     rsx! {
         div {
             class: reveal_class(&pick),
@@ -275,8 +298,18 @@ fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
                 button {
                     class: "btn btn-primary",
                     r#type: "button",
-                    onclick: move |_| draw(state, reveal, kind),
+                    onclick: move |_| {
+                        draw(state, reveal, kind);
+                    },
                     "Pick again"
+                }
+                if let Some(id) = student {
+                    button {
+                        class: "btn",
+                        r#type: "button",
+                        onclick: move |_| not_here(state, reveal, id),
+                        "Not here today"
+                    }
                 }
                 button {
                     class: "btn",

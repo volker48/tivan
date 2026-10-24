@@ -241,6 +241,7 @@ fn ClassPanel() -> Element {
         ClassHeader {}
         Roster {}
         if students > 0 {
+            AbsentTray {}
             GroupControls {}
             if grouped {
                 GroupBoard {}
@@ -257,11 +258,17 @@ fn ClassPanel() -> Element {
 #[component]
 fn ClassHeader() -> Element {
     let mut state = use_app();
-    let class =
-        state.with_class(|class| (class.id(), class.name().clone(), class.students().len()));
+    let class = state.with_class(|class| {
+        (
+            class.id(),
+            class.name().clone(),
+            class.students().len(),
+            class.absent().count(),
+        )
+    });
     let mut renaming = use_signal(|| false);
     let mut confirming = use_signal(|| false);
-    let Some((id, name, students)) = class else {
+    let Some((id, name, students, absent)) = class else {
         return rsx! {};
     };
     rsx! {
@@ -278,7 +285,12 @@ fn ClassHeader() -> Element {
                 }
             } else {
                 h2 { class: "class-title", "{name}" }
-                span { class: "meta", "{count(students, \"student\")}" }
+                span { class: "meta",
+                    "{count(students, \"student\")}"
+                    if absent > 0 {
+                        ", {absent} absent today"
+                    }
+                }
             }
             div { class: "class-actions",
                 if confirming() {
@@ -320,7 +332,14 @@ fn ClassHeader() -> Element {
 fn Roster() -> Element {
     let mut state = use_app();
     let (students, grouped) = state
-        .with_class(|class| (class.students().to_vec(), class.grouping().is_some()))
+        .with_class(|class| {
+            let students: Vec<(Student, bool)> = class
+                .students()
+                .iter()
+                .map(|student| (student.clone(), class.is_absent(student.id)))
+                .collect();
+            (students, class.grouping().is_some())
+        })
         .unwrap_or_default();
     let total = students.len();
     let mut open = use_signal(|| !grouped);
@@ -373,10 +392,32 @@ fn Roster() -> Element {
                     p { class: "field-error", role: "alert", "{message}" }
                 }
                 ul { class: "roster-list",
-                    for Student { id , name , avatar , .. } in students {
-                        li { key: "{id.get()}", class: "roster-item",
+                    for (Student { id , name , avatar , .. } , absent) in students {
+                        li {
+                            key: "{id.get()}",
+                            class: "roster-item",
+                            "data-absent": "{absent}",
                             AvatarIcon { avatar }
                             span { "{name}" }
+                            button {
+                                class: "roster-absent",
+                                r#type: "button",
+                                aria_pressed: "{absent}",
+                                aria_label: "{name} absent today",
+                                title: if absent { "Mark {name} here" } else { "Mark {name} absent for today" },
+                                onclick: move |_| {
+                                    let today = state.today();
+                                    state
+                                        .edit_class(|class, _| {
+                                            if absent {
+                                                class.mark_present(id);
+                                            } else {
+                                                class.mark_absent(id, today);
+                                            }
+                                        });
+                                },
+                                "Absent"
+                            }
                             button {
                                 class: "icon-btn",
                                 r#type: "button",
@@ -434,6 +475,42 @@ fn Roster() -> Element {
     }
 }
 
+/// Who is away today, each a tap from being back. Nothing when everyone is here.
+#[component]
+fn AbsentTray() -> Element {
+    let mut state = use_app();
+    let absent: Vec<Student> = state
+        .with_class(|class| class.absent().cloned().collect())
+        .unwrap_or_default();
+    if absent.is_empty() {
+        return rsx! {};
+    }
+    rsx! {
+        section { class: "absent-tray", aria_label: "Absent today",
+            h3 { class: "absent-title", "Absent today" }
+            ul { class: "chips",
+                for Student { id , name , avatar , .. } in absent {
+                    li { key: "{id.get()}",
+                        button {
+                            class: "chip chip-absent",
+                            r#type: "button",
+                            aria_label: "Mark {name} here",
+                            title: "Mark {name} here",
+                            onclick: move |_| {
+                                state.edit_class(|class, _| class.mark_present(id));
+                            },
+                            AvatarIcon { avatar }
+                            "{name}"
+                            span { class: "chip-undo", aria_hidden: "true", "\u{21a9}" }
+                        }
+                    }
+                }
+            }
+            p { class: "hint", "They are back in their groups tomorrow. Tap a name if they turn up today." }
+        }
+    }
+}
+
 #[component]
 fn GroupControls() -> Element {
     let mut state = use_app();
@@ -441,7 +518,7 @@ fn GroupControls() -> Element {
         .with_class(|class| {
             let grouping = class.grouping();
             (
-                class.students().len(),
+                class.present().count(),
                 grouping.map(|grouping| grouping.len()),
                 grouping.is_some_and(|grouping| grouping.centers().is_some()),
             )
@@ -449,7 +526,8 @@ fn GroupControls() -> Element {
         .unwrap_or_default();
     let mut wanted = use_signal(|| current.unwrap_or(DEFAULT_GROUPS));
     let mut confirming_removal = use_signal(|| false);
-    // The roster can shrink after the teacher set the stepper, so the count is re-derived each render.
+    // The roster can shrink, or a student be marked absent, after the teacher set the stepper, so
+    // the count is re-derived each render from the students present.
     let groups = GroupCount::nearest(wanted(), students).ok();
     let shown = groups.map_or(0, GroupCount::get);
     rsx! {
@@ -562,7 +640,7 @@ fn size_hint(students: usize, groups: GroupCount) -> Option<String> {
 
 #[component]
 fn GroupBoard() -> Element {
-    let state = use_app();
+    let mut state = use_app();
     let cards = use_memo(move || state.with_class(group_cards).unwrap_or_default());
     let centers = use_memo(move || state.with_class(center_slots).flatten());
     let mut moving = use_signal(|| None::<StudentId>);
@@ -573,6 +651,7 @@ fn GroupBoard() -> Element {
     });
     // A selected student can be removed from the roster, which leaves `moving` pointing at no one.
     let selected = moving().and_then(|id| state.with_class(|class| selection(class, id)).flatten());
+    let selected_id = selected.as_ref().map(|selection| selection.student.id);
     rsx! {
         section { class: "board",
             if let Some(selected) = &selected {
@@ -583,11 +662,24 @@ fn GroupBoard() -> Element {
                         strong { "{selected.student.name}" }
                         ". Tap a group to place them."
                     }
-                    button {
-                        class: "btn btn-small",
-                        r#type: "button",
-                        onclick: move |_| moving.set(None),
-                        "Cancel"
+                    div { class: "moving-actions",
+                        button {
+                            class: "btn btn-small btn-hero",
+                            r#type: "button",
+                            onclick: move |_| {
+                                let Some(id) = selected_id else { return };
+                                let today = state.today();
+                                state.edit_class(|class, _| class.mark_absent(id, today));
+                                moving.set(None);
+                            },
+                            "Absent today"
+                        }
+                        button {
+                            class: "btn btn-small",
+                            r#type: "button",
+                            onclick: move |_| moving.set(None),
+                            "Cancel"
+                        }
                     }
                 }
             }
