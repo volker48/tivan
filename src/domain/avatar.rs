@@ -110,6 +110,24 @@ impl Avatar {
             Avatar::Cow => "cow",
         }
     }
+
+    /// Whether the face is the shared round head, which costumes that wrap the face are drawn to.
+    /// The frog's and axolotl's faces are wider and flatter, the lion's sits inside its mane, the
+    /// sheep's inside its wool and the hedgehog's inside its spines. The fox and hamster have their
+    /// own cheeky heads, and the octopus has a dome.
+    pub fn has_round_head(self) -> bool {
+        !matches!(
+            self,
+            Avatar::Frog
+                | Avatar::Lion
+                | Avatar::Sheep
+                | Avatar::Fox
+                | Avatar::Hamster
+                | Avatar::Axolotl
+                | Avatar::Octopus
+                | Avatar::Hedgehog
+        )
+    }
 }
 
 /// Uniform among the avatars used least often in `taken`, so no avatar repeats until all of them

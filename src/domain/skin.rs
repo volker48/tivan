@@ -90,6 +90,11 @@ impl Skin {
             Skin::Halloween => &[
                 Costume::WitchHat,
                 Costume::PumpkinHat,
+                Costume::Ghost,
+                Costume::Mummy,
+                Costume::Vampire,
+                Costume::Werewolf,
+                Costume::Monster,
                 Costume::Bat,
                 Costume::Spider,
             ],
@@ -97,17 +102,26 @@ impl Skin {
         }
     }
 
-    /// What `avatar` wears in this skin. Avatars take turns, in [`Avatar::ALL`] order, through the
-    /// costumes that fit them, so neighbours dress differently and an avatar always wears the same
-    /// one. Every skin has a costume that fits every avatar.
+    /// What `avatar` wears in this skin. Going through [`Avatar::ALL`] in order, each avatar gets
+    /// the least worn costume that fits it, earliest in the skin's list on a tie. So a class that
+    /// uses every avatar sees every costume about equally often, and an avatar always wears the
+    /// same one. Every skin has a costume that fits every avatar.
     pub fn costume(self, avatar: Avatar) -> Costume {
-        let fitting: Vec<Costume> = self
-            .costumes()
-            .iter()
-            .copied()
-            .filter(|costume| costume.fits(avatar))
-            .collect();
-        fitting[avatar as usize % fitting.len()]
+        let costumes = self.costumes();
+        let mut worn = vec![0usize; costumes.len()];
+        for dressing in Avatar::ALL {
+            let (turn, &costume) = costumes
+                .iter()
+                .enumerate()
+                .filter(|(_, costume)| costume.fits(dressing))
+                .min_by_key(|&(turn, _)| worn[turn])
+                .expect("every skin has a costume that fits every avatar");
+            if dressing == avatar {
+                return costume;
+            }
+            worn[turn] += 1;
+        }
+        unreachable!("{avatar:?} is in Avatar::ALL")
     }
 }
 
@@ -117,6 +131,11 @@ impl Skin {
 pub enum Costume {
     WitchHat,
     PumpkinHat,
+    Ghost,
+    Mummy,
+    Vampire,
+    Werewolf,
+    Monster,
     Bat,
     Spider,
     SantaHat,
@@ -124,9 +143,14 @@ pub enum Costume {
 }
 
 impl Costume {
-    pub const ALL: [Costume; 6] = [
+    pub const ALL: [Costume; 11] = [
         Costume::WitchHat,
         Costume::PumpkinHat,
+        Costume::Ghost,
+        Costume::Mummy,
+        Costume::Vampire,
+        Costume::Werewolf,
+        Costume::Monster,
         Costume::Bat,
         Costume::Spider,
         Costume::SantaHat,
@@ -138,6 +162,11 @@ impl Costume {
         match self {
             Costume::WitchHat => "witch-hat",
             Costume::PumpkinHat => "pumpkin-hat",
+            Costume::Ghost => "ghost",
+            Costume::Mummy => "mummy",
+            Costume::Vampire => "vampire",
+            Costume::Werewolf => "werewolf",
+            Costume::Monster => "monster",
             Costume::Bat => "bat",
             Costume::Spider => "spider",
             Costume::SantaHat => "santa-hat",
@@ -146,17 +175,26 @@ impl Costume {
     }
 
     /// Whether this costume looks right on `avatar`. A Halloween hat rests on the crown, which the
-    /// frog's eyes and the bunny's ears take up, so on them it hovers. Any hat would hide the
-    /// unicorn's horn and the shark's fin, and the bat perches on the crown too, so it would hide
-    /// them as well. The spider and the holly hang to one side and fit everyone.
+    /// frog's eyes and the bunny's ears take up, so on them it hovers. Wraps, sheets, hair and
+    /// collars follow the round head. Only ears poking out from under the ghost sheet say who is
+    /// inside, and the penguin has none. Werewolf ears cover the avatar's own, except the bunny's,
+    /// which stick out above them, and they would sit on the frog's eyes and the sheep's wool.
+    /// Anything on the crown or over the head would hide the unicorn's horn and the shark's fin.
+    /// The spider and the holly hang to one side and fit everyone.
     fn fits(self, avatar: Avatar) -> bool {
+        let horn_or_fin = matches!(avatar, Avatar::Unicorn | Avatar::Shark);
         match self {
-            Costume::WitchHat | Costume::PumpkinHat => !matches!(
-                avatar,
-                Avatar::Frog | Avatar::Bunny | Avatar::Unicorn | Avatar::Shark
-            ),
-            Costume::SantaHat => !matches!(avatar, Avatar::Unicorn | Avatar::Shark),
-            Costume::Bat => !matches!(avatar, Avatar::Unicorn | Avatar::Shark),
+            Costume::WitchHat | Costume::PumpkinHat => {
+                !horn_or_fin && !matches!(avatar, Avatar::Frog | Avatar::Bunny)
+            }
+            Costume::Mummy | Costume::Vampire | Costume::Monster => {
+                !horn_or_fin && avatar.has_round_head()
+            }
+            Costume::Ghost => !horn_or_fin && avatar.has_round_head() && avatar != Avatar::Penguin,
+            Costume::Werewolf => {
+                !horn_or_fin && !matches!(avatar, Avatar::Frog | Avatar::Bunny | Avatar::Sheep)
+            }
+            Costume::SantaHat | Costume::Bat => !horn_or_fin,
             Costume::Spider | Costume::Holly => true,
         }
     }
@@ -351,16 +389,38 @@ mod tests {
     }
 
     #[test]
-    fn halloween_dresses_the_avatars_in_every_one_of_its_costumes() {
-        let worn: HashSet<Costume> = costumes_worn(Skin::Halloween).into_values().collect();
-        let expected: HashSet<Costume> = [
-            Costume::WitchHat,
-            Costume::PumpkinHat,
-            Costume::Bat,
-            Costume::Spider,
-        ]
-        .into();
-        assert_eq!(worn, expected);
+    fn halloween_dresses_the_avatars_in_every_one_of_its_costumes_evenly() {
+        let mut worn: HashMap<Costume, usize> = HashMap::new();
+        for costume in costumes_worn(Skin::Halloween).into_values() {
+            *worn.entry(costume).or_default() += 1;
+        }
+        assert_eq!(worn.len(), Skin::Halloween.costumes().len(), "{worn:?}");
+        let most = worn.values().max().unwrap();
+        let fewest = worn.values().min().unwrap();
+        assert!(most - fewest <= 1, "{worn:?}");
+    }
+
+    #[test]
+    fn the_settings_preview_avatars_wear_three_different_costumes() {
+        let preview: HashSet<Costume> = Avatar::ALL[..3]
+            .iter()
+            .map(|&avatar| Skin::Halloween.costume(avatar))
+            .collect();
+        assert_eq!(preview.len(), 3);
+    }
+
+    #[test]
+    fn face_wrapping_costumes_only_go_on_round_heads() {
+        for costume in [
+            Costume::Mummy,
+            Costume::Vampire,
+            Costume::Monster,
+            Costume::Ghost,
+        ] {
+            for avatar in Avatar::ALL.into_iter().filter(|a| !a.has_round_head()) {
+                assert!(!costume.fits(avatar), "{costume:?} fits {avatar:?}");
+            }
+        }
     }
 
     #[test]
@@ -376,6 +436,11 @@ mod tests {
             Costume::PumpkinHat,
             Costume::SantaHat,
             Costume::Bat,
+            Costume::Ghost,
+            Costume::Mummy,
+            Costume::Vampire,
+            Costume::Werewolf,
+            Costume::Monster,
         ];
         for skin in Skin::ALL {
             let worn = costumes_worn(skin);

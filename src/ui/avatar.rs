@@ -105,6 +105,28 @@ mod tests {
         );
     }
 
+    /// The art drawn between `<symbol id="avatar-<name>"` and its `</symbol>`.
+    fn avatar_art(avatar: Avatar) -> &'static str {
+        let start = SPRITE
+            .find(&format!("<symbol id=\"avatar-{}\"", avatar.name()))
+            .expect("every avatar has a symbol");
+        let len = SPRITE[start..]
+            .find("</symbol>")
+            .expect("symbols are closed");
+        &SPRITE[start..start + len]
+    }
+
+    #[test]
+    fn exactly_the_round_headed_avatars_are_drawn_on_the_shared_head() {
+        for avatar in Avatar::ALL {
+            assert_eq!(
+                avatar_art(avatar).contains("<circle cx=\"50\" cy=\"58\" r=\"34\""),
+                avatar.has_round_head(),
+                "{avatar:?}"
+            );
+        }
+    }
+
     #[test]
     fn the_sprite_defines_the_sticker_every_avatar_is_cut_out_with() {
         assert_eq!(SPRITE.matches("<filter id=\"av-sticker\"").count(), 1);
