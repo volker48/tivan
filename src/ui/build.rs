@@ -514,18 +514,21 @@ fn AbsentTray() -> Element {
 #[component]
 fn GroupControls() -> Element {
     let mut state = use_app();
-    let (students, current, centers) = state
+    let (students, current, centers, locked) = state
         .with_class(|class| {
             let grouping = class.grouping();
             (
                 class.present().count(),
                 grouping.map(|grouping| grouping.len()),
                 grouping.is_some_and(|grouping| grouping.centers().is_some()),
+                grouping.map_or(0, |grouping| grouping.locked_count()),
             )
         })
         .unwrap_or_default();
     let mut wanted = use_signal(|| current.unwrap_or(DEFAULT_GROUPS));
     let mut confirming_removal = use_signal(|| false);
+    let mut confirming_regroup = use_signal(|| false);
+    let all_locked = current.is_some_and(|groups| locked == groups);
     // The roster can shrink, or a student be marked absent, after the teacher set the stepper, so
     // the count is re-derived each render from the students present.
     let groups = GroupCount::nearest(wanted(), students).ok();
@@ -563,21 +566,48 @@ fn GroupControls() -> Element {
             if let Some(hint) = groups.and_then(|groups| size_hint(students, groups)) {
                 span { class: "hint", "{hint}" }
             }
-            button {
-                class: "btn btn-primary",
-                r#type: "button",
-                disabled: groups.is_none(),
-                onclick: move |_| {
-                    if let Some(groups) = groups {
-                        state.edit_class(|class, rng| class.regroup(groups, rng));
+            if confirming_regroup() && locked > 0 {
+                div { class: "confirm",
+                    span { class: "confirm-text", "New groups mix everyone, locked groups too. Go ahead?" }
+                    button {
+                        class: "btn btn-danger btn-small",
+                        r#type: "button",
+                        onclick: move |_| {
+                            if let Some(groups) = groups {
+                                state.edit_class(|class, rng| class.regroup(groups, rng));
+                            }
+                            confirming_regroup.set(false);
+                        },
+                        "Yes, make groups"
                     }
-                },
-                "Make groups"
+                    button {
+                        class: "btn btn-small",
+                        r#type: "button",
+                        onclick: move |_| confirming_regroup.set(false),
+                        "Keep my groups"
+                    }
+                }
+            } else {
+                button {
+                    class: "btn btn-primary",
+                    r#type: "button",
+                    disabled: groups.is_none(),
+                    onclick: move |_| {
+                        if locked > 0 {
+                            confirming_regroup.set(true);
+                        } else if let Some(groups) = groups {
+                            state.edit_class(|class, rng| class.regroup(groups, rng));
+                        }
+                    },
+                    "Make groups"
+                }
             }
             if current.is_some() {
                 button {
                     class: "btn",
                     r#type: "button",
+                    disabled: all_locked,
+                    title: if all_locked { "Every group is locked. Unlock one to shuffle." } else if locked > 0 { "Locked groups stay as they are" },
                     onclick: move |_| {
                         platform::animate_shuffle();
                         state.edit_class(|class, rng| class.reshuffle(rng));
@@ -766,6 +796,7 @@ fn GroupCardView(
             class: "group-card hue-{hue(idx)}",
             "data-group": "{idx.get()}",
             "data-target": "{incoming.is_some()}",
+            "data-locked": "{card.locked}",
             onclick: move |_| {
                 let Some(id) = selected_id else { return };
                 log_failed("move a student", state.edit_class(|class, _| class.move_student(id, idx)));
@@ -813,6 +844,21 @@ fn GroupCardView(
                         );
                     },
                     DiceIcon {}
+                }
+                button {
+                    class: "icon-btn lock-btn",
+                    r#type: "button",
+                    aria_label: "Lock {card.name}",
+                    aria_pressed: "{card.locked}",
+                    title: if card.locked { "Locked: Shuffle again leaves this group as it is. Click to unlock." } else { "Lock this group so Shuffle again leaves it as it is" },
+                    onclick: move |event| {
+                        event.stop_propagation();
+                        log_failed(
+                            "lock a group",
+                            state.edit_class(|class, _| class.set_group_locked(idx, !card.locked)),
+                        );
+                    },
+                    LockIcon { locked: card.locked }
                 }
             }
             ul { class: "chips",
@@ -869,6 +915,38 @@ fn DiceIcon() -> Element {
                     fill: "currentColor",
                     stroke: "none",
                 }
+            }
+        }
+    }
+}
+
+/// A padlock, its shackle shut when `locked` and swung open otherwise.
+#[component]
+fn LockIcon(locked: bool) -> Element {
+    rsx! {
+        svg {
+            width: "24",
+            height: "24",
+            view_box: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            stroke_width: "2",
+            stroke_linecap: "round",
+            "aria-hidden": "true",
+            rect {
+                x: "4",
+                y: "10.5",
+                width: "16",
+                height: "11",
+                rx: "2.5",
+            }
+            path { d: if locked { "M8 10.5V7.5a4 4 0 0 1 8 0v3" } else { "M8 10.5V7.5a4 4 0 0 1 7.75-1.4" } }
+            circle {
+                cx: "12",
+                cy: "16",
+                r: "1.4",
+                fill: "currentColor",
+                stroke: "none",
             }
         }
     }

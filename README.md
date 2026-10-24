@@ -16,6 +16,8 @@ This is a tool for teachers to use to assist in creating dynamic collections dur
 In group creation mode the primary task is to create the classes and groups. The reason for classes is for high school and elementary school where the teacher may not have the same students throughout the entire day. Classes define the total population that is possible to go into the N groups. Once the teacher has selected a class then the UI is structured around creating the groups. There must be options to select how many groups the teacher desires. If the teacher selects say 3 groups then the students should be sorted into 3 groups randomly and the groups should default to having random names from a G rated safe word list of adjective combined with animal in an alliteration like "Majestic Monkeys" for example or "Fantastic Flamingoes".
 
 
+A group can be locked so **Shuffle again** leaves its members where they are and re-deals everyone else across the other groups. For example, a teacher with three science groups can keep one together while mixing the other two. Moving a student by hand still works on a locked group, and **Make groups** starts over with every group unlocked, after asking first.
+
 A student who is out for the day can be marked absent from the roster, from their group card, or from the oracle's pick on the whiteboard. They drop out of the groups and the oracle for that day only and come back on their own the next day, still in their group.
 
 ## Whiteboard mode

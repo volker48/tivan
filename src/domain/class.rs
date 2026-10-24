@@ -84,6 +84,8 @@ pub struct GroupView<'a> {
     pub idx: GroupIdx,
     pub name: &'a Label,
     pub members: Vec<&'a Student>,
+    /// Shuffling leaves this group's members where they are.
+    pub locked: bool,
 }
 
 /// One center with the group standing there.
@@ -274,10 +276,10 @@ impl Class {
     }
 
     /// Fresh random split of the students present, with fresh names, replacing any existing
-    /// grouping. A `count` made for an earlier, larger roster is clamped to the students present.
-    /// Absent students then join the smallest groups, so the groups stay even when they are back.
-    /// Centers carry over with their names, fitted to the new group count, and start again at
-    /// round 1. Does nothing when no one is present.
+    /// grouping, so every group comes out unlocked. A `count` made for an earlier, larger roster
+    /// is clamped to the students present. Absent students then join the smallest groups, so the
+    /// groups stay even when they are back. Centers carry over with their names, fitted to the new
+    /// group count, and start again at round 1. Does nothing when no one is present.
     pub fn regroup(&mut self, count: GroupCount, rng: &mut impl Rng) {
         let present: Vec<Student> = self.present().cloned().collect();
         let Ok(count) = GroupCount::nearest(count.get(), present.len()) else {
@@ -293,9 +295,10 @@ impl Class {
         self.grouping = Some(grouping);
     }
 
-    /// Re-deals the students present across the existing groups, keeping the group names and the
-    /// centers. Absent students then join the smallest groups, as in [`Class::regroup`]. Does
-    /// nothing when there is no grouping yet or no one is present.
+    /// Re-deals the students present across the unlocked groups, keeping the group names and the
+    /// centers. A locked group keeps every member, absent ones included. Absent students from the
+    /// other groups then join the smallest unlocked groups, as in [`Class::regroup`]. Does
+    /// nothing when there is no grouping yet, no one is present, or every group is locked.
     pub fn reshuffle(&mut self, rng: &mut impl Rng) {
         let present: Vec<Student> = self.present().cloned().collect();
         if let Some(grouping) = &mut self.grouping {
@@ -310,6 +313,12 @@ impl Class {
 
     pub fn rename_group(&mut self, idx: GroupIdx, name: Label) -> Result<(), MoveError> {
         self.grouping_mut()?.rename(idx, name)
+    }
+
+    /// Locks a group so shuffling leaves its members alone, or unlocks it. Moving a student in or
+    /// out by hand still works.
+    pub fn set_group_locked(&mut self, idx: GroupIdx, locked: bool) -> Result<(), MoveError> {
+        self.grouping_mut()?.set_locked(idx, locked)
     }
 
     pub fn reroll_group_name(
@@ -361,6 +370,7 @@ impl Class {
                 idx: GroupIdx(index),
                 name,
                 members: Vec::new(),
+                locked: grouping.is_locked(GroupIdx(index)),
             })
             .collect();
         for student in self.present() {
@@ -907,8 +917,16 @@ mod tests {
             class.reroll_group_name(GroupIdx(0), &mut rng(1)),
             Err(MoveError::UnknownGroup)
         );
+        assert_eq!(
+            class.set_group_locked(GroupIdx(0), true),
+            Err(MoveError::UnknownGroup)
+        );
 
         class.regroup(count(2, &class), &mut rng(1));
+        assert_eq!(
+            class.set_group_locked(GroupIdx(2), true),
+            Err(MoveError::UnknownGroup)
+        );
         assert_eq!(
             class.move_student(StudentId(99), GroupIdx(0)),
             Err(MoveError::UnknownStudent)
@@ -1507,7 +1525,7 @@ mod tests {
             let mut class = class_of(8);
             for _ in 0..80 {
                 let ids: Vec<StudentId> = class.students().iter().map(|s| s.id).collect();
-                match roll(&mut rng, 12) {
+                match roll(&mut rng, 13) {
                     0 => {
                         class.add_student(label("Newcomer"), &mut rng);
                     }
@@ -1536,6 +1554,11 @@ mod tests {
                     9 => class.rotate_centers(),
                     10 => {
                         class.draw(Draw::Group, &mut rng);
+                    }
+                    11 => {
+                        let idx = GroupIdx(roll(&mut rng, 4));
+                        let locked = roll(&mut rng, 2) == 0;
+                        class.set_group_locked(idx, locked).ok();
                     }
                     _ => {
                         let idx = CenterIdx(roll(&mut rng, 6));
@@ -1596,6 +1619,189 @@ mod tests {
         assert_eq!(class.students()[0].id, first);
         assert_ne!(class.students()[3].id, first);
         class.assert_invariants();
+    }
+
+    fn locked_flags(class: &Class) -> Vec<bool> {
+        class.group_views().iter().map(|g| g.locked).collect()
+    }
+
+    #[test]
+    fn locking_and_unlocking_a_group_is_idempotent_and_shows_in_its_view() {
+        let mut class = class_of(6);
+        class.regroup(count(3, &class), &mut rng(1));
+        assert_eq!(locked_flags(&class), [false, false, false]);
+
+        class.set_group_locked(GroupIdx(1), true).unwrap();
+        class.set_group_locked(GroupIdx(1), true).unwrap();
+        assert_eq!(locked_flags(&class), [false, true, false]);
+        assert_eq!(class.grouping().unwrap().locked_count(), 1);
+
+        class.set_group_locked(GroupIdx(1), false).unwrap();
+        class.set_group_locked(GroupIdx(1), false).unwrap();
+        assert_eq!(locked_flags(&class), [false, false, false]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn shuffling_keeps_a_locked_group_and_deals_everyone_else_across_the_others() {
+        for seed in 0..30 {
+            let mut class = class_of(14);
+            class.regroup(count(3, &class), &mut rng(1));
+            class.set_group_locked(GroupIdx(1), true).unwrap();
+            let names = names_of(&class);
+            let before = member_ids(&class);
+
+            class.reshuffle(&mut rng(seed));
+
+            let after = member_ids(&class);
+            assert_eq!(after[1], before[1], "seed {seed}");
+            assert_eq!(names_of(&class), names);
+            assert_eq!(locked_flags(&class), [false, true, false]);
+            let mut others: Vec<usize> = [0, 2].iter().map(|&g| after[g].len()).collect();
+            others.sort_unstable();
+            assert_eq!(others, [4, 5], "seed {seed}");
+            class.assert_invariants();
+        }
+    }
+
+    #[test]
+    fn shuffling_with_a_locked_group_still_moves_the_others_around() {
+        let mut class = class_of(12);
+        class.regroup(count(3, &class), &mut rng(1));
+        class.set_group_locked(GroupIdx(0), true).unwrap();
+        let before = member_ids(&class);
+        let moved = (0..20).any(|seed| {
+            let mut shuffled = class.clone();
+            shuffled.reshuffle(&mut rng(seed));
+            member_ids(&shuffled)[1..] != before[1..]
+        });
+        assert!(
+            moved,
+            "some seed should deal the unlocked groups differently"
+        );
+    }
+
+    #[test]
+    fn with_every_group_locked_shuffling_changes_nothing() {
+        let mut class = class_of(9);
+        class.regroup(count(3, &class), &mut rng(1));
+        for g in 0..3 {
+            class.set_group_locked(GroupIdx(g), true).unwrap();
+        }
+        let before = class.clone();
+
+        class.reshuffle(&mut rng(2));
+
+        assert_eq!(class, before);
+    }
+
+    #[test]
+    fn unlocking_a_group_lets_its_members_shuffle_again() {
+        let mut class = class_of(12);
+        class.regroup(count(3, &class), &mut rng(1));
+        class.set_group_locked(GroupIdx(2), true).unwrap();
+        class.set_group_locked(GroupIdx(2), false).unwrap();
+        let before = member_ids(&class);
+        let moved = (0..20).any(|seed| {
+            let mut shuffled = class.clone();
+            shuffled.reshuffle(&mut rng(seed));
+            member_ids(&shuffled)[2] != before[2]
+        });
+        assert!(moved);
+    }
+
+    #[test]
+    fn making_groups_starts_over_with_every_group_unlocked() {
+        let mut class = class_of(9);
+        class.regroup(count(3, &class), &mut rng(1));
+        class.set_group_locked(GroupIdx(0), true).unwrap();
+
+        class.regroup(count(3, &class), &mut rng(2));
+
+        assert_eq!(locked_flags(&class), [false, false, false]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn a_student_added_later_skips_locked_groups_unless_every_group_is_locked() {
+        let mut class = class_of(5);
+        class.regroup(count(2, &class), &mut rng(1));
+        assert_eq!(group_sizes(&class), [3, 2]);
+        class.set_group_locked(GroupIdx(1), true).unwrap();
+
+        let first = class.add_student(label("Late"), &mut rng(2));
+        assert_eq!(class.grouping().unwrap().group_of(first), Some(GroupIdx(0)));
+
+        class.set_group_locked(GroupIdx(0), true).unwrap();
+        let second = class.add_student(label("Later"), &mut rng(3));
+        assert_eq!(
+            class.grouping().unwrap().group_of(second),
+            Some(GroupIdx(1))
+        );
+        assert_eq!(group_sizes(&class), [4, 3]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn a_locked_group_keeps_its_absent_member_and_the_others_file_theirs_with_the_smallest() {
+        for seed in 0..20 {
+            let mut class = class_of(12);
+            class.regroup(count(3, &class), &mut rng(1));
+            class.set_group_locked(GroupIdx(0), true).unwrap();
+            let grouping = class.grouping().unwrap();
+            let in_locked = class
+                .students()
+                .iter()
+                .map(|s| s.id)
+                .find(|&id| grouping.group_of(id) == Some(GroupIdx(0)))
+                .unwrap();
+            let elsewhere = class
+                .students()
+                .iter()
+                .map(|s| s.id)
+                .find(|&id| grouping.group_of(id) != Some(GroupIdx(0)))
+                .unwrap();
+            class.mark_absent(in_locked, day(24));
+            class.mark_absent(elsewhere, day(24));
+
+            class.reshuffle(&mut rng(seed));
+
+            let grouping = class.grouping().unwrap();
+            assert_eq!(
+                grouping.group_of(in_locked),
+                Some(GroupIdx(0)),
+                "seed {seed}"
+            );
+            assert_ne!(
+                grouping.group_of(elsewhere),
+                Some(GroupIdx(0)),
+                "seed {seed}"
+            );
+            class.mark_present(in_locked);
+            class.mark_present(elsewhere);
+            assert_eq!(group_sizes(&class), [4, 4, 4], "seed {seed}");
+            class.assert_invariants();
+        }
+    }
+
+    #[test]
+    fn a_roster_shrinking_below_the_group_count_never_drops_a_locked_group() {
+        for seed in 0..20 {
+            let mut class = class_of(6);
+            class.regroup(count(6, &class), &mut rng(1));
+            let first = class.students()[0].id;
+            let home = class.grouping().unwrap().group_of(first).unwrap();
+            class.set_group_locked(home, true).unwrap();
+            keep_first(&mut class, 3);
+
+            class.reshuffle(&mut rng(seed));
+
+            let kept = 3.max(home.get() + 1);
+            assert_eq!(class.group_views().len(), kept, "seed {seed}");
+            assert_eq!(class.grouping().unwrap().group_of(first), Some(home));
+            assert!(class.group_views()[home.get()].locked);
+            class.assert_invariants();
+        }
     }
 
     fn day(day: u8) -> Day {
