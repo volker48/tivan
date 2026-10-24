@@ -514,22 +514,21 @@ fn AbsentTray() -> Element {
 #[component]
 fn GroupControls() -> Element {
     let mut state = use_app();
-    let (students, current, centers, locked) = state
+    let (students, current, centers, any_locked, all_locked) = state
         .with_class(|class| {
             let grouping = class.grouping();
             (
                 class.present().count(),
                 grouping.map(|grouping| grouping.len()),
                 grouping.is_some_and(|grouping| grouping.centers().is_some()),
-                grouping.map_or(0, |grouping| grouping.locked_count()),
+                grouping.is_some_and(|grouping| grouping.locked_count() > 0),
+                grouping.is_some_and(|grouping| grouping.all_locked()),
             )
         })
         .unwrap_or_default();
     let mut wanted = use_signal(|| current.unwrap_or(DEFAULT_GROUPS));
     let mut confirming_removal = use_signal(|| false);
     let mut confirming_regroup = use_signal(|| false);
-    let any_locked = locked > 0;
-    let all_locked = current == Some(locked);
     // The roster can shrink, or a student be marked absent, after the teacher set the stepper, so
     // the count is re-derived each render from the students present.
     let groups = GroupCount::nearest(wanted(), students).ok();
@@ -572,7 +571,7 @@ fn GroupControls() -> Element {
             if let Some(hint) = groups.and_then(|groups| size_hint(students, groups)) {
                 span { class: "hint", "{hint}" }
             }
-            if confirming_regroup() && any_locked {
+            if confirming_regroup() {
                 div { class: "confirm",
                     span { class: "confirm-text", "New groups mix everyone, locked groups too. Go ahead?" }
                     button {

@@ -1809,6 +1809,54 @@ mod tests {
         class.assert_invariants();
     }
 
+    #[test]
+    fn absences_in_locked_groups_never_cost_an_unlocked_group() {
+        let mut class = class_of(8);
+        class.regroup(count(4, &class), &mut rng(1));
+        class.set_group_locked(GroupIdx(0), true).unwrap();
+        class.set_group_locked(GroupIdx(1), true).unwrap();
+        let before = member_ids(&class);
+        let away = [
+            &before[0][..],
+            &before[1][..],
+            &before[2][..1],
+            &before[3][..1],
+        ]
+        .concat();
+        for &id in &away {
+            class.mark_absent(id, day(24));
+        }
+
+        class.reshuffle(&mut rng(2));
+
+        assert_eq!(class.group_views().len(), 4);
+        for id in away {
+            class.mark_present(id);
+        }
+        assert_eq!(group_sizes(&class), [2, 2, 2, 2]);
+        assert_eq!(member_ids(&class)[..2], before[..2]);
+        class.assert_invariants();
+    }
+
+    #[test]
+    fn shuffling_around_a_locked_group_leaves_no_unlocked_group_empty() {
+        for seed in 0..20 {
+            let mut class = class_of(8);
+            class.regroup(count(4, &class), &mut rng(1));
+            class.set_group_locked(GroupIdx(0), true).unwrap();
+            let before = member_ids(&class);
+            let away = [&before[1][1..], &before[2][1..], &before[3][..]].concat();
+            for &id in &away {
+                class.mark_absent(id, day(24));
+            }
+
+            class.reshuffle(&mut rng(seed));
+
+            assert_eq!(group_sizes(&class), [2, 1, 1], "seed {seed}");
+            class.assert_invariants();
+        }
+    }
+
     fn day(day: u8) -> Day {
         Day {
             year: 2026,

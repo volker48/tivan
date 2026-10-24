@@ -94,27 +94,29 @@ pub struct Grouping {
 
 /// Sizes of `m` groups over `n` students: the first `n % m` groups get one extra member.
 pub fn group_sizes(n: usize, m: GroupCount) -> Vec<usize> {
-    let m = m.get();
-    let (base, extra) = (n / m, n % m);
-    (0..m).map(|i| base + usize::from(i < extra)).collect()
+    even_sizes(n, m.get()).collect()
 }
 
-/// Shuffles `students` and cuts them across `groups` in order, the first groups taking one extra
-/// member as in [`group_sizes`]. With fewer students than groups the last groups get no one.
-/// `groups` must not be empty.
+/// [`group_sizes`] without the bounds, for a deal that may leave groups empty. `m` must not be 0.
+fn even_sizes(n: usize, m: usize) -> impl Iterator<Item = usize> {
+    let (base, extra) = (n / m, n % m);
+    (0..m).map(move |i| base + usize::from(i < extra))
+}
+
+/// Shuffles `ids` and cuts them across `groups` in order by [`even_sizes`]. With fewer students
+/// than groups the last groups get no one. `groups` must not be empty.
 fn deal(
-    students: &[&Student],
+    mut ids: Vec<StudentId>,
     groups: &[GroupIdx],
     rng: &mut impl Rng,
 ) -> BTreeMap<StudentId, GroupIdx> {
-    let mut ids: Vec<StudentId> = students.iter().map(|s| s.id).collect();
     shuffle(&mut ids, rng);
 
-    let (base, extra) = (ids.len() / groups.len(), ids.len() % groups.len());
+    let sizes = even_sizes(ids.len(), groups.len());
     let mut shuffled = ids.into_iter();
     let mut of = BTreeMap::new();
-    for (i, &group) in groups.iter().enumerate() {
-        for id in shuffled.by_ref().take(base + usize::from(i < extra)) {
+    for (&group, size) in groups.iter().zip(sizes) {
+        for id in shuffled.by_ref().take(size) {
             of.insert(id, group);
         }
     }
@@ -125,9 +127,9 @@ impl Grouping {
     /// Shuffles `students`, cuts them by [`group_sizes`], and draws fresh unique names.
     /// No group starts locked.
     pub fn split(students: &[Student], count: GroupCount, rng: &mut impl Rng) -> Grouping {
-        let students: Vec<&Student> = students.iter().collect();
+        let ids = students.iter().map(|s| s.id).collect();
         let groups: Vec<GroupIdx> = (0..count.get()).map(GroupIdx).collect();
-        let of = deal(&students, &groups, rng);
+        let of = deal(ids, &groups, rng);
         let names = draw_names(count.get(), rng);
         Grouping {
             names,
@@ -141,40 +143,35 @@ impl Grouping {
     /// Re-deals `students` evenly across the unlocked groups and keeps every name, hand-made
     /// ones included. A locked group keeps all its members, listed in `students` or not, and the
     /// unlocked groups share the rest of `students`. Anyone else is left out of the map for
-    /// [`Grouping::reconcile`] to place. When the roster has shrunk below the group count, the
-    /// first groups survive with their names and the rest are dropped, though never a locked
-    /// group or one before it, and one unlocked group always survives if there was one, so the
-    /// students outside the locked groups have somewhere to go. The centers and the group round
-    /// shrink with the groups. Otherwise the centers, their turn and the round are untouched:
-    /// only members change, groups stay where they stand. Does nothing for an empty roster or
-    /// when every group is locked.
+    /// [`Grouping::reconcile`] to place. When there are fewer students to deal than unlocked
+    /// groups, the unlocked groups that would stay empty are dropped from the end, keeping at
+    /// least one, but never a locked group or one before it, since groups are positional. The
+    /// centers and the group round shrink with the groups. Otherwise the centers, their turn and
+    /// the round are untouched: only members change, groups stay where they stand. Does nothing
+    /// for an empty roster or when every group is locked.
     pub fn reshuffle(&mut self, students: &[Student], rng: &mut impl Rng) {
-        let Ok(count) = GroupCount::nearest(self.names.len(), students.len()) else {
+        if students.is_empty() || self.all_locked() {
             return;
-        };
-        let after_last_lock = self.locked.last().map_or(0, |idx| idx.0 + 1);
-        let mut keep = count.get().max(after_last_lock);
-        if self.locked.len() == keep && self.names.len() > keep {
-            keep += 1;
         }
-        self.names.truncate(keep);
+        self.of.retain(|_, group| self.locked.contains(group));
+        let dealt: Vec<StudentId> = students
+            .iter()
+            .map(|s| s.id)
+            .filter(|id| !self.of.contains_key(id))
+            .collect();
+        let unlocked: Vec<GroupIdx> = (0..self.names.len())
+            .map(GroupIdx)
+            .filter(|g| !self.is_locked(*g))
+            .collect();
+        let last_filled = unlocked[dealt.len().clamp(1, unlocked.len()) - 1];
+        let after_last_lock = self.locked.last().map_or(0, |g| g.0 + 1);
+        self.names
+            .truncate((last_filled.0 + 1).max(after_last_lock));
         self.fit_centers();
         self.retain_oracle();
-        let free: Vec<GroupIdx> = self
-            .pool()
-            .into_iter()
-            .filter(|idx| !self.is_locked(*idx))
-            .collect();
-        if free.is_empty() {
-            return;
-        }
-        let dealt: Vec<&Student> = students
-            .iter()
-            .filter(|s| !self.group_of(s.id).is_some_and(|g| self.is_locked(g)))
-            .collect();
-        let locked = &self.locked;
-        self.of.retain(|_, group| locked.contains(group));
-        self.of.extend(deal(&dealt, &free, rng));
+        let kept = self.names.len();
+        let free: Vec<GroupIdx> = unlocked.into_iter().filter(|g| g.0 < kept).collect();
+        self.of.extend(deal(dealt, &free, rng));
     }
 
     pub fn len(&self) -> usize {
@@ -199,6 +196,11 @@ impl Grouping {
 
     pub fn locked_count(&self) -> usize {
         self.locked.len()
+    }
+
+    /// Whether every group is locked, which leaves shuffling no group to deal into.
+    pub fn all_locked(&self) -> bool {
+        self.locked.len() == self.names.len()
     }
 
     /// Idempotent.
@@ -331,17 +333,15 @@ impl Grouping {
         for group in self.of.values() {
             sizes[group.0] += 1;
         }
-        let all_locked = self.locked.len() == group_count;
+        let all_locked = self.all_locked();
+        let open: Vec<usize> = (0..group_count)
+            .filter(|&g| all_locked || !self.is_locked(GroupIdx(g)))
+            .collect();
         for student in roster {
             if self.of.contains_key(&student.id) {
                 continue;
             }
-            let Some((smallest, _)) = sizes
-                .iter()
-                .enumerate()
-                .filter(|&(g, _)| all_locked || !self.locked.contains(&GroupIdx(g)))
-                .min_by_key(|&(_, &size)| size)
-            else {
+            let Some(&smallest) = open.iter().min_by_key(|&&g| sizes[g]) else {
                 return;
             };
             sizes[smallest] += 1;
