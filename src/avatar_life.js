@@ -100,8 +100,13 @@ export function startAvatarLife() {
   every(".board-screen svg.avatar", BLINK, (avatar) =>
     blink(avatar, Math.random() < TWO_BLINKS_CHANCE ? 2 : 1),
   );
-  // Nobody fidgets under a reveal or Time's up, where the wall is dimmed behind it.
-  every(".wall .wall-avatar", FIDGET, fidget, () =>
-    document.querySelector(".board-screen .overlay"),
+  // One fidget at a time, and none under a reveal or Time's up, where the wall is dimmed behind it.
+  every(
+    ".wall .wall-avatar",
+    FIDGET,
+    fidget,
+    () =>
+      document.querySelector(".wall .wall-avatar[class*='fidget-']") ||
+      document.querySelector(".board-screen .overlay"),
   );
 }
