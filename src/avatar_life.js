@@ -43,7 +43,7 @@ function isGlad(avatar) {
 }
 
 function blink(avatar, times) {
-  if (isGlad(avatar)) return;
+  if (avatar.classList.contains("blink") || isGlad(avatar)) return;
   avatar.classList.add("blink");
   setTimeout(() => {
     avatar.classList.remove("blink");
@@ -86,8 +86,8 @@ function every(selector, { perAvatarMs, minGapMs }, act, quiet = () => false) {
       return;
     }
     if (!still() && !quiet()) act(found[Math.floor(Math.random() * found.length)]);
-    const gap = Math.max(minGapMs, perAvatarMs / found.length);
-    setTimeout(tick, gap * (0.4 + Math.random() * 1.2));
+    const gap = (perAvatarMs / found.length) * (0.4 + Math.random() * 1.2);
+    setTimeout(tick, Math.max(minGapMs, gap));
   };
   tick();
 }

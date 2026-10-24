@@ -24,9 +24,15 @@ function stopWaiting() {
 const GLAD = [{ opacity: 1 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }];
 const NOT_GLAD = [{ opacity: 0 }, { opacity: 0, offset: 0.85 }, { opacity: 1 }];
 
+// A second shuffle can start before the first one's grin ends, so the first is cancelled rather
+// than left to finish underneath. Only the grin: the stylesheet's own animations on the eyes stay.
 function grin(el, timing) {
-  for (const eyes of el.querySelectorAll(".av-glad")) eyes.animate(GLAD, timing);
-  for (const eyes of el.querySelectorAll(".av-open")) eyes.animate(NOT_GLAD, timing);
+  const restart = (eyes, keyframes) => {
+    for (const animation of eyes.getAnimations()) if (animation.id === "grin") animation.cancel();
+    eyes.animate(keyframes, { ...timing, id: "grin" });
+  };
+  for (const eyes of el.querySelectorAll(".av-glad")) restart(eyes, GLAD);
+  for (const eyes of el.querySelectorAll(".av-open")) restart(eyes, NOT_GLAD);
 }
 
 function flyChip({ el: chip, dx, dy, style }) {

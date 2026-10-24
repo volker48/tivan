@@ -148,7 +148,7 @@ impl Costume {
     /// Whether this costume looks right on `avatar`. A Halloween hat rests on the crown, which the
     /// frog's eyes and the bunny's ears take up, so on them it hovers. Any hat would hide the
     /// unicorn's horn and the shark's fin, and the bat perches on the crown too, so it would hide
-    /// the horn as well. The spider and the holly hang to one side and fit everyone.
+    /// them as well. The spider and the holly hang to one side and fit everyone.
     fn fits(self, avatar: Avatar) -> bool {
         match self {
             Costume::WitchHat | Costume::PumpkinHat => !matches!(
@@ -156,7 +156,7 @@ impl Costume {
                 Avatar::Frog | Avatar::Bunny | Avatar::Unicorn | Avatar::Shark
             ),
             Costume::SantaHat => !matches!(avatar, Avatar::Unicorn | Avatar::Shark),
-            Costume::Bat => avatar != Avatar::Unicorn,
+            Costume::Bat => !matches!(avatar, Avatar::Unicorn | Avatar::Shark),
             Costume::Spider | Costume::Holly => true,
         }
     }
@@ -371,19 +371,21 @@ mod tests {
 
     #[test]
     fn nothing_hides_the_unicorns_horn_or_the_sharks_fin() {
-        let hats = [Costume::WitchHat, Costume::PumpkinHat, Costume::SantaHat];
+        let on_the_crown = [
+            Costume::WitchHat,
+            Costume::PumpkinHat,
+            Costume::SantaHat,
+            Costume::Bat,
+        ];
         for skin in Skin::ALL {
             let worn = costumes_worn(skin);
-            let unicorn = worn[&Avatar::Unicorn];
-            assert!(
-                !hats.contains(&unicorn) && unicorn != Costume::Bat,
-                "{skin:?}: the unicorn wears {unicorn:?}"
-            );
-            let shark = worn[&Avatar::Shark];
-            assert!(
-                !hats.contains(&shark),
-                "{skin:?}: the shark wears {shark:?}"
-            );
+            for avatar in [Avatar::Unicorn, Avatar::Shark] {
+                let costume = worn[&avatar];
+                assert!(
+                    !on_the_crown.contains(&costume),
+                    "{skin:?}: the {avatar:?} wears {costume:?}"
+                );
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 # Settings
 
-A teacher opens Settings from the gear on the Build top bar and picks how student avatars are dressed. `Seasonal (automatic)` dresses avatars for Halloween in October and for Christmas from Dec 1 to Dec 25. Halloween hands out a witch hat, pumpkin hat, bat or spider by avatar, never a hat to the frog, bunny, unicorn or shark, and never the bat to the unicorn. Christmas hands out a Santa hat or a sprig of holly, and only holly to the unicorn and shark. `Halloween` and `Christmas` force one skin, and `Plain` turns skins off. The choice is saved and applies to every avatar on the whiteboard.
+A teacher opens Settings from the gear on the Build top bar and picks how student avatars are dressed. `Seasonal (automatic)` dresses avatars for Halloween in October and for Christmas from Dec 1 to Dec 25. Halloween hands out a witch hat, pumpkin hat, bat or spider by avatar, never a hat to the frog, bunny, unicorn or shark, and never the bat to the unicorn or shark. Christmas hands out a Santa hat or a sprig of holly, and only holly to the unicorn and shark. `Halloween` and `Christmas` force one skin, and `Plain` turns skins off. The choice is saved and applies to every avatar on the whiteboard.
 
 ## Sub-features
 
