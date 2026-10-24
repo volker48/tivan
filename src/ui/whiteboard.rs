@@ -393,7 +393,8 @@ fn TimerControls() -> Element {
     }
 }
 
-/// A countdown of any whole number of minutes. Enter in the field starts it too.
+/// A countdown of any whole number of minutes, drawn as one pill: the field, then a "min ▶" half
+/// that starts it. Enter in the field starts it too.
 #[component]
 fn CustomTimer(minutes: Signal<String>) -> Element {
     let mut state = use_app();
@@ -418,16 +419,20 @@ fn CustomTimer(minutes: Signal<String>) -> Element {
                 value: "{minutes}",
                 oninput: move |event| minutes.set(event.value()),
             }
-            span { "min" }
             button {
-                class: "btn btn-preset",
                 r#type: "submit",
                 disabled: duration.is_none(),
                 aria_label: match duration {
                     Some(duration) => format!("Start a {} minute timer", duration.0 / 60_000),
                     None => "Start timer".to_string(),
                 },
-                "Start"
+                "min"
+                svg {
+                    class: "play",
+                    view_box: "0 0 10 12",
+                    "aria-hidden": "true",
+                    path { d: "M1 1 L9 6 L1 11 Z" }
+                }
             }
         }
     }

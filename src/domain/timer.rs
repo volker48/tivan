@@ -9,19 +9,17 @@ pub struct Millis(pub u64);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Preset {
     One,
-    Two,
     Three,
     Five,
 }
 
 impl Preset {
     /// The one list the UI renders buttons from.
-    pub const ALL: [Preset; 4] = [Preset::One, Preset::Two, Preset::Three, Preset::Five];
+    pub const ALL: [Preset; 3] = [Preset::One, Preset::Three, Preset::Five];
 
     pub fn minutes(self) -> u64 {
         match self {
             Preset::One => 1,
-            Preset::Two => 2,
             Preset::Three => 3,
             Preset::Five => 5,
         }
@@ -159,9 +157,9 @@ mod tests {
     }
 
     #[test]
-    fn presets_cover_one_two_three_five_minutes() {
+    fn presets_cover_one_three_five_minutes() {
         let minutes: Vec<u64> = Preset::ALL.iter().map(|p| p.minutes()).collect();
-        assert_eq!(minutes, [1, 2, 3, 5]);
+        assert_eq!(minutes, [1, 3, 5]);
         assert_eq!(Preset::Three.duration(), Millis(3 * MIN));
     }
 

@@ -1113,24 +1113,30 @@ textarea {
   font-size: clamp(1rem, 1.4vw, 1.5rem);
 }
 
+/* The custom timer is one sticker split in two: the minutes field, then the half that starts it. */
 .custom-timer {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 44px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--sticker);
   font-size: clamp(1rem, 1.4vw, 1.5rem);
   font-weight: 700;
 }
 
 .custom-timer input {
-  width: 4.5ch;
-  min-height: 44px;
-  padding: 0.3rem 0.4rem;
+  width: 3.6ch;
+  padding: 0 0.2rem 0 0.7rem;
   appearance: textfield;
-  border: 2px solid var(--line);
-  border-radius: 0.8rem;
+  border: 0;
+  border-right: 2px solid var(--line);
+  border-radius: 999px 0 0 999px;
   background: #fff;
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 800;
   text-align: center;
 }
 
@@ -1142,7 +1148,44 @@ textarea {
 }
 
 .custom-timer input[aria-invalid="true"] {
-  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.custom-timer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 1rem 0 0.7rem;
+  border: 0;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.custom-timer button:hover:not(:disabled) {
+  background: #fff;
+}
+
+.custom-timer button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Inside the pill, an outside ring would be cut by the neighbouring half. */
+.custom-timer input:focus-visible,
+.custom-timer button:focus-visible {
+  outline-offset: -3px;
+}
+
+.custom-timer .play {
+  width: 0.65em;
+  height: 0.8em;
+  fill: var(--primary);
+  stroke: var(--line);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
 }
 
 .timer-strip {
