@@ -1,4 +1,4 @@
-//! Persistence format and load policy: one versioned JSON envelope, `{"version":8,"doc":{..}}`,
+//! Persistence format and load policy: one versioned JSON envelope, `{"version":9,"doc":{..}}`,
 //! stored under [`KEY`]. This is the pure half. It owns the format and the corrupt or newer-blob
 //! policy and runs natively under `cargo test`. The domain types are the stored shape, so a schema
 //! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm for the old shape. Version 1 differs
@@ -13,9 +13,11 @@
 //! as none, so it shares the arm too. Version 6 differs only by never naming the avatars added
 //! after it (unicorn through cow), so it shares the arm as well. Version 7 differs only by lacking
 //! a class's optional absences (`absent`), which an absent key reads as none, so it shares the arm
-//! too. The version still moves with each additive field or name, so an older build refuses a
-//! newer blob instead of dropping the field on its next save or starting over because it cannot
-//! read a name. The fixtures under `tests/fixtures/` are the guard: they must never be edited.
+//! too. Version 8 differs only by lacking a grouping's optional locked groups (`locked`), which an
+//! absent key reads as none locked, so it shares the arm as well. The version still moves with
+//! each additive field or name, so an older build refuses a newer blob instead of dropping the
+//! field on its next save or starting over because it cannot read a name. The fixtures under
+//! `tests/fixtures/` are the guard: they must never be edited.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -25,7 +27,7 @@ use crate::domain::{Doc, Rng, avatar};
 pub const KEY: &str = "tivan.state";
 /// Where an unreadable blob is copied before the app starts over.
 pub const BACKUP_KEY: &str = "tivan.state.backup";
-pub const SCHEMA_VERSION: u64 = 8;
+pub const SCHEMA_VERSION: u64 = 9;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -61,7 +63,7 @@ pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        1 | 2 | 3 | 4 | 5 | 6 | 7 | SCHEMA_VERSION => {
+        1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | SCHEMA_VERSION => {
             let doc = envelope
                 .get_mut("doc")
                 .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
@@ -147,6 +149,7 @@ mod tests {
     const V6: &str = include_str!("../tests/fixtures/v6.json");
     const V7: &str = include_str!("../tests/fixtures/v7.json");
     const V8: &str = include_str!("../tests/fixtures/v8.json");
+    const V9: &str = include_str!("../tests/fixtures/v9.json");
 
     fn rng() -> SplitMix64 {
         SplitMix64::seeded(1)
@@ -531,13 +534,85 @@ mod tests {
     }
 
     #[test]
-    fn the_frozen_v8_fixture_re_encodes_to_itself() {
+    fn the_frozen_v8_fixture_re_encodes_with_only_the_version_changed() {
         let doc = decode(V8, &mut rng()).unwrap();
+        let mut expected = parse(V8);
+        expected["version"] = SCHEMA_VERSION.into();
         assert_eq!(
             parse(&encode(&doc)),
-            parse(V8),
+            expected,
             "stored shape drifted: bump SCHEMA_VERSION"
         );
+    }
+
+    #[test]
+    fn the_frozen_v1_to_v8_fixtures_have_no_locked_groups() {
+        for raw in [V1, V2, V3, V4, V5, V6, V7, V8] {
+            let doc = decode(raw, &mut rng()).unwrap();
+            assert_eq!(doc.classes()[0].grouping().unwrap().locked_count(), 0);
+        }
+    }
+
+    #[test]
+    fn the_frozen_v9_fixture_decodes_with_its_locked_group_and_shuffles_around_it() {
+        let mut doc = decode(V9, &mut rng()).unwrap();
+        doc.assert_invariants();
+        let locked: Vec<bool> = doc.classes()[0]
+            .group_views()
+            .iter()
+            .map(|g| g.locked)
+            .collect();
+        assert_eq!(locked, [false, true]);
+
+        let first = doc.classes()[0].id();
+        doc.select(first);
+        let class = doc.selected_mut().unwrap();
+        for seed in 0..10 {
+            class.reshuffle(&mut SplitMix64::seeded(seed));
+            let members: Vec<&str> = class.group_views()[1]
+                .members
+                .iter()
+                .map(|s| s.name.as_str())
+                .collect();
+            assert_eq!(members, ["Ben", "Diego"], "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn the_frozen_v9_fixture_re_encodes_to_itself() {
+        let doc = decode(V9, &mut rng()).unwrap();
+        assert_eq!(
+            parse(&encode(&doc)),
+            parse(V9),
+            "stored shape drifted: bump SCHEMA_VERSION"
+        );
+    }
+
+    #[test]
+    fn a_lock_on_a_group_that_does_not_exist_is_dropped_on_load() {
+        let mut value = parse(V9);
+        value["doc"]["classes"][0]["grouping"]["locked"] = json!([1, 7]);
+
+        let doc = decode(&value.to_string(), &mut rng()).unwrap();
+
+        doc.assert_invariants();
+        assert_eq!(
+            parse(&encode(&doc))["doc"]["classes"][0]["grouping"]["locked"],
+            json!([1])
+        );
+    }
+
+    #[test]
+    fn a_v9_blob_with_unreadable_locks_is_stashed_not_repaired() {
+        for locked in [json!("all"), json!([-1]), json!(["1"])] {
+            let mut value = parse(V9);
+            value["doc"]["classes"][0]["grouping"]["locked"] = locked;
+            let raw = value.to_string();
+            assert!(
+                matches!(decode(&raw, &mut rng()), Err(DecodeError::Malformed(_))),
+                "{raw}"
+            );
+        }
     }
 
     #[test]

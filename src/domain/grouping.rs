@@ -71,13 +71,15 @@ pub enum MoveError {
 }
 
 /// `names` is never empty and has at most `MAX_GROUPS` entries (the owning `Class` drops an empty
-/// grouping), and `of` maps every roster student to an index below `names.len()`.
+/// grouping), `of` maps every roster student to an index below `names.len()`, and `locked` holds
+/// only indexes below `names.len()`.
 /// Balance is a property of [`Grouping::split`], not of this type, because manual moves break it.
 /// Group names are distinct when generated; a teacher may rename two groups to the same text.
 /// When `centers` is present it has one center per group, which is why every edit that changes
 /// `names` also refits it. The same goes for `oracle`, the round of groups picked so far: it
 /// lives here because a group round cannot outlive its groups, so a fresh split starts a fresh
-/// round.
+/// round. A locked group keeps its members through a reshuffle, and takes no newcomer while an
+/// unlocked group is there to take them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Grouping {
     names: Vec<Label>,
@@ -86,29 +88,36 @@ pub struct Grouping {
     centers: Option<Centers>,
     #[serde(default, skip_serializing_if = "Oracle::is_empty")]
     oracle: Oracle<GroupIdx>,
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    locked: BTreeSet<GroupIdx>,
 }
 
 /// Sizes of `m` groups over `n` students: the first `n % m` groups get one extra member.
 pub fn group_sizes(n: usize, m: GroupCount) -> Vec<usize> {
-    let m = m.get();
-    let (base, extra) = (n / m, n % m);
-    (0..m).map(|i| base + usize::from(i < extra)).collect()
+    even_sizes(n, m.get()).collect()
 }
 
-/// Shuffles `students` and cuts them into `count` groups by [`group_sizes`].
+/// [`group_sizes`] without the bounds, for a deal that may leave groups empty. `m` must not be 0.
+fn even_sizes(n: usize, m: usize) -> impl Iterator<Item = usize> {
+    let (base, extra) = (n / m, n % m);
+    (0..m).map(move |i| base + usize::from(i < extra))
+}
+
+/// Shuffles `ids` and cuts them across `groups` in order by [`even_sizes`]. With fewer students
+/// than groups the last groups get no one. `groups` must not be empty.
 fn deal(
-    students: &[Student],
-    count: GroupCount,
+    mut ids: Vec<StudentId>,
+    groups: &[GroupIdx],
     rng: &mut impl Rng,
 ) -> BTreeMap<StudentId, GroupIdx> {
-    let mut ids: Vec<StudentId> = students.iter().map(|s| s.id).collect();
     shuffle(&mut ids, rng);
 
+    let sizes = even_sizes(ids.len(), groups.len());
     let mut shuffled = ids.into_iter();
     let mut of = BTreeMap::new();
-    for (group, size) in group_sizes(students.len(), count).into_iter().enumerate() {
+    for (&group, size) in groups.iter().zip(sizes) {
         for id in shuffled.by_ref().take(size) {
-            of.insert(id, GroupIdx(group));
+            of.insert(id, group);
         }
     }
     of
@@ -116,30 +125,53 @@ fn deal(
 
 impl Grouping {
     /// Shuffles `students`, cuts them by [`group_sizes`], and draws fresh unique names.
+    /// No group starts locked.
     pub fn split(students: &[Student], count: GroupCount, rng: &mut impl Rng) -> Grouping {
-        let of = deal(students, count, rng);
+        let ids = students.iter().map(|s| s.id).collect();
+        let groups: Vec<GroupIdx> = (0..count.get()).map(GroupIdx).collect();
+        let of = deal(ids, &groups, rng);
         let names = draw_names(count.get(), rng);
         Grouping {
             names,
             of,
             centers: None,
             oracle: Oracle::default(),
+            locked: BTreeSet::new(),
         }
     }
 
-    /// Re-deals `students` evenly across the existing groups and keeps every name, hand-made
-    /// ones included. When the roster has shrunk below the group count, the first groups survive
-    /// with their names and the rest are dropped, and the centers and the group round shrink with
-    /// them. Otherwise the centers, their turn and the round are untouched: only members change,
-    /// groups stay where they stand. Does nothing for an empty roster.
+    /// Re-deals `students` evenly across the unlocked groups and keeps every name, hand-made
+    /// ones included. A locked group keeps all its members, listed in `students` or not, and the
+    /// unlocked groups share the rest of `students`. Anyone else is left out of the map for
+    /// [`Grouping::reconcile`] to place. When there are fewer students to deal than unlocked
+    /// groups, the unlocked groups that would stay empty are dropped from the end, keeping at
+    /// least one, but never a locked group or one before it, since groups are positional. The
+    /// centers and the group round shrink with the groups. Otherwise the centers, their turn and
+    /// the round are untouched: only members change, groups stay where they stand. Does nothing
+    /// for an empty roster or when every group is locked.
     pub fn reshuffle(&mut self, students: &[Student], rng: &mut impl Rng) {
-        let Ok(count) = GroupCount::nearest(self.names.len(), students.len()) else {
+        if students.is_empty() || self.all_locked() {
             return;
-        };
-        self.names.truncate(count.get());
+        }
+        self.of.retain(|_, group| self.locked.contains(group));
+        let dealt: Vec<StudentId> = students
+            .iter()
+            .map(|s| s.id)
+            .filter(|id| !self.of.contains_key(id))
+            .collect();
+        let unlocked: Vec<GroupIdx> = (0..self.names.len())
+            .map(GroupIdx)
+            .filter(|g| !self.is_locked(*g))
+            .collect();
+        let last_filled = unlocked[dealt.len().clamp(1, unlocked.len()) - 1];
+        let after_last_lock = self.locked.last().map_or(0, |g| g.0 + 1);
+        self.names
+            .truncate((last_filled.0 + 1).max(after_last_lock));
         self.fit_centers();
         self.retain_oracle();
-        self.of = deal(students, count, rng);
+        let kept = self.names.len();
+        let free: Vec<GroupIdx> = unlocked.into_iter().filter(|g| g.0 < kept).collect();
+        self.of.extend(deal(dealt, &free, rng));
     }
 
     pub fn len(&self) -> usize {
@@ -156,6 +188,30 @@ impl Grouping {
 
     pub fn group_of(&self, id: StudentId) -> Option<GroupIdx> {
         self.of.get(&id).copied()
+    }
+
+    pub fn is_locked(&self, idx: GroupIdx) -> bool {
+        self.locked.contains(&idx)
+    }
+
+    pub fn locked_count(&self) -> usize {
+        self.locked.len()
+    }
+
+    /// Whether every group is locked, which leaves shuffling no group to deal into.
+    pub fn all_locked(&self) -> bool {
+        self.locked.len() == self.names.len()
+    }
+
+    /// Idempotent.
+    pub fn set_locked(&mut self, idx: GroupIdx, locked: bool) -> Result<(), MoveError> {
+        self.check(idx)?;
+        if locked {
+            self.locked.insert(idx);
+        } else {
+            self.locked.remove(&idx);
+        }
+        Ok(())
     }
 
     /// Uniform over groups not yet drawn this round, empty ones included. When every group has
@@ -260,13 +316,15 @@ impl Grouping {
 
     /// Makes the map cover exactly `roster`. Drops ids not on the roster and indexes with no
     /// group, then places each unassigned student, in roster order, into the currently smallest
-    /// group (lowest index on ties). Idempotent.
+    /// unlocked group (lowest index on ties), or the smallest of all when every group is locked.
+    /// Idempotent.
     pub(super) fn reconcile(&mut self, roster: &[Student]) {
         // Only a hand-edited blob can exceed the cap, but name generation relies on it.
         self.names.truncate(MAX_GROUPS);
         self.fit_centers();
         self.retain_oracle();
         let group_count = self.names.len();
+        self.locked.retain(|idx| idx.0 < group_count);
         let on_roster: BTreeSet<StudentId> = roster.iter().map(|s| s.id).collect();
         self.of
             .retain(|id, group| on_roster.contains(id) && group.0 < group_count);
@@ -275,12 +333,15 @@ impl Grouping {
         for group in self.of.values() {
             sizes[group.0] += 1;
         }
+        let all_locked = self.all_locked();
+        let open: Vec<usize> = (0..group_count)
+            .filter(|&g| all_locked || !self.is_locked(GroupIdx(g)))
+            .collect();
         for student in roster {
             if self.of.contains_key(&student.id) {
                 continue;
             }
-            let Some((smallest, _)) = sizes.iter().enumerate().min_by_key(|&(_, &size)| size)
-            else {
+            let Some(&smallest) = open.iter().min_by_key(|&&g| sizes[g]) else {
                 return;
             };
             sizes[smallest] += 1;
@@ -298,6 +359,7 @@ impl Grouping {
             "membership must cover exactly the roster"
         );
         assert!(self.of.values().all(|g| g.0 < self.names.len()));
+        assert!(self.locked.iter().all(|g| g.0 < self.names.len()));
         if let Some(centers) = &self.centers {
             centers.assert_invariants(self.names.len());
         }
@@ -600,6 +662,7 @@ mod tests {
                 .collect(),
             centers: None,
             oracle: Oracle::default(),
+            locked: BTreeSet::new(),
         }
     }
 
@@ -796,6 +859,65 @@ mod tests {
         let with = serde_json::to_value(&grouping).unwrap();
         assert_eq!(with["oracle"], serde_json::json!({"drawn": [drawn.get()]}));
         assert_eq!(serde_json::from_value::<Grouping>(with).unwrap(), grouping);
+    }
+
+    #[test]
+    fn json_omits_locks_until_a_group_is_locked_and_reads_a_blob_that_has_none() {
+        let (_, mut grouping) = two_groups();
+        let without = serde_json::to_value(&grouping).unwrap();
+        assert!(without.get("locked").is_none());
+        assert_eq!(
+            serde_json::from_value::<Grouping>(without).unwrap(),
+            grouping
+        );
+
+        grouping.set_locked(GroupIdx(1), true).unwrap();
+        let with = serde_json::to_value(&grouping).unwrap();
+        assert_eq!(with["locked"], serde_json::json!([1]));
+        assert_eq!(serde_json::from_value::<Grouping>(with).unwrap(), grouping);
+    }
+
+    #[test]
+    fn reconcile_forgets_locks_on_groups_it_truncates() {
+        let students = roster(5);
+        let mut grouping = doctored(MAX_GROUPS + 2, &[]);
+        grouping.locked = BTreeSet::from([GroupIdx(0), GroupIdx(MAX_GROUPS + 1)]);
+
+        grouping.reconcile(&students);
+
+        grouping.assert_invariants(&students);
+        assert_eq!(grouping.locked_count(), 1);
+        assert!(grouping.is_locked(GroupIdx(0)));
+    }
+
+    #[test]
+    fn reconcile_places_newcomers_in_the_smallest_unlocked_group() {
+        let students = roster(5);
+        let mut grouping = doctored(3, &[(0, 0), (1, 0)]);
+        grouping.set_locked(GroupIdx(1), true).unwrap();
+
+        grouping.reconcile(&students);
+
+        assert_eq!(sizes(&grouping), [3, 0, 2]);
+        grouping.assert_invariants(&students);
+    }
+
+    #[test]
+    fn reshuffle_deals_an_uneven_remainder_across_the_unlocked_groups_only() {
+        let students = roster(10);
+        for seed in 0..20 {
+            let mut rng = SplitMix64::seeded(seed);
+            let mut grouping = Grouping::split(&students, count(4, 10), &mut rng);
+            grouping.set_locked(GroupIdx(0), true).unwrap();
+            let locked_members = sizes(&grouping)[0];
+
+            grouping.reshuffle(&students, &mut rng);
+
+            let after = sizes(&grouping);
+            assert_eq!(after[0], locked_members);
+            assert_eq!(after[1..], [3, 2, 2], "seed {seed}");
+            grouping.assert_invariants(&students);
+        }
     }
 
     #[test]

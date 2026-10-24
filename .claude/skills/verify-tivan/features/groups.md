@@ -10,6 +10,7 @@ A teacher picks how many groups a class needs, has Tivan split the students rand
 - `groups-move`: tap a student, then a group, to move them. Escape or `Cancel` abandons the move.
 - `groups-rename`: click a group name to type a new one.
 - `groups-reroll`: the dice button picks a new random name for one group.
+- `groups-lock`: the padlock button `Lock <group>` (pressed when locked) keeps a group's members together through `Shuffle again`. With every group locked, `Shuffle again` is disabled. With any group locked, `Make groups` first asks `New groups mix everyone, locked groups too. Go ahead?` with `Yes, make groups` / `Keep my groups`, and new groups come out unlocked.
 
 ## How to get to it (user POV)
 
@@ -33,6 +34,8 @@ Preconditions:
 - **Cancel a move.** Click a member again, then run `agent-browser --session "$SESSION" press Escape`. The `Moving …` status disappears and nothing moved.
 - **Rename by typing.** Click the first card's name button with `find role button click --name "<group name>" --exact`. A textbox `Group name` appears, focused, holding the old name. Run `agent-browser --session "$SESSION" find label "Group name" fill "Table One"`, `agent-browser --session "$SESSION" press Enter` and `agent-browser --session "$SESSION" wait --text "Table One"`. The textbox is gone, the card's name button reads `Table One`, and `.grouping.names[0]` is `"Table One"`. Clicking away, for example `find role heading click --name "McCurdy HR"`, also saves.
 - **Reroll a name.** Run `agent-browser --session "$SESSION" find role button click --name "Pick a new name for Table One"`. The card gets a different alliterative name that no other card uses, and `.grouping.names[0]` matches it.
+- **Lock a group.** Run `agent-browser --session "$SESSION" find role button click --name "Lock <second card's name>"`. The button reports `pressed`, the card's edge thickens, and `.grouping.locked` is `[1]`. Click `Shuffle again` three times, capturing after each. The second card's members, on screen and in `.grouping.of`, are the same every time, while the other three cards re-deal the remaining students evenly between them, their sizes differing by at most one.
+- **Make groups with a lock.** Click `Make groups`. It is replaced by the question `New groups mix everyone, locked groups too. Go ahead?`. `Keep my groups` changes nothing in `state.json`. Lock every card and `Shuffle again` is disabled. Click `Make groups`, then `Yes, make groups`: new names, `.grouping.locked` is gone, and `Shuffle again` is enabled again.
 - **Proof.** Finish with a reload and `tivan-capture <run> groups-final`. The screen and saved state show the move and the names from the steps above.
 
 ## Gotchas
@@ -44,4 +47,7 @@ Preconditions:
 - `Make groups` uses the stepper's count, re-deals everyone, and draws all-new names, so renamed groups lose their names. `Shuffle again` keeps the saved count and every group name, and only moves students. When centers are on, `Shuffle again` also keeps them and the round, while `Make groups` keeps the center names and restarts at `Round 1`. See [Centers](./centers.md).
 - With Chrome for Testing 151, `press Enter` in the `Group name` box hung the page. Enter saves and removes the field, so the Enter reached the page body, and that Chrome answered with a storm of synthetic key events. The same happens on a plain HTML page, so the app is not at fault. Chrome for Testing 155 is clean. On an older Chrome, save by clicking away. See the stuck-page notes in `SKILL.md`.
 - An empty or unchanged name in the `Group name` box cancels the rename silently. A name over 40 characters shows the alert `Keep names to 40 characters or fewer.`
+- `--name "Lock <group>"` must use the group's current name, which a reroll or Make groups changes.
+- A class with no groups yet opens with its `Students` panel expanded, so clicking `Students` there collapses it. Read its `aria-expanded` first.
+- After the page scrolls, the sticky top bar can cover roster toggles and agent-browser refuses the click. Scroll the button into view first.
 - `McCurdy HR` has 18 students, so the stepper allows up to 18 groups. A class with fewer students caps lower.

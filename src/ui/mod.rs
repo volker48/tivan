@@ -28,6 +28,7 @@ pub struct GroupCard {
     pub idx: GroupIdx,
     pub name: Label,
     pub members: Vec<Student>,
+    pub locked: bool,
 }
 
 pub fn group_cards(class: &Class) -> Vec<GroupCard> {
@@ -38,6 +39,7 @@ pub fn group_cards(class: &Class) -> Vec<GroupCard> {
             idx: view.idx,
             name: view.name.clone(),
             members: view.members.into_iter().cloned().collect(),
+            locked: view.locked,
         })
         .collect()
 }

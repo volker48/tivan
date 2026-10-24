@@ -40,7 +40,7 @@ Keep implementation details out. Name only user paths, stable handles, required 
 
 - [Classes](./classes.md): create, switch, rename and delete classes.
 - [Roster](./roster.md): add, remove and paste students into a class.
-- [Groups](./groups.md): choose a group count, make and reshuffle groups, move students, rename groups.
+- [Groups](./groups.md): choose a group count, make and reshuffle groups, lock groups against shuffling, move students, rename groups.
 - [Attendance](./attendance.md): mark a student absent for the day so groups and the oracle skip them.
 - [Centers](./centers.md): turn learning centers on for a grouped class, rotate the groups through them, rename them.
 - [Whiteboard and oracle](./whiteboard.md): the projected group wall and the random student and group pickers.
@@ -66,6 +66,15 @@ Verification on 2026-10-16, app rev `b3307e7`, using dx 0.7.10, agent-browser 0.
 - **Nine Halloween costumes** (2026-10-22): with `Halloween` fixed, the Settings previews show witch hat, pumpkin hat and ghost, and the whiteboard's 18 avatars wear all nine Halloween costumes, two each (frog: bat; lion: werewolf; sheep: spider). The choice survived reload and the stored version stayed 6. Run `20261022-111052-55240` (rev `b0798e1+dirty`); evidence `settings-halloween` and `wall-halloween` in `target/verify/20261022-111052-55240/`.
 
 - **Avatars** (2026-10-24): every step of `avatars.md` passed at 1280x720 before commit: a fresh profile saves version 7 and `Reading Club`'s 27 students have 27 different animals, hovering a roster row shows happy eyes, flying chips grin during `Shuffle again` and stop on landing, the wall's avatars arrive in a wave and blink (16 blinking frames sampled in 3 s on the wall, 0 in Build), breathe (`av-breathe` running on every wall avatar) and fidget one at a time (`fidget-tilt-right`, `fidget-lean-left` and `fidget-twirl` seen in 8 s, never two at once in 15 s, none under the oracle's card), the oracle's chosen avatar leaps in with sparks and settles with open eyes and every spark faded, a picked group's members pop up in turn, and reduced motion stops the blinking, fidgets and breathing and shows the reveal settled. The saved version stayed 7 after reload. Run `20261024-184611-1716` (rev `f6c7707+dirty`) covered every step at 1280x720, including the idle ones. Run `20261024-185230-5299` (rev `f3f2ff3+dirty`, the current wall markup) checked one fidget at a time, Christmas and the phone layout. With `Christmas` fixed the wall lists `#costume-santa-hat` and `#costume-holly`, and the shark wears holly. At 375 px the wall and the reveal do not scroll sideways. Evidence `avatars-*` in `target/verify/20261024-184611-1716/`, and `settings-christmas`, `wall-christmas` and `phone-*` in `target/verify/20261024-185230-5299/`.
+
+- **Locked groups** (2026-10-24): a scripted run asserted every step against the saved state and the cards on screen (`e2e-proof.log`, 115 checks).
+  - **Lock and shuffle.** On `McCurdy HR` with 3 groups, locking the second card saved `.grouping.locked` as `[1]` and pressed its padlock. Ten `Shuffle again` clicks kept its six members while the other twelve re-dealt 6 and 6. Every reload kept the saved class identical.
+  - **Absences.** A locked member marked absent stayed in the locked group through three shuffles, and an absent unlocked member stayed in an unlocked group. A student added afterwards joined an unlocked group.
+  - **Make groups.** `Make groups` asked first, and `Keep my groups` changed nothing. Locking all three disabled `Shuffle again` with its tooltip. `Yes, make groups` saved no `locked` key and released every padlock.
+  - **Review cases.** In new classes, 8 students in 4 groups with groups 0 and 1 locked and 6 absent kept all 4 groups and came back as 2 each with the locked groups unchanged. 4 students in 2 groups with the first locked and 3 absent kept both groups unchanged.
+  - **Final reload** left the whole saved document identical at version 9.
+  - **Run.** `20261024-215201-30944` (rev `fe85ba1`); evidence `e2e-*` in `target/verify/20261024-215201-30944/`. The log keeps nine harness failures, each explained by a `NOTE` and rerun.
+
 
 Each run records browser commands in `commands.log`; every capture includes a screenshot, accessibility tree and saved JSON. Doctor passed before and after both runs, and both sessions and servers were cleaned up. The first launch, `20261016-090628-99697`, lost its server when its command runner exited; it was cleaned up and excluded from proof. The roster placeholder selector and the centers recipe's stored-version expectation were corrected to match the observed app.
 
