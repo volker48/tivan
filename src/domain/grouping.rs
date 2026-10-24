@@ -143,15 +143,21 @@ impl Grouping {
     /// unlocked groups share the rest of `students`. Anyone else is left out of the map for
     /// [`Grouping::reconcile`] to place. When the roster has shrunk below the group count, the
     /// first groups survive with their names and the rest are dropped, though never a locked
-    /// group or one before it, and the centers and the group round shrink with them. Otherwise
-    /// the centers, their turn and the round are untouched: only members change, groups stay
-    /// where they stand. Does nothing for an empty roster or when every group is locked.
+    /// group or one before it, and one unlocked group always survives if there was one, so the
+    /// students outside the locked groups have somewhere to go. The centers and the group round
+    /// shrink with the groups. Otherwise the centers, their turn and the round are untouched:
+    /// only members change, groups stay where they stand. Does nothing for an empty roster or
+    /// when every group is locked.
     pub fn reshuffle(&mut self, students: &[Student], rng: &mut impl Rng) {
         let Ok(count) = GroupCount::nearest(self.names.len(), students.len()) else {
             return;
         };
         let after_last_lock = self.locked.last().map_or(0, |idx| idx.0 + 1);
-        self.names.truncate(count.get().max(after_last_lock));
+        let mut keep = count.get().max(after_last_lock);
+        if self.locked.len() == keep && self.names.len() > keep {
+            keep += 1;
+        }
+        self.names.truncate(keep);
         self.fit_centers();
         self.retain_oracle();
         let free: Vec<GroupIdx> = self

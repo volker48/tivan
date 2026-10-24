@@ -1804,6 +1804,27 @@ mod tests {
         }
     }
 
+    #[test]
+    fn shuffling_with_few_students_present_keeps_an_unlocked_group_for_the_rest() {
+        let mut class = class_of(4);
+        class.regroup(count(2, &class), &mut rng(1));
+        class.set_group_locked(GroupIdx(0), true).unwrap();
+        let before = member_ids(&class);
+        let stays = before[1][0];
+        for id in class.roster_ids().into_iter().filter(|&id| id != stays) {
+            class.mark_absent(id, day(24));
+        }
+
+        class.reshuffle(&mut rng(2));
+
+        for id in class.roster_ids() {
+            class.mark_present(id);
+        }
+        assert_eq!(member_ids(&class), before);
+        assert_eq!(locked_flags(&class), [true, false]);
+        class.assert_invariants();
+    }
+
     fn day(day: u8) -> Day {
         Day {
             year: 2026,
