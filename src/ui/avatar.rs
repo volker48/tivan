@@ -12,10 +12,11 @@ const SPRITE: &str = concat!(
     include_str!("../../assets/skins.svg")
 );
 
-/// The shared definitions every [`AvatarIcon`] points at, and the blinking that brings them to life.
+/// The shared definitions every [`AvatarIcon`] points at, and the blinks and fidgets that bring
+/// them to life.
 #[component]
 pub fn AvatarSprite() -> Element {
-    use_effect(platform::start_blinking);
+    use_effect(platform::start_avatar_life);
     rsx! {
         div { dangerous_inner_html: SPRITE }
     }

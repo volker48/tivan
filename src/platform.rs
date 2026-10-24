@@ -293,8 +293,8 @@ extern "C" {
 
 #[wasm_bindgen(module = "/src/avatar_life.js")]
 extern "C" {
-    /// Keeps every avatar on the whiteboard blinking now and then, one at a time, unless the system
-    /// asks for less motion. Calling it again does nothing.
-    #[wasm_bindgen(js_name = startBlinking)]
-    pub fn start_blinking();
+    /// Keeps the avatars on the whiteboard blinking and fidgeting now and then, one at a time,
+    /// unless the system asks for less motion. Calling it again does nothing.
+    #[wasm_bindgen(js_name = startAvatarLife)]
+    pub fn start_avatar_life();
 }

@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 
 use crate::app::{AppState, Mode, use_app, use_escape};
-use crate::domain::{Draw, Grouping, Millis, Pick, Preset, Reel, Timer, format_mm_ss};
+use crate::domain::{Avatar, Draw, Grouping, Millis, Pick, Preset, Reel, Timer, format_mm_ss};
 use crate::platform;
 use crate::ui::avatar::AvatarIcon;
 use crate::ui::{GroupCard, RotateControls, center_slots, group_cards, hue};
@@ -264,7 +264,7 @@ fn RevealCard(reveal: Signal<Option<Reveal>>, pick: Pick) -> Element {
                 ul { class: "wall-members reveal-members",
                     for (n , student) in members.iter().enumerate() {
                         li { key: "{student.id.get()}", style: "--n: {n}",
-                            AvatarIcon { avatar: student.avatar }
+                            WallAvatar { avatar: student.avatar }
                             span { class: "wall-member-name", "{student.name}" }
                         }
                     }
@@ -501,6 +501,7 @@ fn WallCard(card: GroupCard) -> Element {
     rsx! {
         article {
             class: "wall-card hue-{hue(card.idx)}",
+            style: "--c: {card.idx.get()}",
             "data-group": "{card.idx.get()}",
             h2 { class: "wall-name", "{card.name}" }
             // The box is what the member tiles measure to size their avatars.
@@ -508,12 +509,23 @@ fn WallCard(card: GroupCard) -> Element {
                 ul { class: "wall-members",
                     for (n , student) in card.members.into_iter().enumerate() {
                         li { key: "{student.id.get()}", style: "--n: {n}",
-                            AvatarIcon { avatar: student.avatar }
+                            WallAvatar { avatar: student.avatar }
                             span { class: "wall-member-name", "{student.name}" }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/// A wall member's avatar, breathing inside a box that takes its arrival, its hops and the fidgets
+/// avatar_life.js hands out. Both move by transform alone, so neither interrupts the other.
+#[component]
+fn WallAvatar(avatar: Avatar) -> Element {
+    rsx! {
+        span { class: "wall-avatar",
+            AvatarIcon { avatar }
         }
     }
 }
