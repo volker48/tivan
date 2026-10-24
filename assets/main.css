@@ -139,6 +139,45 @@ textarea {
   height: 1.75em;
   margin-inline-end: 0.3em;
   vertical-align: middle;
+  /* Squash and stretch from where the sticker sits, not from its middle. */
+  transform-origin: 50% 88%;
+}
+
+/* An avatar's eyes are three layers over its face, and one shows at a time: open, shut while
+   avatar_life.js blinks the avatar, or glad, a pair of happy arcs that win over a blink. Only
+   their opacity changes. On the whiteboard, where avatars blink, each layer is composited, so a
+   blink is neither laid out nor painted. Without that, a layer whose opacity leaves 1 needs
+   layout, and inside the wall's sized member lists that restyles every avatar in the card, a
+   frame's worth of work per blink. Build has too many small avatars for a layer each to pay. */
+.board-screen :is(.av-open, .av-shut, .av-glad) {
+  will-change: opacity;
+}
+
+.av-shut,
+.av-glad {
+  opacity: 0;
+}
+
+.avatar.blink .av-open {
+  opacity: 0;
+}
+
+.avatar.blink .av-shut {
+  opacity: 1;
+}
+
+/* Point at a student and their avatar smiles and hops. */
+.chip:hover .avatar,
+.roster-item:hover .avatar {
+  animation: av-hop 560ms ease-out;
+}
+
+:is(.chip, .roster-item, .wall-members li):hover :is(.av-open, .av-shut) {
+  opacity: 0;
+}
+
+:is(.chip, .roster-item, .wall-members li):hover .av-glad {
+  opacity: 1;
 }
 
 /* ---- Notice banner ---- */
@@ -1139,10 +1178,88 @@ textarea {
   align-items: center;
 }
 
+/* Each avatar breathes slowly on its own clock. Cards and the places in them start at different
+   points of the breath, and later places breathe a little slower, so the wall never falls in step.
+   A transform alone, which the compositor runs without the page. */
 .wall-members .avatar {
   width: 1.6em;
   height: 1.6em;
   margin-inline-end: 0.25em;
+  animation: av-breathe calc(3.4s + var(--n, 0) * 0.15s) ease-in-out
+    calc(var(--n, 0) * -0.9s + var(--c, 0) * -1.7s) infinite;
+}
+
+/* Takes the arrival, the hop when pointed at, and the fidgets avatar_life.js hands out, while the
+   avatar inside breathes on. Always a layer of its own, so starting one of those needs no layout,
+   which inside the wall's sized lists would restyle the whole card. */
+.wall-avatar {
+  --arrive: av-arrive 560ms cubic-bezier(0.3, 1.4, 0.5, 1) calc(var(--n, 0) * 60ms + 150ms) backwards;
+  display: flex;
+  flex: none;
+  transform-origin: 50% 88%;
+  will-change: transform;
+  animation: var(--arrive);
+}
+
+/* Keeps the arrival first in each list, so changing the list does not replay it. */
+.wall-members li:hover .wall-avatar {
+  animation: var(--arrive), av-hop 560ms ease-out;
+}
+
+.wall-avatar.fidget-tilt-left {
+  animation: var(--arrive), av-fidget-tilt-left 1600ms ease-in-out;
+}
+
+.wall-avatar.fidget-tilt-right {
+  animation: var(--arrive), av-fidget-tilt-right 1600ms ease-in-out;
+}
+
+.wall-avatar.fidget-wiggle {
+  animation: var(--arrive), av-fidget-wiggle 800ms ease-in-out;
+}
+
+.wall-avatar.fidget-bounce {
+  animation: var(--arrive), av-fidget-bounce 900ms ease-out;
+}
+
+.wall-avatar.fidget-lean-left {
+  animation: var(--arrive), av-fidget-lean-left 1500ms ease-in-out;
+}
+
+.wall-avatar.fidget-lean-right {
+  animation: var(--arrive), av-fidget-lean-right 1500ms ease-in-out;
+}
+
+/* Spins about its middle rather than where it sits. */
+.wall-avatar.fidget-twirl {
+  transform-origin: 50% 50%;
+  animation: var(--arrive), av-fidget-twirl 1100ms ease-in-out;
+}
+
+/* A giggle: happy eyes and a shake. */
+.wall-avatar.fidget-giggle {
+  animation: var(--arrive), av-fidget-giggle 1300ms linear;
+}
+
+.wall-avatar.fidget-giggle .av-glad {
+  animation: av-giggle-glad 1300ms;
+}
+
+.wall-avatar.fidget-giggle .av-open {
+  animation: av-giggle-open 1300ms;
+}
+
+/* A doze: the eyes drift shut and the head nods, then it startles awake. */
+.wall-avatar.fidget-doze {
+  animation: var(--arrive), av-fidget-doze 2600ms ease-in-out;
+}
+
+.wall-avatar.fidget-doze .av-shut {
+  animation: av-doze-shut 2600ms;
+}
+
+.wall-avatar.fidget-doze .av-open {
+  animation: av-doze-open 2600ms;
 }
 
 /* Names beside their avatars, in one column or two on a wide card. This is the layout on a phone,
@@ -1343,14 +1460,78 @@ textarea {
     landing-ring 800ms ease-out both;
 }
 
-/* Inline with the name rather than above it, so the card is no taller than before on a short screen. */
-.reveal-name .avatar {
-  width: 0.95em;
-  height: 0.95em;
+/* Inline with the name rather than above it, so the card is no taller than before on a short screen.
+   Once the card has popped up, the chosen student's avatar leaps into it grinning, and sparks burst
+   out from behind it as it lands, about 660ms in. Then it wiggles and settles. */
+.reveal-avatar {
+  position: relative;
+  display: inline-block;
   margin-inline-end: 0.12em;
   vertical-align: -0.05em;
-  animation: pop-in 520ms cubic-bezier(0.2, 1.4, 0.4, 1) 180ms both;
 }
+
+.reveal-name .avatar {
+  position: relative;
+  display: block;
+  width: 0.95em;
+  height: 0.95em;
+  margin: 0;
+  animation: av-cheer 1700ms ease-out 150ms both;
+}
+
+/* Once it has settled, the chosen avatar breathes like the ones on the wall. */
+.reveal-card:not(.reveal-spinning) .reveal-avatar {
+  transform-origin: 50% 88%;
+  animation: av-breathe 3.4s ease-in-out 1.9s infinite;
+}
+
+/* Happy eyes until it has settled. Backwards only, so a blink can shut the eyes afterwards. */
+.reveal-name .av-glad {
+  animation: av-glad 1700ms 150ms backwards;
+}
+
+.reveal-name .av-open {
+  animation: av-open-later 1700ms 150ms backwards;
+}
+
+.sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* A soft flash of light behind the avatar as it lands. */
+.sparks::before {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%);
+  content: "";
+  animation: av-flash 900ms ease-out 600ms both;
+}
+
+.sparks i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.26em;
+  height: 0.26em;
+  margin: -0.13em;
+  background: var(--spark);
+  clip-path: polygon(50% 0, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0 50%, 37% 37%);
+  animation: av-spark 950ms cubic-bezier(0.15, 0.75, 0.35, 1) 620ms both;
+}
+
+.sparks i:nth-child(1) { --a: 0deg; --far: 0.86em; --spark: #ffd166; }
+.sparks i:nth-child(2) { --a: 36deg; --far: 0.72em; --spark: #ff6f91; }
+.sparks i:nth-child(3) { --a: 72deg; --far: 0.9em; --spark: #7fd6ff; }
+.sparks i:nth-child(4) { --a: 108deg; --far: 0.7em; --spark: #9be37a; }
+.sparks i:nth-child(5) { --a: 144deg; --far: 0.84em; --spark: #b69cff; }
+.sparks i:nth-child(6) { --a: 180deg; --far: 0.74em; --spark: #ffd166; }
+.sparks i:nth-child(7) { --a: 216deg; --far: 0.9em; --spark: #ff6f91; }
+.sparks i:nth-child(8) { --a: 252deg; --far: 0.7em; --spark: #7fd6ff; }
+.sparks i:nth-child(9) { --a: 288deg; --far: 0.86em; --spark: #9be37a; }
+.sparks i:nth-child(10) { --a: 324deg; --far: 0.72em; --spark: #b69cff; }
 
 .reveal-line {
   margin: 0;
@@ -1409,9 +1590,23 @@ textarea {
   animation: spin-flash 140ms ease-out both;
 }
 
-/* The avatar's delayed pop-in would hide it for most of a flash. */
-.reveal-spinning .reveal-name .avatar {
+/* The avatar's delayed leap would hide it for most of a flash, and its grin is saved for the
+   landing. */
+.reveal-spinning .reveal-name :is(.avatar, .av-glad, .av-open) {
   animation: none;
+}
+
+/* A chosen group's members pop up one after another, smiling. */
+.reveal-members .wall-avatar {
+  --arrive: av-arrive 560ms cubic-bezier(0.3, 1.4, 0.5, 1) calc(var(--n, 0) * 90ms + 300ms) backwards;
+}
+
+.reveal-members .av-glad {
+  animation: av-glad 1600ms calc(var(--n, 0) * 90ms + 300ms) backwards;
+}
+
+.reveal-members .av-open {
+  animation: av-open-later 1600ms calc(var(--n, 0) * 90ms + 300ms) backwards;
 }
 
 /* Loud even with motion off: the animation only adds a glow. */
@@ -1455,6 +1650,146 @@ textarea {
   to { opacity: 1; transform: none; }
 }
 
+/* A hop with squash and stretch: crouch, spring up long and thin, land wide, settle. */
+@keyframes av-hop {
+  0%, 100% { transform: none; }
+  18% { transform: scale(1.1, 0.88); }
+  45% { transform: translateY(-16%) scale(0.93, 1.08); }
+  70% { transform: translateY(0) scale(1.08, 0.92); }
+  85% { transform: scale(0.98, 1.02); }
+}
+
+@keyframes av-arrive {
+  0% { opacity: 0; transform: translateY(25%) scale(0.3); }
+  60% { opacity: 1; transform: translateY(-6%) scale(1.08, 0.96); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Happy eyes for most of a moment, then the open ones back. */
+@keyframes av-glad {
+  0%, 84% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes av-open-later {
+  0%, 84% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Leap in from below, land with a squash, wiggle, and settle. */
+@keyframes av-cheer {
+  0% { opacity: 0; transform: translateY(45%) scale(0.25) rotate(-12deg); }
+  16% { opacity: 1; transform: translateY(-22%) scale(0.9, 1.14) rotate(4deg); }
+  30% { transform: translateY(0) scale(1.16, 0.86) rotate(0); }
+  40% { transform: translateY(-7%) scale(0.96, 1.05); }
+  50% { transform: none; }
+  58% { transform: rotate(-9deg); }
+  67% { transform: rotate(8deg); }
+  76% { transform: rotate(-4deg); }
+  84%, 100% { opacity: 1; transform: none; }
+}
+
+@keyframes av-breathe {
+  0%, 100% { transform: none; }
+  50% { transform: scale(1.015, 1.035); }
+}
+
+/* Fidgets. Every keyframe of the twirl lists the same functions, so its turn interpolates as a
+   turn and not as a matrix. */
+@keyframes av-fidget-tilt-left {
+  0%, 100% { transform: none; }
+  22%, 68% { transform: rotate(-13deg); }
+  84% { transform: rotate(3deg); }
+}
+
+@keyframes av-fidget-tilt-right {
+  0%, 100% { transform: none; }
+  22%, 68% { transform: rotate(13deg); }
+  84% { transform: rotate(-3deg); }
+}
+
+@keyframes av-fidget-wiggle {
+  0%, 100% { transform: none; }
+  15% { transform: rotate(10deg); }
+  35% { transform: rotate(-9deg); }
+  55% { transform: rotate(6deg); }
+  75% { transform: rotate(-3deg); }
+}
+
+@keyframes av-fidget-bounce {
+  0%, 100% { transform: none; }
+  12% { transform: scale(1.08, 0.9); }
+  30% { transform: translateY(-15%) scale(0.95, 1.06); }
+  46% { transform: scale(1.07, 0.93); }
+  62% { transform: translateY(-7%) scale(0.97, 1.03); }
+  78% { transform: scale(1.03, 0.97); }
+}
+
+@keyframes av-fidget-lean-left {
+  0%, 100% { transform: none; }
+  30%, 70% { transform: translateX(-9%) rotate(-9deg); }
+}
+
+@keyframes av-fidget-lean-right {
+  0%, 100% { transform: none; }
+  30%, 70% { transform: translateX(9%) rotate(9deg); }
+}
+
+@keyframes av-fidget-twirl {
+  0% { transform: translateY(0) rotate(0deg) scale(1, 1); }
+  15% { transform: translateY(0) rotate(0deg) scale(1.08, 0.9); }
+  55% { transform: translateY(-14%) rotate(330deg) scale(0.95, 1.06); }
+  75% { transform: translateY(0) rotate(360deg) scale(1.06, 0.94); }
+  100% { transform: translateY(0) rotate(360deg) scale(1, 1); }
+}
+
+@keyframes av-fidget-giggle {
+  0%, 100% { transform: none; }
+  10%, 30%, 50%, 70% { transform: translateX(-3%) rotate(-4deg); }
+  20%, 40%, 60%, 80% { transform: translateX(3%) rotate(4deg); }
+  90% { transform: rotate(-1deg); }
+}
+
+@keyframes av-giggle-glad {
+  0%, 100% { opacity: 0; }
+  8%, 90% { opacity: 1; }
+}
+
+@keyframes av-giggle-open {
+  0%, 100% { opacity: 1; }
+  8%, 90% { opacity: 0; }
+}
+
+@keyframes av-fidget-doze {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(4deg); }
+  45%, 72% { transform: rotate(11deg) translateY(4%); }
+  80% { transform: translateY(-13%) scale(0.96, 1.06); }
+  90% { transform: scale(1.05, 0.95); }
+}
+
+@keyframes av-doze-shut {
+  0%, 77%, 100% { opacity: 0; }
+  22%, 75% { opacity: 1; }
+}
+
+@keyframes av-doze-open {
+  0%, 77%, 100% { opacity: 1; }
+  22%, 75% { opacity: 0; }
+}
+
+@keyframes av-spark {
+  0% { opacity: 0; transform: rotate(var(--a)) translateY(0) scale(0.2) rotate(0); }
+  8%, 65% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--far))) scale(1) rotate(90deg); }
+}
+
+@keyframes av-flash {
+  0% { opacity: 0; transform: scale(0.4); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }
@@ -1489,6 +1824,7 @@ textarea {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

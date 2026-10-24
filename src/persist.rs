@@ -1,4 +1,4 @@
-//! Persistence format and load policy: one versioned JSON envelope, `{"version":6,"doc":{..}}`,
+//! Persistence format and load policy: one versioned JSON envelope, `{"version":7,"doc":{..}}`,
 //! stored under [`KEY`]. This is the pure half. It owns the format and the corrupt or newer-blob
 //! policy and runs natively under `cargo test`. The domain types are the stored shape, so a schema
 //! change bumps [`SCHEMA_VERSION`] and adds a `decode` arm for the old shape. Version 1 differs
@@ -10,8 +10,10 @@
 //! differs only by lacking the document's `settings`, which an absent key reads as the defaults,
 //! so it shares the arm as well. Version 5 differs only by lacking the optional Classroom links
 //! (`classroom_course_id` on a class, `classroom_user_id` on a student), which an absent key reads
-//! as none, so it shares the arm too. The version still moves with each additive field, so an
-//! older build refuses a newer blob instead of dropping the field on its next save. The fixtures
+//! as none, so it shares the arm too. Version 6 differs only by never naming the avatars added
+//! after it (unicorn through cow), so it shares the arm as well. The version still moves with each
+//! additive field or name, so an older build refuses a newer blob instead of dropping the field on
+//! its next save or starting over because it cannot read a name. The fixtures
 //! under `tests/fixtures/` are the guard: they must never be edited.
 
 use serde::Serialize;
@@ -22,7 +24,7 @@ use crate::domain::{Doc, Rng, avatar};
 pub const KEY: &str = "tivan.state";
 /// Where an unreadable blob is copied before the app starts over.
 pub const BACKUP_KEY: &str = "tivan.state.backup";
-pub const SCHEMA_VERSION: u64 = 6;
+pub const SCHEMA_VERSION: u64 = 7;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -58,7 +60,7 @@ pub fn decode(raw: &str, rng: &mut impl Rng) -> Result<Doc, DecodeError> {
         .and_then(Value::as_u64)
         .ok_or_else(|| DecodeError::Malformed("missing numeric version".to_owned()))?;
     match version {
-        1 | 2 | 3 | 4 | 5 | SCHEMA_VERSION => {
+        1 | 2 | 3 | 4 | 5 | 6 | SCHEMA_VERSION => {
             let doc = envelope
                 .get_mut("doc")
                 .ok_or_else(|| DecodeError::Malformed("missing doc".to_owned()))?;
@@ -142,6 +144,7 @@ mod tests {
     const V4: &str = include_str!("../tests/fixtures/v4.json");
     const V5: &str = include_str!("../tests/fixtures/v5.json");
     const V6: &str = include_str!("../tests/fixtures/v6.json");
+    const V7: &str = include_str!("../tests/fixtures/v7.json");
 
     fn rng() -> SplitMix64 {
         SplitMix64::seeded(1)
@@ -186,7 +189,7 @@ mod tests {
 
     /// What every fixture says apart from avatars, which version 1 never stored, centers, which
     /// version 3 and later store, the group round, which version 4 and later store, and the
-    /// Classroom links, which only version 6 stores.
+    /// Classroom links, which version 6 and later store.
     fn assert_fixture_classes(doc: &Doc) {
         assert_eq!(doc.classes().len(), 2);
         assert_eq!(doc.selected().unwrap().name().as_str(), "Second Class");
@@ -445,11 +448,38 @@ mod tests {
     }
 
     #[test]
-    fn the_frozen_v6_fixture_re_encodes_to_itself() {
+    fn the_frozen_v6_fixture_re_encodes_with_only_the_version_changed() {
         let doc = decode(V6, &mut rng()).unwrap();
+        let mut expected = parse(V6);
+        expected["version"] = SCHEMA_VERSION.into();
         assert_eq!(
             parse(&encode(&doc)),
-            parse(V6),
+            expected,
+            "stored shape drifted: bump SCHEMA_VERSION"
+        );
+    }
+
+    #[test]
+    fn the_frozen_v7_fixture_decodes_with_avatars_version_6_never_named() {
+        let doc = decode(V7, &mut rng()).unwrap();
+
+        assert_fixture_classes(&doc);
+        doc.assert_invariants();
+        assert_eq!(
+            avatars_by_class(&doc),
+            [
+                vec![Avatar::Bear, Avatar::Panda, Avatar::Cat, Avatar::Unicorn],
+                vec![Avatar::RedPanda],
+            ]
+        );
+    }
+
+    #[test]
+    fn the_frozen_v7_fixture_re_encodes_to_itself() {
+        let doc = decode(V7, &mut rng()).unwrap();
+        assert_eq!(
+            parse(&encode(&doc)),
+            parse(V7),
             "stored shape drifted: bump SCHEMA_VERSION"
         );
     }

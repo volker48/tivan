@@ -98,7 +98,7 @@ impl Skin {
                 Costume::Bat,
                 Costume::Spider,
             ],
-            Skin::Christmas => &[Costume::SantaHat],
+            Skin::Christmas => &[Costume::SantaHat, Costume::Holly],
         }
     }
 
@@ -139,10 +139,11 @@ pub enum Costume {
     Bat,
     Spider,
     SantaHat,
+    Holly,
 }
 
 impl Costume {
-    pub const ALL: [Costume; 10] = [
+    pub const ALL: [Costume; 11] = [
         Costume::WitchHat,
         Costume::PumpkinHat,
         Costume::Ghost,
@@ -153,6 +154,7 @@ impl Costume {
         Costume::Bat,
         Costume::Spider,
         Costume::SantaHat,
+        Costume::Holly,
     ];
 
     /// The suffix of the sprite symbol `costume-<name>`.
@@ -168,6 +170,7 @@ impl Costume {
             Costume::Bat => "bat",
             Costume::Spider => "spider",
             Costume::SantaHat => "santa-hat",
+            Costume::Holly => "holly",
         }
     }
 
@@ -176,15 +179,23 @@ impl Costume {
     /// collars follow the round head. Only ears poking out from under the ghost sheet say who is
     /// inside, and the penguin has none. Werewolf ears cover the avatar's own, except the bunny's,
     /// which stick out above them, and they would sit on the frog's eyes and the sheep's wool.
+    /// Anything on the crown or over the head would hide the unicorn's horn and the shark's fin.
+    /// The spider and the holly hang to one side and fit everyone.
     fn fits(self, avatar: Avatar) -> bool {
+        let horn_or_fin = matches!(avatar, Avatar::Unicorn | Avatar::Shark);
         match self {
             Costume::WitchHat | Costume::PumpkinHat => {
-                !matches!(avatar, Avatar::Frog | Avatar::Bunny)
+                !horn_or_fin && !matches!(avatar, Avatar::Frog | Avatar::Bunny)
             }
-            Costume::Mummy | Costume::Vampire | Costume::Monster => avatar.has_round_head(),
-            Costume::Ghost => avatar.has_round_head() && avatar != Avatar::Penguin,
-            Costume::Werewolf => !matches!(avatar, Avatar::Frog | Avatar::Bunny | Avatar::Sheep),
-            Costume::Bat | Costume::Spider | Costume::SantaHat => true,
+            Costume::Mummy | Costume::Vampire | Costume::Monster => {
+                !horn_or_fin && avatar.has_round_head()
+            }
+            Costume::Ghost => !horn_or_fin && avatar.has_round_head() && avatar != Avatar::Penguin,
+            Costume::Werewolf => {
+                !horn_or_fin && !matches!(avatar, Avatar::Frog | Avatar::Bunny | Avatar::Sheep)
+            }
+            Costume::SantaHat | Costume::Bat => !horn_or_fin,
+            Costume::Spider | Costume::Holly => true,
         }
     }
 }
@@ -413,9 +424,33 @@ mod tests {
     }
 
     #[test]
-    fn christmas_puts_a_santa_hat_on_everyone() {
-        for (avatar, costume) in costumes_worn(Skin::Christmas) {
-            assert_eq!(costume, Costume::SantaHat, "{avatar:?}");
+    fn christmas_dresses_the_avatars_in_santa_hats_and_holly() {
+        let worn: HashSet<Costume> = costumes_worn(Skin::Christmas).into_values().collect();
+        assert_eq!(worn, [Costume::SantaHat, Costume::Holly].into());
+    }
+
+    #[test]
+    fn nothing_hides_the_unicorns_horn_or_the_sharks_fin() {
+        let on_the_crown = [
+            Costume::WitchHat,
+            Costume::PumpkinHat,
+            Costume::SantaHat,
+            Costume::Bat,
+            Costume::Ghost,
+            Costume::Mummy,
+            Costume::Vampire,
+            Costume::Werewolf,
+            Costume::Monster,
+        ];
+        for skin in Skin::ALL {
+            let worn = costumes_worn(skin);
+            for avatar in [Avatar::Unicorn, Avatar::Shark] {
+                let costume = worn[&avatar];
+                assert!(
+                    !on_the_crown.contains(&costume),
+                    "{skin:?}: the {avatar:?} wears {costume:?}"
+                );
+            }
         }
     }
 

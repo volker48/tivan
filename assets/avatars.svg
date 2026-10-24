@@ -13,46 +13,113 @@
       <stop offset="0" stop-color="#5d4466"/>
       <stop offset="1" stop-color="#160f1c"/>
     </radialGradient>
+    <!-- An eye is dark at the top and glows violet at the bottom, where light bounces up off the
+         face, like a glass marble. -->
+    <radialGradient id="av-iris" cx=".5" cy=".85" r=".8">
+      <stop offset="0" stop-color="#7b5cc4"/>
+      <stop offset=".5" stop-color="#2d1d47"/>
+      <stop offset="1" stop-color="#0e0814"/>
+    </radialGradient>
     <radialGradient id="av-blush-fill">
       <stop offset="0" stop-color="#ff5c8a" stop-opacity=".7"/>
       <stop offset="1" stop-color="#ff5c8a" stop-opacity="0"/>
     </radialGradient>
-    <!-- The round head's shading: inside the outline, with a shadow under the chin. -->
+    <!-- The round head's shading: inside the outline, with a shadow under the chin and a rim of
+         light bounced back along the lower right edge. -->
     <g id="av-depth">
       <circle cx="50" cy="58" r="32.5" fill="url(#av-depth-fill)"/>
       <ellipse clip-path="url(#av-head)" cx="50" cy="99" rx="48" ry="17" fill="#2a1f33" opacity=".14"/>
+      <path d="M79.6 67.2A31 31 0 0 1 45.4 88.7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".28"/>
     </g>
     <g id="av-shine" fill="#fff">
       <ellipse cx="35" cy="37" rx="11" ry="5.5" transform="rotate(-32 35 37)" opacity=".42"/>
       <circle cx="47" cy="29.5" r="2.2" opacity=".5"/>
     </g>
-    <g id="av-eyes">
-      <ellipse cx="37" cy="57.5" rx="5.4" ry="6.1" fill="url(#av-dark)"/>
-      <ellipse cx="63" cy="57.5" rx="5.4" ry="6.1" fill="url(#av-dark)"/>
-      <g fill="#fff">
-        <circle cx="39" cy="55" r="2.2"/>
-        <circle cx="65" cy="55" r="2.2"/>
-        <circle cx="35.6" cy="60.2" r="1" opacity=".85"/>
-        <circle cx="61.6" cy="60.2" r="1" opacity=".85"/>
-      </g>
+
+    <!-- Eyes, each drawn around 0 0, and pairs of them in three looks: open, shut for a blink,
+         and glad, a pair of happy arcs. Each avatar places the three over its face under its own
+         ids, avatar-<name>-open, -shut and -glad, after its symbol, and the page shows one look
+         at a time. -->
+    <g id="av-eye">
+      <ellipse rx="6.6" ry="7.8" fill="url(#av-iris)" stroke="#120b17" stroke-width="1"/>
+      <circle cx="-2" cy="-3.2" r="3" fill="#fff"/>
+      <circle cx="2.8" cy="2.6" r="1.4" fill="#fff"/>
+      <circle cx="2.7" cy="-4.3" r=".8" fill="#fff" opacity=".9"/>
     </g>
-    <g id="av-light-eyes">
-      <circle cx="38.5" cy="56.5" r="4.6" fill="#fff"/>
-      <circle cx="61.5" cy="56.5" r="4.6" fill="#fff"/>
-      <ellipse cx="39" cy="57.2" rx="2.6" ry="3" fill="url(#av-dark)"/>
-      <ellipse cx="61" cy="57.2" rx="2.6" ry="3" fill="url(#av-dark)"/>
-      <circle cx="40" cy="56" r="1.1" fill="#fff"/>
-      <circle cx="62" cy="56" r="1.1" fill="#fff"/>
+    <path id="av-shut-eye" d="M-6.4-.4q6.4 5 12.8 0" fill="none" stroke="#2a1f33" stroke-width="3.2" stroke-linecap="round"/>
+    <path id="av-glad-eye" d="M-6.2 1.8q6.2-8.4 12.4 0" fill="none" stroke="#2a1f33" stroke-width="3.2" stroke-linecap="round"/>
+    <g id="av-open">
+      <use href="#av-eye" x="37" y="57.5"/>
+      <use href="#av-eye" x="63" y="57.5"/>
     </g>
+    <g id="av-shut">
+      <use href="#av-shut-eye" x="37" y="57.5"/>
+      <use href="#av-shut-eye" x="63" y="57.5"/>
+    </g>
+    <g id="av-glad">
+      <use href="#av-glad-eye" x="37" y="57.5"/>
+      <use href="#av-glad-eye" x="63" y="57.5"/>
+    </g>
+    <!-- For a face whose eyes sit on dark patches: white eyes, and white arcs when shut or glad. -->
+    <g id="av-light-eye">
+      <ellipse rx="5.4" ry="6" fill="#fff"/>
+      <ellipse cx=".5" cy=".9" rx="3.7" ry="4.5" fill="url(#av-iris)"/>
+      <circle cx="-.7" cy="-1.3" r="1.6" fill="#fff"/>
+      <circle cx="2" cy="2.8" r=".8" fill="#fff"/>
+    </g>
+    <path id="av-light-shut-eye" d="M-5.6-.4q5.6 4.4 11.2 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+    <path id="av-light-glad-eye" d="M-5.6 1.6q5.6-7.6 11.2 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+    <g id="av-light-open">
+      <use href="#av-light-eye" x="38.5" y="56.5"/>
+      <use href="#av-light-eye" x="61.5" y="56.5"/>
+    </g>
+    <g id="av-light-shut">
+      <use href="#av-light-shut-eye" x="38.5" y="57"/>
+      <use href="#av-light-shut-eye" x="61.5" y="57"/>
+    </g>
+    <g id="av-light-glad">
+      <use href="#av-light-glad-eye" x="38.5" y="57"/>
+      <use href="#av-light-glad-eye" x="61.5" y="57"/>
+    </g>
+
     <g id="av-blush" fill="url(#av-blush-fill)">
       <ellipse cx="25.5" cy="68.5" rx="8" ry="5"/>
       <ellipse cx="74.5" cy="68.5" rx="8" ry="5"/>
     </g>
-    <path id="av-mouth" d="M44.5 67.5q2.75 3.5 5.5 0q2.75 3.5 5.5 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-    <path id="av-smile" d="M45.5 67q4.5 4.5 9 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
     <g id="av-whiskers" stroke="#2a1f33" stroke-width="2" stroke-linecap="round">
       <path d="M19 63l-11-2M19 69l-11 2M81 63l11-2M81 69l11 2"/>
     </g>
+
+    <!-- Mouths, each hung from the middle of its top edge at 0 0. -->
+    <path id="av-mouth" d="M-5.5 0q2.75 3.5 5.5 0q2.75 3.5 5.5 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="av-smile" d="M-4.5 0q4.5 4.5 9 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
+    <clipPath id="av-grin-clip"><path d="M-7 0h14q0 9.5-7 9.5t-7-9.5z"/></clipPath>
+    <g id="av-grin">
+      <path d="M-7 0h14q0 9.5-7 9.5t-7-9.5z" fill="#5b1e3a"/>
+      <ellipse clip-path="url(#av-grin-clip)" cy="9.6" rx="5.6" ry="4.4" fill="#ff7a9a"/>
+      <path d="M-7 0h14q0 9.5-7 9.5t-7-9.5z" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linejoin="round"/>
+    </g>
+    <!-- A grin showing a row of top teeth. -->
+    <g id="av-toothy">
+      <path d="M-7 0h14q0 9.5-7 9.5t-7-9.5z" fill="#5b1e3a"/>
+      <g clip-path="url(#av-grin-clip)">
+        <ellipse cy="9.6" rx="5.6" ry="4.4" fill="#ff7a9a"/>
+        <rect x="-7" y="-1" width="14" height="3.6" fill="#fff"/>
+      </g>
+      <path d="M-7 0h14q0 9.5-7 9.5t-7-9.5z" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linejoin="round"/>
+    </g>
+    <g id="av-tongue">
+      <path d="M-4 1q0 9 4 9t4-9z" fill="#ff7a9a" stroke="#2a1f33" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M0 3.2v3.6" stroke="#e0507a" stroke-width="1.5" stroke-linecap="round"/>
+      <use href="#av-mouth"/>
+    </g>
+    <g id="av-teeth">
+      <path d="M-3.3 1h6.6v4.4q0 1.4-1.4 1.4h-3.8q-1.4 0-1.4-1.4z" fill="#fff" stroke="#2a1f33" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M0 2v4.6" stroke="#2a1f33" stroke-width="1.3"/>
+      <use href="#av-mouth"/>
+    </g>
+    <path id="av-fang" d="M-1.3 0l1.3 3l1.3-2.8z" fill="#fff" stroke="#2a1f33" stroke-width="1.1" stroke-linejoin="round"/>
+
     <!-- A die-cut sticker: a cream edge grown around the whole picture, hat included, and a soft
          shadow under it so it lifts off whatever card it sits on. -->
     <filter id="av-sticker" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
@@ -87,12 +154,17 @@
     <ellipse cx="50" cy="72.5" rx="14" ry="10" fill="#f6dcc0"/>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="67.5" rx="4.6" ry="3.3" fill="url(#av-dark)"/>
-    <ellipse cx="48.6" cy="66.4" rx="1.5" ry=".85" fill="#fff" opacity=".75"/>
-    <use href="#av-mouth" transform="translate(0 5)"/>
+    <path d="M50 69v2.6" stroke="#2a1f33" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="50" cy="67" rx="4.8" ry="3.4" fill="url(#av-dark)"/>
+    <ellipse cx="48.5" cy="65.9" rx="1.6" ry=".9" fill="#fff" opacity=".75"/>
+    <use href="#av-grin" transform="translate(50 71.6) scale(.74)"/>
   </symbol>
+  <defs>
+    <use id="avatar-bear-open" href="#av-open"/>
+    <use id="avatar-bear-shut" href="#av-shut"/>
+    <use id="avatar-bear-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-panda" viewBox="0 0 100 100">
     <g fill="#2a1f33">
@@ -105,16 +177,21 @@
     </g>
     <circle cx="50" cy="58" r="34" fill="#fffdf8" stroke="#2a1f33" stroke-width="3"/>
     <g fill="url(#av-dark)">
-      <ellipse cx="37" cy="57" rx="8.5" ry="10.5" transform="rotate(35 37 57)"/>
-      <ellipse cx="63" cy="57" rx="8.5" ry="10.5" transform="rotate(-35 63 57)"/>
-      <ellipse cx="50" cy="66" rx="3.8" ry="2.6"/>
+      <ellipse cx="37" cy="57" rx="9" ry="11" transform="rotate(35 37 57)"/>
+      <ellipse cx="63" cy="57" rx="9" ry="11" transform="rotate(-35 63 57)"/>
+      <ellipse cx="50" cy="66.5" rx="3.8" ry="2.6"/>
     </g>
-    <ellipse cx="48.8" cy="65.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
+    <ellipse cx="48.8" cy="65.6" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
     <use href="#av-depth"/>
-    <use href="#av-light-eyes"/>
+    <use href="#av-shine"/>
     <use href="#av-blush"/>
-    <use href="#av-mouth" transform="translate(0 2)"/>
+    <use href="#av-mouth" transform="translate(50 69.6)"/>
   </symbol>
+  <defs>
+    <use id="avatar-panda-open" href="#av-light-open"/>
+    <use id="avatar-panda-shut" href="#av-light-shut"/>
+    <use id="avatar-panda-glad" href="#av-light-glad"/>
+  </defs>
 
   <symbol id="avatar-cat" viewBox="0 0 100 100">
     <path d="M19 46L21 13L47 29Z M81 46L79 13L53 29Z" fill="#ffb15c" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
@@ -127,14 +204,20 @@
     <g clip-path="url(#av-head)" stroke="#e8893a" stroke-width="3.4" stroke-linecap="round">
       <path d="M50 25v8M43 26l1.5 6M57 26l-1.5 6"/>
     </g>
+    <ellipse cx="50" cy="71" rx="11" ry="7.5" fill="#fff1e0"/>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
     <use href="#av-whiskers"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <path d="M47 64.5h6l-3 3z" fill="#ff6f91" stroke="#ff6f91" stroke-width="1.5" stroke-linejoin="round"/>
-    <use href="#av-mouth" transform="translate(0 1.5)"/>
+    <path d="M47 65h6l-3 3z" fill="#ff6f91" stroke="#ff6f91" stroke-width="1.5" stroke-linejoin="round"/>
+    <use href="#av-fang" transform="translate(53.2 70.6)"/>
+    <use href="#av-mouth" transform="translate(50 68.6)"/>
   </symbol>
+  <defs>
+    <use id="avatar-cat-open" href="#av-open"/>
+    <use id="avatar-cat-shut" href="#av-shut"/>
+    <use id="avatar-cat-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-fox" viewBox="0 0 100 100">
     <path d="M17 47L20 9L47 30Z M83 47L80 9L53 30Z" fill="#ff8c4a" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
@@ -143,46 +226,74 @@
       <path d="M17 47L20 9L47 30Z"/>
       <path d="M83 47L80 9L53 30Z"/>
     </g>
-    <circle cx="50" cy="58" r="34" fill="#ff8c4a"/>
-    <path clip-path="url(#av-head)" d="M14 61Q32 57 50 71Q68 57 86 61L86 96L14 96Z" fill="#fff4e2"/>
-    <use href="#av-depth"/>
+    <!-- Cheek fluff pokes out past the round face, outlined with it as one shape. -->
+    <g stroke="#2a1f33" stroke-width="6" stroke-linejoin="round" fill="#ff8c4a">
+      <circle cx="50" cy="58" r="33"/>
+      <path d="M20 57Q11 61 3.5 67.5Q10 69.5 13 72Q8 76.5 6 82Q15 83 25 85Z M80 57Q89 61 96.5 67.5Q90 69.5 87 72Q92 76.5 94 82Q85 83 75 85Z"/>
+    </g>
+    <clipPath id="av-fox-face">
+      <circle cx="50" cy="58" r="33"/>
+      <path d="M20 57Q11 61 3.5 67.5Q10 69.5 13 72Q8 76.5 6 82Q15 83 25 85Z M80 57Q89 61 96.5 67.5Q90 69.5 87 72Q92 76.5 94 82Q85 83 75 85Z"/>
+    </clipPath>
+    <g clip-path="url(#av-fox-face)">
+      <rect width="100" height="100" fill="#ff8c4a"/>
+      <path d="M0 60Q30 56 50 71Q70 56 100 60V100H0Z" fill="#fff4e2"/>
+      <circle cx="50" cy="58" r="32.5" fill="url(#av-depth-fill)"/>
+      <ellipse cx="50" cy="99" rx="48" ry="17" fill="#2a1f33" opacity=".14"/>
+    </g>
     <use href="#av-shine"/>
-    <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="68" rx="3.8" ry="2.8" fill="url(#av-dark)"/>
-    <ellipse cx="48.8" cy="67.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
-    <use href="#av-smile" transform="translate(0 5)"/>
+    <ellipse cx="50" cy="68.5" rx="4" ry="2.9" fill="url(#av-dark)"/>
+    <ellipse cx="48.8" cy="67.6" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
+    <path d="M42 73.5q8 6.5 16 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M41 72.2l1.6 1.7M59 72.2l-1.6 1.7" stroke="#2a1f33" stroke-width="2" stroke-linecap="round"/>
   </symbol>
+  <defs>
+    <use id="avatar-fox-open" href="#av-open"/>
+    <use id="avatar-fox-shut" href="#av-shut"/>
+    <use id="avatar-fox-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-bunny" viewBox="0 0 100 100">
+    <!-- One ear stands up and the other leans out. -->
     <g stroke="#2a1f33" stroke-width="3" fill="#fff7f9">
-      <ellipse cx="37" cy="24" rx="9" ry="20" transform="rotate(-10 37 24)"/>
-      <ellipse cx="63" cy="24" rx="9" ry="20" transform="rotate(10 63 24)"/>
+      <ellipse cx="38" cy="23" rx="9" ry="20" transform="rotate(-8 38 23)"/>
+      <ellipse cx="68" cy="27" rx="9" ry="20" transform="rotate(38 68 27)"/>
     </g>
     <g fill="#ffb3c1">
-      <ellipse cx="37" cy="25" rx="4" ry="13" transform="rotate(-10 37 25)"/>
-      <ellipse cx="63" cy="25" rx="4" ry="13" transform="rotate(10 63 25)"/>
+      <ellipse cx="38" cy="24" rx="4" ry="13" transform="rotate(-8 38 24)"/>
+      <ellipse cx="68.6" cy="27.6" rx="4" ry="13" transform="rotate(38 68.6 27.6)"/>
     </g>
     <g fill="url(#av-depth-fill)">
-      <ellipse cx="37" cy="24" rx="7.5" ry="18.5" transform="rotate(-10 37 24)"/>
-      <ellipse cx="63" cy="24" rx="7.5" ry="18.5" transform="rotate(10 63 24)"/>
+      <ellipse cx="38" cy="23" rx="7.5" ry="18.5" transform="rotate(-8 38 23)"/>
+      <ellipse cx="68" cy="27" rx="7.5" ry="18.5" transform="rotate(38 68 27)"/>
     </g>
     <circle cx="50" cy="58" r="34" fill="#fff7f9" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-depth"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="65.5" rx="3.2" ry="2.4" fill="#ff6f91"/>
-    <use href="#av-mouth" transform="translate(0 1)"/>
+    <ellipse cx="50" cy="65.5" rx="3.4" ry="2.5" fill="#ff6f91"/>
+    <ellipse cx="49" cy="64.9" rx="1.1" ry=".6" fill="#fff" opacity=".75"/>
+    <use href="#av-teeth" transform="translate(50 68.4)"/>
   </symbol>
+  <defs>
+    <use id="avatar-bunny-open" href="#av-open"/>
+    <use id="avatar-bunny-shut" href="#av-shut"/>
+    <use id="avatar-bunny-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-koala" viewBox="0 0 100 100">
     <g stroke="#2a1f33" stroke-width="3" fill="#b3b6c8">
       <circle cx="21" cy="37" r="16"/>
       <circle cx="79" cy="37" r="16"/>
     </g>
-    <circle cx="21" cy="37" r="9" fill="#f3eef6"/>
-    <circle cx="79" cy="37" r="9" fill="#f3eef6"/>
+    <g fill="#f3eef6">
+      <circle cx="21" cy="37" r="9"/>
+      <circle cx="79" cy="37" r="9"/>
+      <circle cx="14.5" cy="33" r="4.5"/>
+      <circle cx="16" cy="42.5" r="4"/>
+      <circle cx="85.5" cy="33" r="4.5"/>
+      <circle cx="84" cy="42.5" r="4"/>
+    </g>
     <g fill="url(#av-depth-fill)">
       <circle cx="21" cy="37" r="14.5"/>
       <circle cx="79" cy="37" r="14.5"/>
@@ -190,12 +301,16 @@
     <circle cx="50" cy="58" r="34" fill="#b3b6c8" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
-    <use href="#av-eyes" transform="translate(50 57) scale(1.1 1) translate(-50 -57)"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="67.5" rx="6.5" ry="8.5" fill="url(#av-dark)"/>
-    <ellipse cx="47.6" cy="63.6" rx="2" ry="1.3" fill="#fff" opacity=".7"/>
-    <path d="M46.5 79.5q3.5 2.5 7 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
+    <ellipse cx="50" cy="67.5" rx="6.8" ry="8.8" fill="url(#av-dark)"/>
+    <ellipse cx="47.6" cy="63.4" rx="2.1" ry="1.4" fill="#fff" opacity=".7"/>
+    <use href="#av-smile" transform="translate(50 79.6) scale(.85)"/>
   </symbol>
+  <defs>
+    <use id="avatar-koala-open" href="#av-open" transform="translate(50 57) scale(1.12 1) translate(-50 -57)"/>
+    <use id="avatar-koala-shut" href="#av-shut" transform="translate(50 57) scale(1.12 1) translate(-50 -57)"/>
+    <use id="avatar-koala-glad" href="#av-glad" transform="translate(50 57) scale(1.12 1) translate(-50 -57)"/>
+  </defs>
 
   <symbol id="avatar-pig" viewBox="0 0 100 100">
     <path d="M20 42L22 17L43 29Z M80 42L78 17L57 29Z" fill="#ff9fb5" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
@@ -206,16 +321,21 @@
     <circle cx="50" cy="58" r="34" fill="#ffc2cf" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
-    <use href="#av-eyes" transform="translate(0 -2)"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="71.5" rx="11" ry="8" fill="#2a1f33" opacity=".18"/>
-    <ellipse cx="50" cy="70" rx="11" ry="8" fill="#ff9fb5" stroke="#2a1f33" stroke-width="2.5"/>
-    <ellipse cx="50" cy="70" rx="9.75" ry="6.75" fill="url(#av-depth-fill)"/>
+    <ellipse cx="50" cy="70.5" rx="11" ry="8" fill="#2a1f33" opacity=".18"/>
+    <ellipse cx="50" cy="69" rx="11" ry="8" fill="#ff9fb5" stroke="#2a1f33" stroke-width="2.5"/>
+    <ellipse cx="50" cy="69" rx="9.75" ry="6.75" fill="url(#av-depth-fill)"/>
     <g fill="#2a1f33">
-      <ellipse cx="46" cy="70" rx="1.9" ry="2.9"/>
-      <ellipse cx="54" cy="70" rx="1.9" ry="2.9"/>
+      <ellipse cx="46" cy="69" rx="1.9" ry="2.9"/>
+      <ellipse cx="54" cy="69" rx="1.9" ry="2.9"/>
     </g>
+    <use href="#av-smile" transform="translate(50 80.2) scale(.8)"/>
   </symbol>
+  <defs>
+    <use id="avatar-pig-open" href="#av-open" transform="translate(0 -3)"/>
+    <use id="avatar-pig-shut" href="#av-shut" transform="translate(0 -3)"/>
+    <use id="avatar-pig-glad" href="#av-glad" transform="translate(0 -3)"/>
+  </defs>
 
   <symbol id="avatar-frog" viewBox="0 0 100 100">
     <g stroke="#2a1f33" stroke-width="3" fill="#9be37a">
@@ -227,31 +347,51 @@
       <circle cx="68" cy="33" r="11.5"/>
     </g>
     <ellipse cx="50" cy="63" rx="38" ry="29" fill="#9be37a" stroke="#2a1f33" stroke-width="3"/>
+    <ellipse cx="50" cy="81" rx="24" ry="9" fill="#d4f5a6" opacity=".8"/>
     <ellipse cx="50" cy="63" rx="36.5" ry="27.5" fill="url(#av-depth-fill)"/>
     <use href="#av-shine" transform="translate(2 12)"/>
-    <ellipse cx="32" cy="33" rx="6.4" ry="7" fill="url(#av-dark)"/>
-    <ellipse cx="68" cy="33" rx="6.4" ry="7" fill="url(#av-dark)"/>
-    <g fill="#fff">
-      <circle cx="34.2" cy="30.4" r="2.4"/>
-      <circle cx="70.2" cy="30.4" r="2.4"/>
-      <circle cx="30.6" cy="35.8" r="1.1" opacity=".85"/>
-      <circle cx="66.6" cy="35.8" r="1.1" opacity=".85"/>
-    </g>
     <use href="#av-blush" transform="translate(0 -1)"/>
-    <path d="M37 62q13 11 26 0" fill="none" stroke="#2a1f33" stroke-width="2.6" stroke-linecap="round"/>
+    <g fill="#2a1f33">
+      <ellipse cx="45.5" cy="52" rx="1.4" ry="1"/>
+      <ellipse cx="54.5" cy="52" rx="1.4" ry="1"/>
+    </g>
+    <clipPath id="av-frog-mouth"><path d="M34 61Q50 76 66 61Q50 66 34 61Z"/></clipPath>
+    <path d="M34 61Q50 76 66 61Q50 66 34 61Z" fill="#5b1e3a"/>
+    <ellipse clip-path="url(#av-frog-mouth)" cx="50" cy="71.5" rx="8" ry="5" fill="#ff7a9a"/>
+    <path d="M34 61Q50 76 66 61Q50 66 34 61Z" fill="none" stroke="#2a1f33" stroke-width="2.6" stroke-linejoin="round"/>
   </symbol>
+  <defs>
+    <g id="avatar-frog-open">
+      <use href="#av-eye" x="32" y="33"/>
+      <use href="#av-eye" x="68" y="33"/>
+    </g>
+    <g id="avatar-frog-shut">
+      <use href="#av-shut-eye" x="32" y="33"/>
+      <use href="#av-shut-eye" x="68" y="33"/>
+    </g>
+    <g id="avatar-frog-glad">
+      <use href="#av-glad-eye" x="32" y="33.5"/>
+      <use href="#av-glad-eye" x="68" y="33.5"/>
+    </g>
+  </defs>
 
   <symbol id="avatar-chick" viewBox="0 0 100 100">
-    <path d="M47 26q-1-11 6-15M51 26q4-9 12-9" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linecap="round"/>
+    <path d="M47 26q-1-11 6-15M51 26q4-9 12-9M45 26.5q-6-7-12-6" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linecap="round"/>
     <circle cx="50" cy="58" r="34" fill="#ffd166" stroke="#2a1f33" stroke-width="3"/>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <path d="M44.5 66.5L50 63L55.5 66.5L50 71Z" fill="#ff9f43" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M44.5 66.5h11" stroke="#2a1f33" stroke-width="1.6"/>
-    <path d="M47.5 65.4L50 64" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
+    <!-- An open beak, mid chirp. -->
+    <path d="M44.5 68.5Q50 72.5 55.5 68.5L50 75.5Z" fill="#5b1e3a" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M45.5 71Q50 73 54.5 71L50 76Z" fill="#ff9f43" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M43.5 67.5L50 62.5L56.5 67.5Q50 71 43.5 67.5Z" fill="#ffb347" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M47.5 65.6L50 63.9" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
   </symbol>
+  <defs>
+    <use id="avatar-chick-open" href="#av-open"/>
+    <use id="avatar-chick-shut" href="#av-shut"/>
+    <use id="avatar-chick-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-penguin" viewBox="0 0 100 100">
     <circle cx="50" cy="58" r="34" fill="#3b4a6b"/>
@@ -262,11 +402,16 @@
     <use href="#av-depth"/>
     <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <path d="M44.5 65.5h11L50 72Z" fill="#ffb347" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M47.5 67h3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
+    <path d="M44 66h12q-1.5 3.5-6 7.5q-4.5-4-6-7.5z" fill="#ffb347" stroke="#2a1f33" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M45.5 66.4q4.5 2.4 9 0" fill="none" stroke="#2a1f33" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M47.5 68.2h2.6" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
   </symbol>
+  <defs>
+    <use id="avatar-penguin-open" href="#av-open"/>
+    <use id="avatar-penguin-shut" href="#av-shut"/>
+    <use id="avatar-penguin-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-mouse" viewBox="0 0 100 100">
     <g stroke="#2a1f33" stroke-width="3" fill="#c9c3d6">
@@ -283,35 +428,55 @@
     <use href="#av-depth"/>
     <use href="#av-shine"/>
     <use href="#av-whiskers"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <circle cx="50" cy="65.5" r="3" fill="#ff6f91"/>
-    <circle cx="49" cy="64.6" r=".9" fill="#fff" opacity=".75"/>
-    <use href="#av-mouth" transform="translate(0 2.5)"/>
+    <circle cx="50" cy="66" r="3.2" fill="#ff6f91"/>
+    <circle cx="49" cy="65.1" r=".9" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(50 69.8)"/>
   </symbol>
+  <defs>
+    <use id="avatar-mouse-open" href="#av-open"/>
+    <use id="avatar-mouse-shut" href="#av-shut"/>
+    <use id="avatar-mouse-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-lion" viewBox="0 0 100 100">
-    <circle cx="50" cy="56" r="36" fill="#e8893a"/>
-    <circle cx="50" cy="56" r="37" fill="none" stroke="#e8893a" stroke-width="14" stroke-dasharray="0.1 10.5" stroke-linecap="round"/>
-    <circle cx="50" cy="56" r="42" fill="url(#av-depth-fill)"/>
+    <!-- A two-tone mane of round tufts, darker at the back. -->
+    <g fill="#d9722a">
+      <circle cx="50" cy="20" r="11"/><circle cx="66" cy="24" r="11"/><circle cx="78" cy="35" r="11"/>
+      <circle cx="84" cy="50" r="11"/><circle cx="83" cy="66" r="11"/><circle cx="75" cy="80" r="11"/>
+      <circle cx="62" cy="88" r="11"/><circle cx="38" cy="88" r="11"/><circle cx="25" cy="80" r="11"/>
+      <circle cx="17" cy="66" r="11"/><circle cx="16" cy="50" r="11"/><circle cx="22" cy="35" r="11"/>
+      <circle cx="34" cy="24" r="11"/><circle cx="50" cy="90" r="10"/>
+    </g>
+    <g fill="#f29a45">
+      <circle cx="58" cy="25" r="9"/><circle cx="72" cy="31" r="9"/><circle cx="79" cy="43" r="9"/>
+      <circle cx="80" cy="58" r="9"/><circle cx="77" cy="72" r="9"/><circle cx="68" cy="82" r="9"/>
+      <circle cx="50" cy="86" r="9"/><circle cx="32" cy="82" r="9"/><circle cx="23" cy="72" r="9"/>
+      <circle cx="20" cy="58" r="9"/><circle cx="21" cy="43" r="9"/><circle cx="28" cy="31" r="9"/>
+      <circle cx="42" cy="25" r="9"/>
+    </g>
+    <circle cx="50" cy="56" r="40" fill="url(#av-depth-fill)"/>
     <g stroke="#2a1f33" stroke-width="3" fill="#ffd166">
       <circle cx="29" cy="35" r="7.5"/>
       <circle cx="71" cy="35" r="7.5"/>
     </g>
-    <g fill="url(#av-depth-fill)">
-      <circle cx="29" cy="35" r="6"/>
-      <circle cx="71" cy="35" r="6"/>
-    </g>
+    <circle cx="29" cy="35" r="3.6" fill="#f29a45"/>
+    <circle cx="71" cy="35" r="3.6" fill="#f29a45"/>
     <circle cx="50" cy="59" r="29" fill="#ffd166" stroke="#2a1f33" stroke-width="3"/>
-    <ellipse cx="50" cy="71.5" rx="12" ry="8" fill="#fff1c9"/>
+    <ellipse cx="50" cy="72" rx="12" ry="8" fill="#fff1c9"/>
     <circle cx="50" cy="59" r="27.5" fill="url(#av-depth-fill)"/>
+    <path d="M45 34q5-5 10 0" fill="none" stroke="#d9722a" stroke-width="3" stroke-linecap="round"/>
     <use href="#av-shine" transform="translate(50 59) scale(.85) translate(-50 -58)"/>
-    <use href="#av-eyes" transform="translate(50 59) scale(.92) translate(-50 -57)"/>
     <use href="#av-blush" transform="translate(50 67) scale(.82) translate(-50 -67)"/>
-    <ellipse cx="50" cy="67" rx="3.8" ry="2.8" fill="url(#av-dark)"/>
-    <ellipse cx="48.8" cy="66.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
-    <use href="#av-mouth" transform="translate(0 3)"/>
+    <ellipse cx="50" cy="67" rx="4.2" ry="3" fill="url(#av-dark)"/>
+    <ellipse cx="48.7" cy="66.1" rx="1.4" ry=".75" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(50 70.4)"/>
   </symbol>
+  <defs>
+    <use id="avatar-lion-open" href="#av-open" transform="translate(50 59) scale(.9) translate(-50 -57)"/>
+    <use id="avatar-lion-shut" href="#av-shut" transform="translate(50 59) scale(.9) translate(-50 -57)"/>
+    <use id="avatar-lion-glad" href="#av-glad" transform="translate(50 59) scale(.9) translate(-50 -57)"/>
+  </defs>
 
   <symbol id="avatar-tiger" viewBox="0 0 100 100">
     <g stroke="#2a1f33" stroke-width="3" fill="#ffa94d">
@@ -326,22 +491,38 @@
     </g>
     <circle cx="50" cy="58" r="34" fill="#ffa94d"/>
     <g clip-path="url(#av-head)">
-      <ellipse cx="50" cy="71.5" rx="14" ry="9.5" fill="#fff4e2"/>
-      <path d="M50 24v9M42 25l2 7M58 25l-2 7M14 52h10M14 60h8M86 52h-10M86 60h-8" stroke="#2a1f33" stroke-width="3" stroke-linecap="round"/>
+      <ellipse cx="50" cy="73" rx="15" ry="10.5" fill="#fff4e2"/>
+      <!-- Stripes taper to a point, like brush strokes. -->
+      <g fill="#2a1f33">
+        <path d="M47 22h6l-3 12z"/>
+        <path d="M38 24l5-1.5l-.5 9.5z"/>
+        <path d="M62 24l-5-1.5l.5 9.5z"/>
+        <path d="M14 50l12 2.5l-12 3z"/>
+        <path d="M14 60l10 1.5l-10 3.5z"/>
+        <path d="M86 50l-12 2.5l12 3z"/>
+        <path d="M86 60l-10 1.5l10 3.5z"/>
+      </g>
     </g>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="66.5" rx="4" ry="2.8" fill="#ff6f91"/>
-    <ellipse cx="48.8" cy="65.6" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
-    <use href="#av-mouth" transform="translate(0 3.5)"/>
+    <ellipse cx="50" cy="67" rx="4.4" ry="3" fill="#ff6f91"/>
+    <ellipse cx="48.7" cy="66.1" rx="1.4" ry=".75" fill="#fff" opacity=".75"/>
+    <use href="#av-grin" transform="translate(50 71) scale(.8)"/>
+    <use href="#av-fang" transform="translate(46.4 71.1) scale(.9)"/>
+    <use href="#av-fang" transform="translate(53.6 71.1) scale(.9)"/>
   </symbol>
+  <defs>
+    <use id="avatar-tiger-open" href="#av-open"/>
+    <use id="avatar-tiger-shut" href="#av-shut"/>
+    <use id="avatar-tiger-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-puppy" viewBox="0 0 100 100">
     <circle cx="50" cy="58" r="34" fill="#f5deb3" stroke="#2a1f33" stroke-width="3"/>
-    <ellipse cx="63" cy="55.5" rx="9.5" ry="8.5" fill="#e2b98a"/>
+    <ellipse cx="63" cy="55.5" rx="10" ry="9" fill="#e2b98a"/>
+    <ellipse cx="50" cy="72" rx="13" ry="9" fill="#fff6e6"/>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
     <path d="M27 28Q9 30 10 56Q12 72 23 64Q29 48 35 31Z M73 28Q91 30 90 56Q88 72 77 64Q71 48 65 31Z" fill="#a0673f" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
@@ -349,12 +530,16 @@
       <path d="M27 28Q9 30 10 56Q12 72 23 64Q29 48 35 31Z"/>
       <path d="M73 28Q91 30 90 56Q88 72 77 64Q71 48 65 31Z"/>
     </g>
-    <use href="#av-eyes"/>
     <use href="#av-blush"/>
-    <ellipse cx="50" cy="66.5" rx="4.6" ry="3.2" fill="url(#av-dark)"/>
-    <ellipse cx="48.6" cy="65.4" rx="1.5" ry=".85" fill="#fff" opacity=".75"/>
-    <use href="#av-mouth" transform="translate(0 3.5)"/>
+    <ellipse cx="50" cy="66.5" rx="5" ry="3.5" fill="url(#av-dark)"/>
+    <ellipse cx="48.4" cy="65.3" rx="1.6" ry=".9" fill="#fff" opacity=".75"/>
+    <use href="#av-tongue" transform="translate(50 70.2)"/>
   </symbol>
+  <defs>
+    <use id="avatar-puppy-open" href="#av-open"/>
+    <use id="avatar-puppy-shut" href="#av-shut"/>
+    <use id="avatar-puppy-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-monkey" viewBox="0 0 100 100">
     <g stroke="#2a1f33" stroke-width="3" fill="#a8714f">
@@ -369,21 +554,25 @@
     </g>
     <circle cx="50" cy="58" r="34" fill="#a8714f" stroke="#2a1f33" stroke-width="3"/>
     <g fill="#f6d5b5">
-      <circle cx="38.5" cy="55.5" r="12"/>
-      <circle cx="61.5" cy="55.5" r="12"/>
-      <ellipse cx="50" cy="71" rx="21" ry="14"/>
+      <circle cx="38.5" cy="55.5" r="12.5"/>
+      <circle cx="61.5" cy="55.5" r="12.5"/>
+      <ellipse cx="50" cy="72" rx="21" ry="14"/>
     </g>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
-    <path d="M45 25q5-8 10 0" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linecap="round"/>
-    <use href="#av-eyes"/>
+    <path d="M44 25q3-8 6-1q3-7 6 1" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     <use href="#av-blush"/>
     <g fill="#2a1f33">
-      <circle cx="47" cy="66" r="1.4"/>
-      <circle cx="53" cy="66" r="1.4"/>
+      <ellipse cx="47" cy="66" rx="1.5" ry="1.2"/>
+      <ellipse cx="53" cy="66" rx="1.5" ry="1.2"/>
     </g>
-    <use href="#av-smile" transform="translate(0 5)"/>
+    <use href="#av-toothy" transform="translate(50 70.5) scale(1.12 .95)"/>
   </symbol>
+  <defs>
+    <use id="avatar-monkey-open" href="#av-open"/>
+    <use id="avatar-monkey-shut" href="#av-shut"/>
+    <use id="avatar-monkey-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-raccoon" viewBox="0 0 100 100">
     <path d="M19 44L23 15L45 30Z M81 44L77 15L55 30Z" fill="#9ea3b5" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
@@ -394,18 +583,23 @@
     </g>
     <circle cx="50" cy="58" r="34" fill="#9ea3b5"/>
     <g clip-path="url(#av-head)">
-      <ellipse cx="50" cy="72" rx="13" ry="9" fill="#f4f1f8"/>
+      <ellipse cx="50" cy="72.5" rx="13.5" ry="9.5" fill="#f4f1f8"/>
+      <path d="M50 30L46 42h8z" fill="#4a4458"/>
       <path d="M14 51Q30 43 50 54Q70 43 86 51Q82 66 64 64Q56 63 50 60Q44 63 36 64Q18 66 14 51Z" fill="#3a3346"/>
     </g>
     <use href="#av-depth"/>
     <use href="#av-shine"/>
     <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
-    <use href="#av-light-eyes"/>
     <use href="#av-blush" transform="translate(0 2)"/>
-    <ellipse cx="50" cy="68" rx="3.8" ry="2.7" fill="url(#av-dark)"/>
+    <ellipse cx="50" cy="68" rx="4" ry="2.8" fill="url(#av-dark)"/>
     <ellipse cx="48.8" cy="67.1" rx="1.3" ry=".7" fill="#fff" opacity=".75"/>
-    <use href="#av-mouth" transform="translate(0 4)"/>
+    <use href="#av-mouth" transform="translate(50 71.4)"/>
   </symbol>
+  <defs>
+    <use id="avatar-raccoon-open" href="#av-light-open"/>
+    <use id="avatar-raccoon-shut" href="#av-light-shut"/>
+    <use id="avatar-raccoon-glad" href="#av-light-glad"/>
+  </defs>
 
   <symbol id="avatar-hamster" viewBox="0 0 100 100">
     <g stroke="#2a1f33" stroke-width="3" fill="#f2a65a">
@@ -418,22 +612,37 @@
       <circle cx="28" cy="30" r="7"/>
       <circle cx="72" cy="30" r="7"/>
     </g>
-    <circle cx="50" cy="58" r="34" fill="#f7b26a"/>
-    <g clip-path="url(#av-head)" fill="#fff4e2">
-      <ellipse cx="50" cy="85" rx="36" ry="22"/>
-      <ellipse cx="50" cy="31" rx="5" ry="10"/>
+    <!-- Stuffed cheeks bulge out past the round face, outlined as one shape. -->
+    <g stroke="#2a1f33" stroke-width="6" fill="#f7b26a">
+      <circle cx="50" cy="58" r="33"/>
+      <circle cx="28" cy="72" r="15"/>
+      <circle cx="72" cy="72" r="15"/>
     </g>
-    <use href="#av-depth"/>
+    <clipPath id="av-hamster-face">
+      <circle cx="50" cy="58" r="33"/>
+      <circle cx="28" cy="72" r="15"/>
+      <circle cx="72" cy="72" r="15"/>
+    </clipPath>
+    <g clip-path="url(#av-hamster-face)">
+      <rect x="0" y="0" width="100" height="100" fill="#f7b26a"/>
+      <ellipse cx="50" cy="88" rx="40" ry="22" fill="#fff4e2"/>
+      <ellipse cx="50" cy="31" rx="5" ry="10" fill="#fff4e2"/>
+      <circle cx="50" cy="58" r="32" fill="url(#av-depth-fill)"/>
+      <ellipse cx="50" cy="104" rx="50" ry="17" fill="#2a1f33" opacity=".14"/>
+    </g>
     <use href="#av-shine"/>
-    <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
-    <use href="#av-eyes"/>
     <g fill="url(#av-blush-fill)">
-      <ellipse cx="25" cy="69.5" rx="10" ry="6.5"/>
-      <ellipse cx="75" cy="69.5" rx="10" ry="6.5"/>
+      <ellipse cx="25" cy="70" rx="10" ry="6.5"/>
+      <ellipse cx="75" cy="70" rx="10" ry="6.5"/>
     </g>
-    <ellipse cx="50" cy="65" rx="2.6" ry="2" fill="#ff6f91"/>
-    <use href="#av-mouth" transform="translate(0 1.5)"/>
+    <ellipse cx="50" cy="65" rx="2.8" ry="2.1" fill="#ff6f91"/>
+    <use href="#av-teeth" transform="translate(50 67.6)"/>
   </symbol>
+  <defs>
+    <use id="avatar-hamster-open" href="#av-open"/>
+    <use id="avatar-hamster-shut" href="#av-shut"/>
+    <use id="avatar-hamster-glad" href="#av-glad"/>
+  </defs>
 
   <symbol id="avatar-sheep" viewBox="0 0 100 100">
     <g fill="#fffdf8" stroke="#2a1f33" stroke-width="3">
@@ -465,8 +674,397 @@
     </g>
     <g fill="#fffdf8"><circle cx="41" cy="41" r="7"/><circle cx="50" cy="38" r="7.5"/><circle cx="59" cy="41" r="7"/></g>
     <g fill="url(#av-depth-fill)"><circle cx="41" cy="41" r="7"/><circle cx="50" cy="38" r="7.5"/><circle cx="59" cy="41" r="7"/></g>
-    <use href="#av-eyes" transform="translate(50 57.5) scale(.88) translate(-50 -55)"/>
     <use href="#av-blush" transform="translate(50 67) scale(.7) translate(-50 -67)"/>
-    <use href="#av-mouth" transform="translate(0 2)"/>
+    <ellipse cx="50" cy="67.4" rx="3" ry="2.1" fill="#d98a8a"/>
+    <use href="#av-mouth" transform="translate(50 70.4) scale(.9)"/>
   </symbol>
+  <defs>
+    <use id="avatar-sheep-open" href="#av-open" transform="translate(50 58) scale(.84) translate(-50 -55)"/>
+    <use id="avatar-sheep-shut" href="#av-shut" transform="translate(50 58) scale(.84) translate(-50 -55)"/>
+    <use id="avatar-sheep-glad" href="#av-glad" transform="translate(50 58) scale(.84) translate(-50 -55)"/>
+  </defs>
+  <symbol id="avatar-unicorn" viewBox="0 0 100 100">
+    <!-- A rainbow mane flows down behind the head on one side and curls at its tip. -->
+    <clipPath id="av-unicorn-mane"><path d="M50 22C72 16 93 30 94 54C95 72 86 86 72 92C78 84 83 74 76 66C88 60 84 48 74 46C80 36 66 26 50 30Z"/></clipPath>
+    <g clip-path="url(#av-unicorn-mane)">
+      <rect width="100" height="100" fill="#9cf0c8"/>
+      <path d="M40 10L100 40V54L40 24Z" fill="#ff9fd2"/>
+      <path d="M40 24L100 54V68L40 38Z" fill="#b69cff"/>
+      <path d="M40 38L100 68V82L40 52Z" fill="#7fd6ff"/>
+      <rect width="100" height="100" fill="url(#av-depth-fill)"/>
+    </g>
+    <path d="M50 22C72 16 93 30 94 54C95 72 86 86 72 92C78 84 83 74 76 66C88 60 84 48 74 46C80 36 66 26 50 30Z" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M23 42Q14 24 22 10Q33 20 39 31Z M77 40Q84 24 78 10Q67 20 61 31Z" fill="#fbf7ff" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M26 35Q21 25 24 17Q30 24 33 31Z M74 34Q78 25 76 17Q70 24 67 31Z" fill="#ffc2e2"/>
+    <circle cx="50" cy="58" r="34" fill="#fbf7ff" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <!-- A golden horn, twisted, and a forelock swept over the brow. -->
+    <clipPath id="av-unicorn-horn"><path d="M42.5 28L50 1.5L57.5 28Q50 31 42.5 28Z"/></clipPath>
+    <path d="M42.5 28L50 1.5L57.5 28Q50 31 42.5 28Z" fill="#ffd166"/>
+    <g clip-path="url(#av-unicorn-horn)" stroke="#f29a2e" stroke-width="2.4">
+      <path d="M40 24l20-6M40 16l20-6M40 8l20-6"/>
+    </g>
+    <path d="M44.5 26.5L50 4" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+    <path d="M42.5 28L50 1.5L57.5 28Q50 31 42.5 28Z" fill="none" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <g stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+      <path d="M53 28Q63 23 71 31Q73 38 67 42Q68 34 61 34Q56 33 53 28Z" fill="#b69cff"/>
+      <path d="M51 28Q38 22 28 32Q24 42 31 48Q31 39 39 37Q48 36 51 28Z" fill="#ff9fd2"/>
+      <path d="M50 29Q42 34 44 44Q37 42 37 36Q40 30 50 29Z" fill="#7fd6ff"/>
+    </g>
+    <use href="#av-blush"/>
+    <path d="M30.6 53.2l-3.6-2.2M31.6 50.6l-2.4-3M69.4 53.2l3.6-2.2M68.4 50.6l2.4-3" stroke="#2a1f33" stroke-width="2.2" stroke-linecap="round"/>
+    <g fill="#e3c9f2">
+      <ellipse cx="46" cy="70" rx="1.5" ry="1.1"/>
+      <ellipse cx="54" cy="70" rx="1.5" ry="1.1"/>
+    </g>
+    <use href="#av-smile" transform="translate(50 73)"/>
+  </symbol>
+  <defs>
+    <use id="avatar-unicorn-open" href="#av-open"/>
+    <use id="avatar-unicorn-shut" href="#av-shut"/>
+    <use id="avatar-unicorn-glad" href="#av-glad"/>
+  </defs>
+
+  <symbol id="avatar-dragon" viewBox="0 0 100 100">
+    <!-- Webbed fins at the sides of the head, like little wings. -->
+    <path d="M20 46L3 34L9 47L1 52L11 57L5 66L22 64Z M80 46L97 34L91 47L99 52L89 57L95 66L78 64Z" fill="#6f4fb8" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M18 49L9 44L13 52M82 49L91 44L87 52M18 58L10 59M82 58L90 59" fill="none" stroke="#b69cff" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M33 31Q22 22 22 7Q30 13 42 25Z M67 31Q78 22 78 7Q70 13 58 25Z" fill="#ffe08a" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M27 14Q29 21 34 26M73 14Q71 21 66 26" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+    <circle cx="50" cy="58" r="34" fill="#9b7be0" stroke="#2a1f33" stroke-width="3"/>
+    <g fill="#ffb84d" stroke="#2a1f33" stroke-width="2.4" stroke-linejoin="round">
+      <path d="M44.5 25L50 14.5L55.5 25Z"/>
+    </g>
+    <g clip-path="url(#av-head)" fill="#8462cf">
+      <path d="M42 33q4 3 8 0q4 3 8 0q-4 6-8 3q-4 3-8-3z"/>
+      <path d="M45 41q2.5 2 5 0q2.5 2 5 0q-2.5 4-5 2q-2.5 2-5-2z"/>
+    </g>
+    <ellipse cx="50" cy="74" rx="17" ry="11" fill="#d6c4ff"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <use href="#av-blush"/>
+    <g fill="#5b3f9e">
+      <ellipse cx="45" cy="69" rx="1.6" ry="2.2" transform="rotate(-20 45 69)"/>
+      <ellipse cx="55" cy="69" rx="1.6" ry="2.2" transform="rotate(20 55 69)"/>
+    </g>
+    <path d="M42 75.5q8 6 16 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
+    <use href="#av-fang" transform="translate(54.2 77.3) rotate(-14)"/>
+  </symbol>
+  <defs>
+    <use id="avatar-dragon-open" href="#av-open"/>
+    <use id="avatar-dragon-shut" href="#av-shut"/>
+    <use id="avatar-dragon-glad" href="#av-glad"/>
+  </defs>
+
+  <symbol id="avatar-dino" viewBox="0 0 100 100">
+    <!-- Back plates run over the crown and down one side. -->
+    <g fill="#ff9f43" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+      <path d="M38 27L41 12L50 24Z"/>
+      <path d="M50 24L58 9L63 26Z"/>
+      <path d="M63 26L75 16L74 33Z"/>
+      <path d="M74 33L88 30L81 43Z"/>
+    </g>
+    <g fill="#ffc078">
+      <path d="M41 24L42.3 17L46 22.5Z"/>
+      <path d="M53 22.5L57.5 14L59.5 23.5Z"/>
+      <path d="M65.5 26.5L72 21L71 29Z"/>
+      <path d="M76 34L83 33L79.5 39Z"/>
+    </g>
+    <circle cx="50" cy="58" r="34" fill="#4fc485"/>
+    <g clip-path="url(#av-head)">
+      <path d="M14 66Q50 58 86 66V100H14Z" fill="#d5f5c4"/>
+      <g fill="#3a9e69">
+        <circle cx="30" cy="36" r="3.4"/>
+        <circle cx="37" cy="30" r="2.2"/>
+        <circle cx="72" cy="43" r="3"/>
+        <circle cx="22" cy="48" r="2"/>
+      </g>
+    </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-blush" transform="translate(0 -1)"/>
+    <g fill="#2f7f55">
+      <ellipse cx="44" cy="63.5" rx="1.6" ry="1.1"/>
+      <ellipse cx="56" cy="63.5" rx="1.6" ry="1.1"/>
+    </g>
+    <!-- A wide grin with a row of little teeth. -->
+    <clipPath id="av-dino-mouth"><path d="M35 68Q50 73 65 68Q62 84 50 84Q38 84 35 68Z"/></clipPath>
+    <path d="M35 68Q50 73 65 68Q62 84 50 84Q38 84 35 68Z" fill="#5b1e3a"/>
+    <g clip-path="url(#av-dino-mouth)">
+      <ellipse cx="50" cy="85" rx="10" ry="6" fill="#ff7a9a"/>
+      <path d="M35 69l3 4l3-3l3 4l3-3.5l3 4l3-4l3 3.5l3-4l3 3l3-4l2 2V66H35Z" fill="#fff"/>
+    </g>
+    <path d="M35 68Q50 73 65 68Q62 84 50 84Q38 84 35 68Z" fill="none" stroke="#2a1f33" stroke-width="2.6" stroke-linejoin="round"/>
+  </symbol>
+  <defs>
+    <use id="avatar-dino-open" href="#av-open" transform="translate(0 -3)"/>
+    <use id="avatar-dino-shut" href="#av-shut" transform="translate(0 -3)"/>
+    <use id="avatar-dino-glad" href="#av-glad" transform="translate(0 -3)"/>
+  </defs>
+
+  <symbol id="avatar-axolotl" viewBox="0 0 100 100">
+    <!-- Three feathery gills fan out from each side of the head. -->
+    <g stroke="#2a1f33" stroke-width="3" fill="#e85fa8">
+      <ellipse cx="16" cy="36" rx="5.5" ry="13" transform="rotate(-48 16 36)"/>
+      <ellipse cx="11" cy="51" rx="5.5" ry="13" transform="rotate(-82 11 51)"/>
+      <ellipse cx="15" cy="66" rx="5.5" ry="12" transform="rotate(-118 15 66)"/>
+      <ellipse cx="84" cy="36" rx="5.5" ry="13" transform="rotate(48 84 36)"/>
+      <ellipse cx="89" cy="51" rx="5.5" ry="13" transform="rotate(82 89 51)"/>
+      <ellipse cx="85" cy="66" rx="5.5" ry="12" transform="rotate(118 85 66)"/>
+    </g>
+    <g stroke="#ffb3da" stroke-width="2" stroke-linecap="round" fill="none">
+      <path d="M22 41L10 31M18 51L4 51M21 62L9 70M78 41L90 31M82 51L96 51M79 62L91 70"/>
+    </g>
+    <ellipse cx="50" cy="60" rx="35" ry="31" fill="#ffb3d9" stroke="#2a1f33" stroke-width="3"/>
+    <ellipse cx="50" cy="60" rx="33.5" ry="29.5" fill="url(#av-depth-fill)"/>
+    <ellipse cx="50" cy="83" rx="22" ry="6" fill="#ffd6ec" opacity=".8"/>
+    <use href="#av-shine" transform="translate(0 4)"/>
+    <g fill="#f08cc0">
+      <circle cx="40" cy="38" r="2"/>
+      <circle cx="47" cy="34.5" r="1.4"/>
+      <circle cx="60" cy="37" r="1.8"/>
+    </g>
+    <use href="#av-blush" transform="translate(50 67) scale(1.1 1) translate(-50 -66)"/>
+    <path d="M37 70q13 9 26 0" fill="none" stroke="#2a1f33" stroke-width="2.6" stroke-linecap="round"/>
+  </symbol>
+  <defs>
+    <use id="avatar-axolotl-open" href="#av-open" transform="translate(50 59) scale(1.18 1) translate(-50 -57.5)"/>
+    <use id="avatar-axolotl-shut" href="#av-shut" transform="translate(50 59) scale(1.18 1) translate(-50 -57.5)"/>
+    <use id="avatar-axolotl-glad" href="#av-glad" transform="translate(50 59) scale(1.18 1) translate(-50 -57.5)"/>
+  </defs>
+
+  <symbol id="avatar-owl" viewBox="0 0 100 100">
+    <!-- Feather tufts, leaning out. -->
+    <path d="M25 41Q11 28 12 9Q27 16 39 31Z M75 41Q89 28 88 9Q73 16 61 31Z" fill="#6f86c6" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M24 32Q17 24 17 16Q25 21 31 28Z M76 32Q83 24 83 16Q75 21 69 28Z" fill="#9fb2e6"/>
+    <circle cx="50" cy="58" r="34" fill="#6f86c6"/>
+    <g clip-path="url(#av-head)">
+      <g fill="#9fb2e6">
+        <path d="M38 84q4 4 8 0M54 84q4 4 8 0M46 90q4 4 8 0M30 90q4 4 8 0M62 90q4 4 8 0" stroke="#9fb2e6" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+      </g>
+    </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
+    <!-- Two round face discs around the eyes, with a brow between them. -->
+    <g fill="#fff4e2">
+      <circle cx="36.5" cy="56.5" r="13.5"/>
+      <circle cx="63.5" cy="56.5" r="13.5"/>
+    </g>
+    <path d="M33 43Q46 43 50 51Q54 43 67 43" fill="none" stroke="#3f5591" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <use href="#av-blush" transform="translate(0 4)"/>
+    <path d="M45.5 63.5h9L50 71.5Z" fill="#ffb347" stroke="#2a1f33" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M47.8 65.2h2.6" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".7"/>
+  </symbol>
+  <defs>
+    <use id="avatar-owl-open" href="#av-open" transform="translate(50 57) scale(1.12) translate(-50 -57.3)"/>
+    <use id="avatar-owl-shut" href="#av-shut" transform="translate(50 57) scale(1.12) translate(-50 -57.3)"/>
+    <use id="avatar-owl-glad" href="#av-glad" transform="translate(50 57) scale(1.12) translate(-50 -57.3)"/>
+  </defs>
+
+  <symbol id="avatar-shark" viewBox="0 0 100 100">
+    <path d="M40 28Q52 8 68 2Q61 15 64 30Z" fill="#5b93cc" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M46 25Q54 13 63 8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity=".45"/>
+    <circle cx="50" cy="58" r="34" fill="#6aa6dd"/>
+    <g clip-path="url(#av-head)">
+      <path d="M14 64Q30 58 50 66Q70 58 86 64V100H14Z" fill="#f4f8ff"/>
+      <g stroke="#4f86bf" stroke-width="2.2" stroke-linecap="round" fill="none">
+        <path d="M21 50q-2 5 0 10M25 49q-2 6 0 12M75 49q2 6 0 12M79 50q2 5 0 10"/>
+      </g>
+    </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-blush" transform="translate(0 -3)"/>
+    <!-- A big toothy grin. -->
+    <clipPath id="av-shark-mouth"><path d="M33 67Q50 72 67 67Q63 84 50 84Q37 84 33 67Z"/></clipPath>
+    <path d="M33 67Q50 72 67 67Q63 84 50 84Q37 84 33 67Z" fill="#5b1e3a"/>
+    <g clip-path="url(#av-shark-mouth)">
+      <ellipse cx="50" cy="85" rx="11" ry="6" fill="#ff7a9a"/>
+      <path d="M33 66l2.8 6.5l2.8-5.3l2.8 6l2.8-5.5l2.8 6l2.8-5.6l2.8 5.6l2.8-6l2.8 5.5l2.8-6l2.8 5.3l2.8-6.5V64H33Z" fill="#fff"/>
+    </g>
+    <path d="M33 67Q50 72 67 67Q63 84 50 84Q37 84 33 67Z" fill="none" stroke="#2a1f33" stroke-width="2.6" stroke-linejoin="round"/>
+  </symbol>
+  <defs>
+    <use id="avatar-shark-open" href="#av-open" transform="translate(0 -4)"/>
+    <use id="avatar-shark-shut" href="#av-shut" transform="translate(0 -4)"/>
+    <use id="avatar-shark-glad" href="#av-glad" transform="translate(0 -4)"/>
+  </defs>
+
+  <symbol id="avatar-octopus" viewBox="0 0 100 100">
+    <!-- A skirt of arms curling outward, each outlined by drawing it twice, dark then light. -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g stroke="#2a1f33" stroke-width="13">
+        <path id="av-octopus-arms" d="M29 72Q25 84 16 84Q11 83 13 78M41 76Q40 88 31 90Q26 90 27 86M59 76Q60 88 69 90Q74 90 73 86M71 72Q75 84 84 84Q89 83 87 78"/>
+      </g>
+      <use href="#av-octopus-arms" stroke="#ff8a7a" stroke-width="7"/>
+    </g>
+    <g fill="#ffd1c8">
+      <circle cx="24" cy="81.5" r="1.3"/><circle cx="18" cy="82.5" r="1.1"/>
+      <circle cx="37" cy="86.5" r="1.3"/><circle cx="32" cy="88" r="1.1"/>
+      <circle cx="63" cy="86.5" r="1.3"/><circle cx="68" cy="88" r="1.1"/>
+      <circle cx="76" cy="81.5" r="1.3"/><circle cx="82" cy="82.5" r="1.1"/>
+    </g>
+    <path d="M16 54C16 26 30 12 50 12C70 12 84 26 84 54C84 72 70 80 50 80C30 80 16 72 16 54Z" fill="#ff8a7a" stroke="#2a1f33" stroke-width="3"/>
+    <path d="M17.5 54C17.5 27 31 13.5 50 13.5C69 13.5 82.5 27 82.5 54C82.5 71 69 78.5 50 78.5C31 78.5 17.5 71 17.5 54Z" fill="url(#av-depth-fill)"/>
+    <g fill="#ffb3a6">
+      <circle cx="37" cy="26" r="3.6"/>
+      <circle cx="61" cy="23" r="2.6"/>
+      <circle cx="68" cy="33" r="3.2"/>
+      <circle cx="47" cy="20" r="1.8"/>
+    </g>
+    <use href="#av-shine" transform="translate(0 -7)"/>
+    <use href="#av-blush" transform="translate(0 -3)"/>
+    <use href="#av-smile" transform="translate(50 66.4)"/>
+  </symbol>
+  <defs>
+    <use id="avatar-octopus-open" href="#av-open" transform="translate(0 -3)"/>
+    <use id="avatar-octopus-shut" href="#av-shut" transform="translate(0 -3)"/>
+    <use id="avatar-octopus-glad" href="#av-glad" transform="translate(0 -3)"/>
+  </defs>
+
+  <symbol id="avatar-sloth" viewBox="0 0 100 100">
+    <circle cx="50" cy="58" r="34" fill="#b9997a" stroke="#2a1f33" stroke-width="3"/>
+    <path d="M42 26q2-6 6-1q2-6 5 0q3-5 6 1" fill="#b9997a" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <g clip-path="url(#av-head)">
+      <ellipse cx="50" cy="64" rx="29" ry="24" fill="#f3e3cc"/>
+      <!-- The dark stripes that run back from each eye. -->
+      <g fill="#5a3d2b">
+        <path d="M27 52Q34 48 42 52Q46 58 41 63Q33 68 25 64Q20 58 27 52Z"/>
+        <path d="M73 52Q66 48 58 52Q54 58 59 63Q67 68 75 64Q80 58 73 52Z"/>
+      </g>
+    </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <use href="#av-blush" transform="translate(0 4)"/>
+    <ellipse cx="50" cy="68" rx="5.4" ry="3.8" fill="url(#av-dark)"/>
+    <ellipse cx="48.3" cy="66.8" rx="1.7" ry=".9" fill="#fff" opacity=".75"/>
+    <path d="M42 74q8 6 16 0" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
+  </symbol>
+  <defs>
+    <use id="avatar-sloth-open" href="#av-light-open" transform="translate(0 2)"/>
+    <use id="avatar-sloth-shut" href="#av-light-shut" transform="translate(0 2)"/>
+    <use id="avatar-sloth-glad" href="#av-light-glad" transform="translate(0 2)"/>
+  </defs>
+
+  <symbol id="avatar-elephant" viewBox="0 0 100 100">
+    <g stroke="#2a1f33" stroke-width="3" fill="#9fb3dc">
+      <ellipse cx="17" cy="54" rx="16" ry="21" transform="rotate(-12 17 54)"/>
+      <ellipse cx="83" cy="54" rx="16" ry="21" transform="rotate(12 83 54)"/>
+    </g>
+    <g fill="#ffc2d6">
+      <ellipse cx="18" cy="55" rx="9" ry="13.5" transform="rotate(-12 18 55)"/>
+      <ellipse cx="82" cy="55" rx="9" ry="13.5" transform="rotate(12 82 55)"/>
+    </g>
+    <g fill="url(#av-depth-fill)">
+      <ellipse cx="17" cy="54" rx="14.5" ry="19.5" transform="rotate(-12 17 54)"/>
+      <ellipse cx="83" cy="54" rx="14.5" ry="19.5" transform="rotate(12 83 54)"/>
+    </g>
+    <circle cx="50" cy="58" r="34" fill="#9fb3dc" stroke="#2a1f33" stroke-width="3"/>
+    <path d="M46 25q1-7 4-9M50 24.5v-9M54 25q-1-7-4-9" fill="none" stroke="#2a1f33" stroke-width="2.4" stroke-linecap="round"/>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <use href="#av-blush"/>
+    <!-- The trunk curls up at its tip, outlined by drawing it twice. -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M50 62Q50 80 58 84Q65 86 66 79" stroke="#2a1f33" stroke-width="14"/>
+      <path d="M50 62Q50 80 58 84Q65 86 66 79" stroke="#9fb3dc" stroke-width="8"/>
+      <path d="M47 71h5M47.5 76h5" stroke="#7f93bf" stroke-width="1.8"/>
+    </g>
+    <circle cx="66" cy="79" r="1.4" fill="#2a1f33"/>
+  </symbol>
+  <defs>
+    <use id="avatar-elephant-open" href="#av-open" transform="translate(0 -3)"/>
+    <use id="avatar-elephant-shut" href="#av-shut" transform="translate(0 -3)"/>
+    <use id="avatar-elephant-glad" href="#av-glad" transform="translate(0 -3)"/>
+  </defs>
+
+  <symbol id="avatar-hedgehog" viewBox="0 0 100 100">
+    <path d="M20.9 68.6L4.7 66.0L19.0 58.0L4.7 50.0L20.9 47.4L10.2 35.0L26.3 38.1L20.4 22.8L34.5 31.2L34.3 14.8L44.6 27.5L50.0 12.0L55.4 27.5L65.7 14.8L65.5 31.2L79.6 22.8L73.7 38.1L89.8 35.0L79.1 47.4L95.3 50.0L81.0 58.0L95.3 66.0L79.1 68.6Z" fill="#7a4b33" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M22.3 61.9L12.0 56.1L22.8 51.3L15.5 42.1L27.2 41.7L23.8 30.5L34.9 34.4L35.9 22.7L44.7 30.5L50.0 20.0L55.3 30.5L64.1 22.7L65.1 34.4L76.2 30.5L72.8 41.7L84.5 42.1L77.2 51.3L88.0 56.1L77.7 61.9Z" fill="#a8704c"/>
+    <g stroke="#2a1f33" stroke-width="3" fill="#f6dfc0">
+      <circle cx="26" cy="44" r="7"/>
+      <circle cx="74" cy="44" r="7"/>
+    </g>
+    <circle cx="26" cy="44" r="3.4" fill="#ffc2cf"/>
+    <circle cx="74" cy="44" r="3.4" fill="#ffc2cf"/>
+    <circle cx="50" cy="61" r="30" fill="#f6dfc0" stroke="#2a1f33" stroke-width="3"/>
+    <path clip-path="url(#av-head)" d="M20 52Q28 36 50 40Q72 36 80 52Q80 32 50 30Q20 32 20 52Z" fill="#a8704c"/>
+    <circle cx="50" cy="61" r="28.5" fill="url(#av-depth-fill)"/>
+    <use href="#av-shine" transform="translate(50 61) scale(.88) translate(-50 -58)"/>
+    <use href="#av-blush" transform="translate(50 69) scale(.9) translate(-50 -68)"/>
+    <ellipse cx="50" cy="69" rx="4.6" ry="3.4" fill="url(#av-dark)"/>
+    <ellipse cx="48.6" cy="67.9" rx="1.5" ry=".8" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(50 72.6) scale(.85)"/>
+  </symbol>
+  <defs>
+    <use id="avatar-hedgehog-open" href="#av-open" transform="translate(50 60) scale(.9) translate(-50 -57.5)"/>
+    <use id="avatar-hedgehog-shut" href="#av-shut" transform="translate(50 60) scale(.9) translate(-50 -57.5)"/>
+    <use id="avatar-hedgehog-glad" href="#av-glad" transform="translate(50 60) scale(.9) translate(-50 -57.5)"/>
+  </defs>
+
+  <symbol id="avatar-redpanda" viewBox="0 0 100 100">
+    <path d="M18 44Q13 22 30 16Q40 22 42 30Z M82 44Q87 22 70 16Q60 22 58 30Z" fill="#d9622b" stroke="#2a1f33" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M23 36Q21 25 30 21Q36 25 37 30Z M77 36Q79 25 70 21Q64 25 63 30Z" fill="#4a2a1f"/>
+    <path d="M18 44Q13 22 30 16Q40 22 42 30Z M82 44Q87 22 70 16Q60 22 58 30Z" fill="none" stroke="#fffdf8" stroke-width="2.2" stroke-linejoin="round" transform="translate(50 32) scale(.86) translate(-50 -31)"/>
+    <circle cx="50" cy="58" r="34" fill="#d9622b"/>
+    <g clip-path="url(#av-head)" fill="#fffdf8">
+      <ellipse cx="50" cy="75" rx="17" ry="12"/>
+      <ellipse cx="22" cy="68" rx="11" ry="13"/>
+      <ellipse cx="78" cy="68" rx="11" ry="13"/>
+      <ellipse cx="38" cy="45" rx="5.5" ry="3.4" transform="rotate(-12 38 45)"/>
+      <ellipse cx="62" cy="45" rx="5.5" ry="3.4" transform="rotate(12 62 45)"/>
+    </g>
+    <!-- Rust tear marks run from each eye to the jaw. -->
+    <g clip-path="url(#av-head)" fill="#a8441c">
+      <path d="M33 60Q36 72 32 84Q28 74 30 61Z"/>
+      <path d="M67 60Q64 72 68 84Q72 74 70 61Z"/>
+    </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
+    <use href="#av-blush" transform="translate(0 1)"/>
+    <ellipse cx="50" cy="68" rx="4.4" ry="3.1" fill="url(#av-dark)"/>
+    <ellipse cx="48.7" cy="67.1" rx="1.4" ry=".75" fill="#fff" opacity=".75"/>
+    <use href="#av-mouth" transform="translate(50 71.4)"/>
+  </symbol>
+  <defs>
+    <use id="avatar-redpanda-open" href="#av-open"/>
+    <use id="avatar-redpanda-shut" href="#av-shut"/>
+    <use id="avatar-redpanda-glad" href="#av-glad"/>
+  </defs>
+
+  <symbol id="avatar-cow" viewBox="0 0 100 100">
+    <g stroke="#2a1f33" stroke-width="3" stroke-linejoin="round">
+      <path d="M30 31Q24 22 27 13Q33 18 37 27Z M70 31Q76 22 73 13Q67 18 63 27Z" fill="#fff1c9"/>
+      <ellipse cx="14" cy="44" rx="12" ry="6.5" transform="rotate(18 14 44)" fill="#fffdf8"/>
+      <ellipse cx="86" cy="44" rx="12" ry="6.5" transform="rotate(-18 86 44)" fill="#3a3346"/>
+    </g>
+    <ellipse cx="14.5" cy="44.5" rx="7" ry="3.2" transform="rotate(18 14.5 44.5)" fill="#ffc2d6"/>
+    <ellipse cx="85.5" cy="44.5" rx="7" ry="3.2" transform="rotate(-18 85.5 44.5)" fill="#ffc2d6"/>
+    <circle cx="50" cy="58" r="34" fill="#fffdf8"/>
+    <g clip-path="url(#av-head)" fill="#3a3346">
+      <path d="M60 22Q80 22 86 40Q88 52 78 52Q70 50 68 42Q62 38 60 30Z"/>
+      <path d="M14 66Q22 58 28 64Q30 72 22 76Q14 78 14 66Z"/>
+      <path d="M36 30Q42 26 46 30Q46 36 40 37Q34 36 36 30Z"/>
+    </g>
+    <use href="#av-depth"/>
+    <use href="#av-shine"/>
+    <circle cx="50" cy="58" r="34" fill="none" stroke="#2a1f33" stroke-width="3"/>
+    <ellipse cx="50" cy="74.5" rx="19" ry="12" fill="#2a1f33" opacity=".15"/>
+    <ellipse cx="50" cy="73" rx="19" ry="12" fill="#ffb3c8" stroke="#2a1f33" stroke-width="2.6"/>
+    <ellipse cx="50" cy="73" rx="17.5" ry="10.5" fill="url(#av-depth-fill)"/>
+    <g fill="#c4677f">
+      <ellipse cx="42.5" cy="71" rx="2.4" ry="3.2" transform="rotate(-15 42.5 71)"/>
+      <ellipse cx="57.5" cy="71" rx="2.4" ry="3.2" transform="rotate(15 57.5 71)"/>
+    </g>
+    <use href="#av-smile" transform="translate(50 78.4) scale(.9)"/>
+  </symbol>
+  <defs>
+    <use id="avatar-cow-open" href="#av-open" transform="translate(0 -4)"/>
+    <use id="avatar-cow-shut" href="#av-shut" transform="translate(0 -4)"/>
+    <use id="avatar-cow-glad" href="#av-glad" transform="translate(0 -4)"/>
+  </defs>
 </svg>
