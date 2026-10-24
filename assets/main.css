@@ -83,7 +83,8 @@ textarea {
   transition: transform 80ms ease, box-shadow 80ms ease, background-color 120ms ease;
 }
 
-.btn:hover:not(:disabled) {
+.btn:hover:not(:disabled),
+.custom-timer button:hover:not(:disabled) {
   background: #fff;
 }
 
@@ -92,7 +93,8 @@ textarea {
   box-shadow: 0 1px 0 var(--line);
 }
 
-.btn:disabled {
+.btn:disabled,
+.custom-timer button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;
@@ -1050,6 +1052,7 @@ textarea {
 }
 
 .wb-bar {
+  --bar-text: clamp(1rem, 1.4vw, 1.5rem);
   flex: none;
   display: flex;
   flex-wrap: wrap;
@@ -1085,7 +1088,7 @@ textarea {
 /* Picking a group is the quieter sibling of the hero, a plain button sized like the timer presets. */
 .btn-oracle-group {
   padding: 0.3rem 1rem;
-  font-size: clamp(1rem, 1.4vw, 1.5rem);
+  font-size: var(--bar-text);
 }
 
 .btn-oracle-group .sub {
@@ -1093,7 +1096,7 @@ textarea {
 }
 
 .wb-bar .rotate {
-  font-size: clamp(1rem, 1.4vw, 1.5rem);
+  font-size: var(--bar-text);
 }
 
 .timer-controls {
@@ -1110,12 +1113,12 @@ textarea {
 
 .btn-preset {
   min-width: 4.2rem;
-  font-size: clamp(1rem, 1.4vw, 1.5rem);
+  font-size: var(--bar-text);
 }
 
 /* The custom timer is one sticker split in two: the minutes field, then the half that starts it. */
 .custom-timer {
-  display: inline-flex;
+  display: flex;
   align-items: stretch;
   min-height: 44px;
   border: 2px solid var(--line);
@@ -1123,7 +1126,7 @@ textarea {
   background: var(--paper);
   color: var(--ink);
   box-shadow: var(--sticker);
-  font-size: clamp(1rem, 1.4vw, 1.5rem);
+  font-size: var(--bar-text);
   font-weight: 700;
 }
 
@@ -1135,7 +1138,6 @@ textarea {
   border-right: 2px solid var(--line);
   border-radius: 999px 0 0 999px;
   background: #fff;
-  color: var(--ink);
   font-weight: 800;
   text-align: center;
 }
@@ -1160,17 +1162,7 @@ textarea {
   border: 0;
   border-radius: 0 999px 999px 0;
   background: transparent;
-  font-weight: 700;
   cursor: pointer;
-}
-
-.custom-timer button:hover:not(:disabled) {
-  background: #fff;
-}
-
-.custom-timer button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 /* Inside the pill, an outside ring would be cut by the neighbouring half. */
